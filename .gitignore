@@ -1,0 +1,6 @@
+# Directiories
+build/
+.cache/
+
+# Files
+assets/shaders/**/*.h
