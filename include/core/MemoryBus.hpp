@@ -1,5 +1,5 @@
-#ifndef _RBT_CORE_MEMORY_HPP
-#define _RBT_CORE_MEMORY_HPP
+#ifndef _RBT_CORE_MEMORYBUS_HPP
+#define _RBT_CORE_MEMORYBUS_HPP
 
 #include "types.hpp"
 
@@ -15,15 +15,15 @@ enum class AddressError : u8 {
 };
 
 // NOTE:To match the Motorola 68000, the read/write of multi-byte
-// uses the Big-Endian order; Write Most Significant byte  first:
+// uses the Big-Endian order; Write MSB first:
 //	Big Endian: 0x5402 -> 54 02
 //	Lil Endian: 0x5402 -> 02 54
 
-class Memory {
+class MemoryBus {
 public:
 	static constexpr u32 MAX_SIZE = 4 * 1024 * 1024; // Max Size: 4MB
 
-	Memory() = default;
+	MemoryBus() = default;
 
 	AddressError write8(u32 addr, u8 byte);
 	AddressError write16(u32 addr, u16 word);

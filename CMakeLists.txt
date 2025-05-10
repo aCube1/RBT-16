@@ -18,7 +18,8 @@ target_compile_features(
 
 target_sources(
 	${PROJECT_NAME} PRIVATE
-		"src/core/Memory.cpp"
+		"src/core/Engine.cpp"
+		"src/core/MemoryBus.cpp"
 		"src/log.cpp"
 		"src/main.cpp"
 )

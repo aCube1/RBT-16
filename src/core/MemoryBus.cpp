@@ -1,5 +1,4 @@
-#include "core/Memory.hpp"
-
+#include "core/MemoryBus.hpp"
 #include "log.hpp"
 
 using namespace rbt::core;
@@ -10,7 +9,7 @@ static AddressError _is_valid_address(u32 addr, usize count) {
 		return AddressError::Misaligned;
 	}
 
-	if (addr + count >= Memory::MAX_SIZE) {
+	if (addr + count >= MemoryBus::MAX_SIZE) {
 		rbt::log::error(
 			"[RBT] | RAM > Invalid address range: {:#x}:{:#x}", addr, addr + (count - 1)
 		);
@@ -20,7 +19,7 @@ static AddressError _is_valid_address(u32 addr, usize count) {
 	return AddressError::None;
 }
 
-AddressError Memory::write8(u32 addr, u8 byte) {
+AddressError MemoryBus::write8(u32 addr, u8 byte) {
 	if (addr >= MAX_SIZE) {
 		rbt::log::error("[RBT] | RAM > Invalid address: {:#x}", addr);
 		return AddressError::Invalid;
@@ -31,7 +30,7 @@ AddressError Memory::write8(u32 addr, u8 byte) {
 	return AddressError::None;
 }
 
-AddressError Memory::write16(u32 addr, u16 word) {
+AddressError MemoryBus::write16(u32 addr, u16 word) {
 	AddressError err = _is_valid_address(addr, 2);
 	if (err != AddressError::None) {
 		return err;
@@ -43,7 +42,7 @@ AddressError Memory::write16(u32 addr, u16 word) {
 	return AddressError::None;
 }
 
-AddressError Memory::write32(u32 addr, u32 dword) {
+AddressError MemoryBus::write32(u32 addr, u32 dword) {
 	AddressError err = _is_valid_address(addr, 4);
 	if (err != AddressError::None) {
 		return err;
@@ -57,7 +56,7 @@ AddressError Memory::write32(u32 addr, u32 dword) {
 	return AddressError::None;
 }
 
-auto Memory::read8(u32 addr) const -> std::expected<u8, AddressError> {
+auto MemoryBus::read8(u32 addr) const -> std::expected<u8, AddressError> {
 	if (addr >= MAX_SIZE) {
 		rbt::log::error("[RBT] | RAM > Invalid address: {:#x}", addr);
 		return std::unexpected(AddressError::Invalid);
@@ -66,7 +65,7 @@ auto Memory::read8(u32 addr) const -> std::expected<u8, AddressError> {
 	return m_data[addr];
 }
 
-auto Memory::read16(u32 addr) const -> std::expected<u16, AddressError> {
+auto MemoryBus::read16(u32 addr) const -> std::expected<u16, AddressError> {
 	AddressError err = _is_valid_address(addr, 2);
 	if (err != AddressError::None) {
 		return std::unexpected(err);
@@ -79,7 +78,7 @@ auto Memory::read16(u32 addr) const -> std::expected<u16, AddressError> {
 	return word;
 }
 
-auto Memory::read32(u32 addr) const -> std::expected<u32, AddressError> {
+auto MemoryBus::read32(u32 addr) const -> std::expected<u32, AddressError> {
 	AddressError err = _is_valid_address(addr, 4);
 	if (err != AddressError::None) {
 		return std::unexpected(err);

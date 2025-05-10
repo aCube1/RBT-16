@@ -1,18 +1,19 @@
+- CPU: Based on Motorola 68000 (m68k) at 8Mhz
 
-CPU: Based on Motorola 68000 (m68k) at 8Mhz
-RAM: Fixed 4MB, not expandable.
+- RAM: Fixed 4MB, not expandable.
 
 ---
 
-PPU:
-- Resolution: Fixed 256x192 output resolution
-- VRAM: Dedicated chip with 64KB of memory.
-- Sprites: Can only fit 92 sprites per frame, sprites can go up 32x32 pixels wide
-- Tiles: ?
-- Colors: Fixed 64 colors palette[^1]
-- Background: Up to 4 background layers; Has 4 modes.
+- PPU:
 
-Background modes:
+    - Resolution: Fixed 256x192 output resolution
+    - VRAM: Dedicated chip with 64KB of memory.
+    - Sprites: Can only fit 92 sprites per frame, sprites can go up 32x32 pixels wide
+    - Tiles: ?
+    - Colors: Fixed 64 colors palette[^1]
+    - Background: Up to 4 background layers; Has 4 modes.
+
+- Background modes:
 
 | Mode | Layers | Types  | Palette | Size    | Capabilities                         |
 | ---- | ------ | ------ | ------- | ------- | ------------------------------------ |
@@ -27,14 +28,15 @@ Background modes:
 
 ---
 
-APU:
-- Chip: RBS - Real Blast Sound (Emulated)
-* PSG: 4 square and noise channels
-* PCM: 4 sample channels; Sample Rate 8-bits
+- APU:
 
-CPU must send commands to the APU FIFO buffer, each command set the attributes and data of each channel. To send any command to a channel, is necessary to send a command data to the correct register.
+    - Chip: RBS - Real Blast Sound (Emulated)
+    - PSG: 4 square and noise channels
+    - PCM: 4 sample channels; Sample Rate 8-bits
 
-PSG registers:
+- CPU must send commands to the APU FIFO buffer, each command set the attributes and data of each channel. To send any command to a channel, is necessary to send a command data to the correct register.
+
+- PSG registers:
 
 | Address  | Lenght  | Name                         |
 | -------- | ------- | ---------------------------- |
@@ -51,7 +53,7 @@ PSG registers:
 | 0x002020 | 4 bytes | Channel D command attributes |
 | 0x002024 | 4 bytes | Channel D command address    |
 
-PSG command data:
+- PSG command data:
 
 | Byte | Bits        | Attribute                                                         |
 | ---- | ----------- | ----------------------------------------------------------------- |
@@ -61,4 +63,6 @@ PSG command data:
 | 3    | `0000 0000` | Reserved                                                          |
 | 5..7 | `.... ....` | Source address                                                    |
 
-[^1]: [[palette.png]]
+---
+
+[^1]: [[assets/palette.png]]
