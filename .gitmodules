@@ -1,3 +1,0 @@
-[submodule "ext/sol2"]
-	path = ext/sol2
-	url = git@github.com:ThePhD/sol2.git

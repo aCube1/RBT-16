@@ -3,15 +3,14 @@
 
 #include "types.hpp"
 
+#include <cassert>
 #include <format>
 #include <source_location>
 #include <string_view>
 
-// NOTE: It's probably better to use spdlog instead of manually
-// creating the logging system
-namespace rbt::log {
+namespace log {
 
-enum Level : u8 {
+enum class Level : u8 {
 	Debug,
 	Info,
 	Warn,
@@ -25,7 +24,7 @@ struct FormatWithLocation {
 	u32 line;
 
 	template <typename String>
-	FormatWithLocation(
+	constexpr FormatWithLocation(
 		const String& fmt,
 		const std::source_location& loc = std::source_location::current()
 	)
@@ -33,35 +32,35 @@ struct FormatWithLocation {
 };
 
 template <typename... Args>
-inline void debug(FormatWithLocation fmt, Args&&...args) {
+constexpr void debug(FormatWithLocation fmt, Args&&...args) {
 	send_message(
 		Level::Debug, fmt.file, fmt.line, fmt.fmt, std::make_format_args(args...)
 	);
 }
 
 template <typename... Args>
-inline void info(FormatWithLocation fmt, Args&&...args) {
+constexpr void info(FormatWithLocation fmt, Args&&...args) {
 	send_message(
 		Level::Info, fmt.file, fmt.line, fmt.fmt, std::make_format_args(args...)
 	);
 }
 
 template <typename... Args>
-inline void warn(FormatWithLocation fmt, Args&&...args) {
+constexpr void warn(FormatWithLocation fmt, Args&&...args) {
 	send_message(
 		Level::Warn, fmt.file, fmt.line, fmt.fmt, std::make_format_args(args...)
 	);
 }
 
 template <typename... Args>
-inline void error(FormatWithLocation fmt, Args&&...args) {
+constexpr void error(FormatWithLocation fmt, Args&&...args) {
 	send_message(
 		Level::Error, fmt.file, fmt.line, fmt.fmt, std::make_format_args(args...)
 	);
 }
 
 template <typename... Args>
-[[noreturn]] inline void fatal(FormatWithLocation fmt, Args&&...args) {
+[[noreturn]] constexpr void fatal(FormatWithLocation fmt, Args&&...args) {
 	send_message(
 		Level::Fatal, fmt.file, fmt.line, fmt.fmt, std::make_format_args(args...)
 	);
@@ -76,16 +75,6 @@ void send_message(
 	std::format_args args
 );
 
-void slog_callback(
-	const char *tag,
-	u32 level,
-	u32 item,
-	const char *msg,
-	u32 line,
-	const char *file,
-	void *usrptr
-);
-
-} // namespace rbt::log
+} // namespace log
 
 #endif

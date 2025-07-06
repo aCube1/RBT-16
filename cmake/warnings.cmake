@@ -1,8 +1,5 @@
 include_guard()
 
-# Default: ON
-option(WARNINGS_AS_ERRORS "Treat compiler warnings as errors." ON)
-
 include(cmake/compilers.cmake)
 
 set(GCC_CLANG_BASE_WARNINGS

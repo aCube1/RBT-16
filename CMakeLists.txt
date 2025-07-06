@@ -1,42 +1,37 @@
-cmake_minimum_required(VERSION 3.21)
+cmake_minimum_required(VERSION 3.24)
 project(
-	rbt16
+	rbt-emu
 	VERSION 0.1.0
-	LANGUAGES CXX
+	LANGUAGES C CXX
 )
 
+option(WARNINGS_AS_ERRORS "Treat compiler warnings as errors." ON)
+
 include("cmake/base.cmake")
-include("cmake/libraries.cmake")
 include("cmake/warnings.cmake")
 
 add_executable(${PROJECT_NAME})
 
+set_default_warnings(${PROJECT_NAME})
+
 target_compile_features(
-	${PROJECT_NAME} PRIVATE
-		cxx_std_23
+	${PROJECT_NAME}
+	PRIVATE
+		cxx_std_20
 )
 
 target_sources(
-	${PROJECT_NAME} PRIVATE
-		"src/core/Engine.cpp"
-		"src/core/MemoryBus.cpp"
+	${PROJECT_NAME}
+	PRIVATE
 		"src/log.cpp"
 		"src/main.cpp"
 )
 
 target_include_directories(
-	${PROJECT_NAME} PRIVATE
-		${CMAKE_SOURCE_DIR}/include
+	${PROJECT_NAME}
+	PRIVATE
+		"${CMAKE_SOURCE_DIR}/include"
 )
-
-target_compile_definitions(
-	${PROJECT_NAME} PRIVATE
-		$<$<CXX_COMPILER_ID:GNU>:RBT_COMPILER_GCC>
-		$<$<CXX_COMPILER_ID:Clang>:RBT_COMPILER_CLANG>
-)
-
-setup_libraries(${PROJECT_NAME})
-set_default_warnings(${PROJECT_NAME})
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 	# Enable CCACHE.

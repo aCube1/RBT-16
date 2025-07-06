@@ -18,6 +18,7 @@ AllowShortFunctionsOnASingleLine: Empty
 AlwaysBreakBeforeMultilineStrings: true
 BinPackParameters: false
 BreakBeforeBinaryOperators: NonAssignment
+BreakConstructorInitializers: BeforeComma
 BreakTemplateDeclarations: Yes
 ColumnLimit: 90
 Cpp11BracedListStyle: false
