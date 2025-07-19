@@ -1,5 +1,5 @@
-#ifndef _RBT_LOG_HPP
-#define _RBT_LOG_HPP
+#ifndef _RBT_UTILS_LOG_HPP
+#define _RBT_UTILS_LOG_HPP
 
 #include "types.hpp"
 
