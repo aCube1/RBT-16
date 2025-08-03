@@ -10,6 +10,9 @@ option(WARNINGS_AS_ERRORS "Treat compiler warnings as errors." ON)
 include("cmake/base.cmake")
 include("cmake/warnings.cmake")
 
+include(CTest)
+enable_testing()
+
 add_executable(${PROJECT_NAME})
 
 set_default_warnings(${PROJECT_NAME})
@@ -60,3 +63,5 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 	target_compile_options(${PROJECT_NAME} PRIVATE "${SANITIZER_FLAGS}")
 	target_link_options(${PROJECT_NAME} PRIVATE "${SANITIZER_FLAGS}")
 endif()
+
+add_subdirectory(tests EXCLUDE_FROM_ALL)
