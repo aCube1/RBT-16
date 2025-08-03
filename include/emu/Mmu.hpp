@@ -8,18 +8,18 @@
 
 namespace emu {
 
-class MMU {
+class Mmu {
 public:
 	static constexpr auto RAM_SLOT_SIZE = 512 * 1024;
 	static constexpr auto MAX_SLOTS = 8;
 
 	enum class Err : u8 {
-		None,
+		None = 0,
 		InvalidAddress,
 		MemoryOverflow,
 	};
 
-	MMU(i32 slots);
+	Mmu(i32 slots);
 
 	/**
 	 * @brief Read range of bytes, returns a possible error and how many bytes
@@ -49,13 +49,13 @@ public:
 	 */
 	std::pair<u64, Err> write(u32 addr, std::span<const u8> data, bool partial = true);
 
-	Err read_byte(u32 addr, u8& byte) const;
-	Err write_byte(u32 addr, u8 byte);
+	Err read8(u32 addr, u8& byte) const;
+	Err write8(u32 addr, u8 byte);
 
-	Err read_be_word(u32 addr, u16& word) const;
-	Err read_be_long(u32 addr, u32& dword) const;
-	Err write_be_word(u32 addr, u16 word);
-	Err write_be_long(u32 addr, u32 dword);
+	Err read_be16(u32 addr, u16& word) const;
+	Err read_be32(u32 addr, u32& dword) const;
+	Err write_be16(u32 addr, u16 word);
+	Err write_be32(u32 addr, u32 dword);
 
 private:
 	i32 m_active_slots;

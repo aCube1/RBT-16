@@ -23,7 +23,8 @@ target_compile_features(
 target_sources(
 	${PROJECT_NAME}
 	PRIVATE
-		"src/emu/MMU.cpp"
+		"src/emu/Mmu.cpp"
+		"src/emu/EffectiveAddress.cpp"
 		"src/utils/log.cpp"
 		"src/main.cpp"
 )
