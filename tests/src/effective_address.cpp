@@ -1,20 +1,24 @@
-#include "emu/EffectiveAddress.hpp"
-#include "emu/Mmu.hpp"
+#include "core/EffectiveAddress.hpp"
+#include "core/Mmu.hpp"
 
 #include <catch2/catch_session.hpp>
 #include <catch2/catch_test_macros.hpp>
 
-TEST_CASE("Dn", "AddressMode") {
-	emu::Mmu mmu { 1 };
+TEST_CASE("effective_address - Dn", "[AddressMode]") {
+	rbt::Mmu mmu { 1 };
 
-	auto ea = emu::EffectiveAddress::decode(0b000, 0b000, mmu, 0x00);
+	constexpr rbt::EffectiveAddress expected = {
+		.mode = rbt::AddressMode::DirectData,
+		.reg_type = rbt::RegisterType::Data,
+		.reg = 0b000,
+		.bytes_read = 0,
+		.offset = 0,
+		.absolute = 0,
+		.index = std::nullopt,
+	};
+
+	auto ea = rbt::EffectiveAddress::decode(0b000, 0b000, mmu, 0x00);
 
 	REQUIRE(ea);
-	REQUIRE(ea->mode == emu::AddressMode::DirectData);
-	REQUIRE(ea->reg_type == emu::RegisterType::Data);
-	REQUIRE(ea->reg == 0b000);
-	REQUIRE(ea->bytes_read == 0);
-	REQUIRE(ea->offset == 0);
-	REQUIRE(ea->absolute == 0);
-	REQUIRE(!ea->index);
+	REQUIRE(*ea == expected);
 }

@@ -1,12 +1,12 @@
-#ifndef _RBT_EMU_MMU_HPP
-#define _RBT_EMU_MMU_HPP
+#ifndef _RBT_CORE_MMU_HPP
+#define _RBT_CORE_MMU_HPP
 
 #include "types.hpp"
 
 #include <span>
 #include <vector>
 
-namespace emu {
+namespace rbt {
 
 class Mmu {
 public:
@@ -62,6 +62,6 @@ private:
 	std::vector<u8> m_ram_data;
 };
 
-} // namespace emu
+} // namespace rbt
 
 #endif

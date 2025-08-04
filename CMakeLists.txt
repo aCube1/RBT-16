@@ -1,11 +1,13 @@
 cmake_minimum_required(VERSION 3.24)
 project(
-	rbt-emu
+	rbt
 	VERSION 0.1.0
 	LANGUAGES C CXX
 )
 
 option(WARNINGS_AS_ERRORS "Treat compiler warnings as errors." ON)
+option(ENABLE_SANITIZERS "" ON)
+option(BUILD_TESTS "Build unit tests" OFF)
 
 include("cmake/base.cmake")
 include("cmake/warnings.cmake")
@@ -13,55 +15,37 @@ include("cmake/warnings.cmake")
 include(CTest)
 enable_testing()
 
-add_executable(${PROJECT_NAME})
+set(RBT_LIBCORE ${PROJECT_NAME}-core)
 
-set_default_warnings(${PROJECT_NAME})
+add_library(${RBT_LIBCORE} STATIC)
+set_default_warnings(${RBT_LIBCORE})
+enable_tools(${RBT_LIBCORE})
+
+# Enable code sanitizers
+if(ASAN_SANITIZER_FLAGS)
+	target_compile_options(${RBT_LIBCORE} PRIVATE ${ASAN_SANITIZER_FLAGS})
+endif()
 
 target_compile_features(
-	${PROJECT_NAME}
+	${RBT_LIBCORE}
 	PRIVATE
 		cxx_std_20
 )
 
 target_sources(
-	${PROJECT_NAME}
+	${RBT_LIBCORE}
 	PRIVATE
-		"src/emu/Mmu.cpp"
-		"src/emu/EffectiveAddress.cpp"
+		"src/core/Mmu.cpp"
+		"src/core/EffectiveAddress.cpp"
 		"src/utils/log.cpp"
-		"src/main.cpp"
 )
 
 target_include_directories(
-	${PROJECT_NAME}
-	PRIVATE
+	${RBT_LIBCORE}
+	PUBLIC
 		"${CMAKE_SOURCE_DIR}/include"
 )
 
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-	# Enable CCACHE.
-	find_program(CCACHE_PROGRAM ccache)
-	if(CCACHE_PROGRAM)
-		message(STATUS "CCache found!")
-
-		set_target_properties(
-			${PROJECT_NAME}
-			PROPERTIES
-				CMAKE_C_COMPILER_LAUNCHER "${CCACHE_PROGRAM}"
-				CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}"
-		)
-	endif()
-
-	# Use address sanitizer flags.
-	message(STATUS "Enabling sanitizers...")
-	set(SANITIZER_FLAGS -fno-omit-frame-pointer)
-	if (APPLE)
-		set(SANITIZER_FLAGS ${SANITIZER_FLAGS} -fsanitize=address,undefined)
-	else()
-		set(SANITIZER_FLAGS ${SANITIZER_FLAGS} -fsanitize=address,undefined,leak)
-	endif()
-	target_compile_options(${PROJECT_NAME} PRIVATE "${SANITIZER_FLAGS}")
-	target_link_options(${PROJECT_NAME} PRIVATE "${SANITIZER_FLAGS}")
+if(BUILD_TESTS)
+	add_subdirectory("${CMAKE_SOURCE_DIR}/tests")
 endif()
-
-add_subdirectory(tests EXCLUDE_FROM_ALL)

@@ -28,3 +28,33 @@ set_property(
 			"RelWithDebInfo"
 			"MinSizeRel"
 )
+
+if(ENABLE_SANITIZERS AND (CMAKE_BUILD_TYPE STREQUAL "Debug"))
+	set(_SANITIZER_FLAGS -fno-omit-frame-pointer)
+
+	if (APPLE)
+		list(APPEND ${_SANITIZER_FLAGS} -fsanitize=address,undefined)
+	else()
+		list(APPEND ${_SANITIZER_FLAGS} -fsanitize=address,undefined,leak)
+	endif()
+
+	set(
+		ASAN_SANITIZER_FLAGS ${_SANITIZER_FLAGS}
+		CACHE INTERNAL "Common sanitizer flags"
+	)
+endif()
+
+function(enable_tools target)
+	# Enable CCACHE.
+	find_program(CCACHE_PROGRAM ccache)
+	if(CCACHE_PROGRAM)
+		message(STATUS "CCache found!")
+
+		set_target_properties(
+			${target}
+			PROPERTIES
+				CMAKE_C_COMPILER_LAUNCHER "${CCACHE_PROGRAM}"
+				CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}"
+		)
+	endif()
+endfunction()

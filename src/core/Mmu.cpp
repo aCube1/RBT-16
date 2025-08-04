@@ -1,8 +1,8 @@
-#include "emu/Mmu.hpp"
+#include "core/Mmu.hpp"
 
 #include <cassert>
 
-using namespace emu;
+using namespace rbt;
 
 Mmu::Mmu(i32 slots) {
 	assert(slots > 0 && slots <= Mmu::MAX_SLOTS);

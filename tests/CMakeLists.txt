@@ -3,7 +3,17 @@ project(
 	LANGUAGES C CXX
 )
 
+find_package(Catch2 3 REQUIRED)
+
+include(Catch)
+
 add_executable(${PROJECT_NAME})
+set_default_warnings(${PROJECT_NAME})
+
+if(ASAN_SANITIZER_FLAGS)
+	target_compile_options(${PROJECT_NAME} PRIVATE ${ASAN_SANITIZER_FLAGS})
+	target_link_options(${PROJECT_NAME} PRIVATE ${ASAN_SANITIZER_FLAGS})
+endif()
 
 target_compile_features(
 	${PROJECT_NAME}
@@ -15,21 +25,13 @@ target_sources(
 	${PROJECT_NAME}
 	PRIVATE
 		"src/effective_address.cpp"
-
-		"../src/emu/Mmu.cpp"
-		"../src/emu/EffectiveAddress.cpp"
-		"../src/utils/log.cpp"
 )
 
-target_include_directories(
+target_link_libraries(
 	${PROJECT_NAME}
 	PRIVATE
-		"${CMAKE_SOURCE_DIR}/include"
+		Catch2::Catch2WithMain
+		rbt-core
 )
 
-find_package(Catch2 3 REQUIRED)
-target_link_libraries(${PROJECT_NAME} PRIVATE Catch2::Catch2WithMain)
-
-include(CTest)
-include(Catch)
 catch_discover_tests(${PROJECT_NAME})

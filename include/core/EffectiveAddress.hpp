@@ -1,12 +1,12 @@
-#ifndef _RBT_EMU_EFFECTIVEADDRESS_HPP
-#define _RBT_EMU_EFFECTIVEADDRESS_HPP
+#ifndef _RBT_CORE_EFFECTIVEADDRESS_HPP
+#define _RBT_CORE_EFFECTIVEADDRESS_HPP
 
-#include "emu/Mmu.hpp"
+#include "core/Mmu.hpp"
 #include "types.hpp"
 
 #include <optional>
 
-namespace emu {
+namespace rbt {
 
 enum class AddressMode : u8 {
 	DirectData,			   // mode:000, reg:Dn  | Dn
@@ -52,6 +52,23 @@ struct EffectiveAddress {
 	);
 };
 
-} // namespace emu
+[[nodiscard]] inline bool operator==(
+	const IndexExtension& left, const IndexExtension& right
+) {
+	return (left.mode == right.mode) && (left.size == right.size)
+		&& (left.reg == right.reg) && (left.scale == right.scale)
+		&& (left.offset == right.offset);
+}
+
+[[nodiscard]] inline bool operator==(
+	const EffectiveAddress& left, const EffectiveAddress& right
+) {
+	return (left.mode == right.mode) && (left.reg_type == right.reg_type)
+		&& (left.bytes_read == right.bytes_read) && (left.reg == right.reg)
+		&& (left.offset == right.offset) && (left.absolute == right.absolute)
+		&& (left.index == right.index);
+}
+
+} // namespace rbt
 
 #endif

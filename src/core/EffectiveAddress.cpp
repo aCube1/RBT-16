@@ -1,8 +1,8 @@
-#include "emu/EffectiveAddress.hpp"
+#include "core/EffectiveAddress.hpp"
 
 #include "utils/log.hpp"
 
-using namespace emu;
+using namespace rbt;
 
 [[nodiscard]] static std::optional<IndexExtension> _decode_extension(
 	const Mmu& mmu, u32 pc
