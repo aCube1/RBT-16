@@ -4,7 +4,7 @@
 
 using namespace rbt;
 
-[[nodiscard]] static std::optional<IndexExtension> _decode_extension(
+[[nodiscard]] std::optional<IndexExtension> IndexExtension::decode(
 	const Mmu& mmu, u32 pc
 ) {
 	u16 ext;
@@ -13,6 +13,10 @@ using namespace rbt;
 		return std::nullopt;
 	}
 
+	return IndexExtension::decode(ext);
+}
+
+[[nodiscard]] std::optional<IndexExtension> IndexExtension::decode(u16 ext) {
 	if ((ext >> 8) & 0x00) {
 		log::warn("[CPU] > M68010 doesn't support full extension word!");
 		return std::nullopt;
@@ -31,47 +35,54 @@ using namespace rbt;
 	return ix;
 }
 
+u16 IndexExtension::encode() const {
+	u16 ext = 0;
+
+	ext |= (mode & 0x01) << 15;
+	ext |= (size & 0x01) << 11;
+	ext |= (reg & 0x07) << 12;
+	ext |= (scale & 0x03) << 9;
+	ext |= (offset & 0xff);
+
+	return ext;
+}
+
 [[nodiscard]] std::optional<EffectiveAddress> EffectiveAddress::decode(
 	u8 mode, u8 reg, const Mmu& mmu, u32 pc
 ) {
 	EffectiveAddress ea {};
+	ea.reg = reg;
 	ea.bytes_read = 0;
 
 	switch (mode) {
 	case 0b000: // Dn
 		ea.mode = AddressMode::DirectData;
 		ea.reg_type = RegisterType::Data;
-		ea.reg = reg;
 
 		break;
 	case 0b001: // An
 		ea.mode = AddressMode::DirectAddress;
 		ea.reg_type = RegisterType::Address;
-		ea.reg = reg;
 
 		break;
 	case 0b010: // (An)
 		ea.mode = AddressMode::Indirect;
 		ea.reg_type = RegisterType::Address;
-		ea.reg = reg;
 
 		break;
 	case 0b011: // (An)+
 		ea.mode = AddressMode::IndirectPostInc;
 		ea.reg_type = RegisterType::Address;
-		ea.reg = reg;
 
 		break;
 	case 0b100: // -(An)
 		ea.mode = AddressMode::IndirectPreDec;
 		ea.reg_type = RegisterType::Address;
-		ea.reg = reg;
 
 		break;
 	case 0b101: // (d16, An)
 		ea.mode = AddressMode::IndirectOffset;
 		ea.reg_type = RegisterType::Address;
-		ea.reg = reg;
 		ea.bytes_read = 2;
 		if (auto err = mmu.read_be16(pc, (u16&)ea.offset); err != Mmu::Err::None) {
 			log::warn("[CPU] > Failed to read displacement offset at {:#x}", pc);
@@ -82,9 +93,8 @@ using namespace rbt;
 	case 0b110: // (d8, An, Xn)
 		ea.mode = AddressMode::IndirectIndexed;
 		ea.reg_type = RegisterType::Address;
-		ea.reg = reg;
 		ea.bytes_read = 2;
-		ea.index = _decode_extension(mmu, pc);
+		ea.index = IndexExtension::decode(mmu, pc);
 		if (!ea.index) {
 			return std::nullopt;
 		}
@@ -126,7 +136,7 @@ using namespace rbt;
 			ea.mode = AddressMode::ProgramCounterIndexed;
 			ea.reg_type = RegisterType::ProgramCounter;
 			ea.bytes_read = 2;
-			ea.index = _decode_extension(mmu, pc);
+			ea.index = IndexExtension::decode(mmu, pc);
 			if (!ea.index) {
 				return std::nullopt;
 			}

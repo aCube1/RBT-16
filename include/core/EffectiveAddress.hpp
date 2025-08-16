@@ -4,6 +4,7 @@
 #include "core/Mmu.hpp"
 #include "types.hpp"
 
+#include <format>
 #include <optional>
 
 namespace rbt {
@@ -36,6 +37,11 @@ struct IndexExtension {
 	u8 reg;
 	u8 scale; // Ignored. Must always be 0b000 on M68010.
 	i8 offset;
+
+	[[nodiscard]] static std::optional<IndexExtension> decode(const Mmu& mmu, u32 pc);
+	[[nodiscard]] static std::optional<IndexExtension> decode(u16 ext);
+
+	u16 encode() const;
 };
 
 struct EffectiveAddress {
@@ -70,5 +76,33 @@ struct EffectiveAddress {
 }
 
 } // namespace rbt
+
+template <>
+struct std::formatter<rbt::IndexExtension> : std::formatter<std::string> {
+	auto format(const rbt::IndexExtension& ix, std::format_context& ctx) const {
+		std::string out = std::format(
+			"{{ mode={}, size={}, reg={}, scale={}, offset={:#x} }}",
+			static_cast<i32>(ix.mode), static_cast<i32>(ix.size), ix.reg, ix.scale,
+			ix.offset
+		);
+
+		return std::formatter<std::string>::format(out, ctx);
+	}
+};
+
+template <>
+struct std::formatter<rbt::EffectiveAddress> : std::formatter<std::string> {
+	auto format(const rbt::EffectiveAddress& ea, std::format_context& ctx) const {
+		std::string out = std::format(
+			"{{ mode={}, reg_type={}, reg={}, bytes={}, offset={:#x}, absolute={}, "
+			"index={} }}",
+			static_cast<i32>(ea.mode), static_cast<i32>(ea.reg_type), ea.reg,
+			ea.bytes_read, ea.offset, ea.absolute,
+			ea.index ? std::format("{}", *ea.index) : "nullopt"
+		);
+
+		return std::formatter<std::string>::format(out, ctx);
+	}
+};
 
 #endif
