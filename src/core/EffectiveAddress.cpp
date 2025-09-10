@@ -192,6 +192,8 @@ u16 IndexExtension::encode() const {
 	}
 
 	switch (ea.size) {
+	case OperandSize::None:
+		break;
 	case OperandSize::Byte:
 	case OperandSize::Word: {
 		u32 data;
@@ -211,7 +213,7 @@ u16 IndexExtension::encode() const {
 		ea.bytes_read = 4;
 		break;
 	default:
-		break;
+		assert(0);
 	}
 
 	return ea;
@@ -307,7 +309,60 @@ std::optional<u32> EffectiveAddress::compute_address(CpuState& state) const {
 
 		return base + index_val;
 	}
+	default:
+		assert(0);
 	}
 
 	return std::nullopt;
+}
+
+static std::string _get_register_name(bool is_addr, u8 reg) {
+	if (!is_addr) {
+		return std::format("D{}", reg);
+	}
+
+	if (reg == 7) {
+		return "USP/SSP";
+	}
+	return std::format("A{}", reg);
+}
+
+std::string EffectiveAddress::to_string() const {
+	switch (mode) {
+	case AddressMode::DirectData:
+	case AddressMode::DirectAddress:
+		return _get_register_name(reg_type == RegisterType::Address, reg);
+	case AddressMode::Indirect:
+		return std::format("(A{})", reg);
+	case AddressMode::IndirectPostInc:
+		return std::format("(A{})+", reg);
+	case AddressMode::IndirectPreDec:
+		return std::format("-(A{})", reg);
+	case AddressMode::IndirectOffset:
+		return std::format("({:#x}, A{})", offset, reg);
+	case AddressMode::IndirectIndexed:
+		assert(index);
+
+		return std::format(
+			"({:#x}, A{}, {}.{})", index->offset, reg,
+			_get_register_name(index->is_addr, index->reg), index->is_long ? 'L' : 'W'
+		);
+	case AddressMode::AbsoluteShort:
+		return std::format("({:#06x}).W", absolute);
+	case AddressMode::AbsoluteLong:
+		return std::format("({:#010x}).L", absolute);
+	case AddressMode::ProgramCounterOffset:
+		return std::format("({:#x}, PC)", offset);
+	case AddressMode::ProgramCounterIndexed:
+		assert(index);
+
+		return std::format(
+			"({:#x}, PC, {}.{})", index->offset,
+			_get_register_name(index->is_addr, index->reg), index->is_long ? 'L' : 'W'
+		);
+	case AddressMode::Immediate:
+		return std::format("#{:#010x}", immediate);
+	default:
+		assert(0);
+	}
 }

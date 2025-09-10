@@ -73,6 +73,8 @@ struct EffectiveAddress {
 	);
 
 	std::optional<u32> compute_address(CpuState& state) const;
+
+	std::string to_string() const;
 };
 
 [[nodiscard]] constexpr bool operator==(
@@ -119,8 +121,6 @@ struct std::formatter<rbt::EffectiveAddress> : std::formatter<std::string> {
 			"(xxx).W", "(d16, PC)", "(d8, PC, Xn)", "#imm",
 		};
 
-		const std::string_view regs[] = { "None", "A", "D", "PC" };
-
 		const std::string_view sizes[] = {
 			"Byte",
 			"Word",
@@ -128,9 +128,29 @@ struct std::formatter<rbt::EffectiveAddress> : std::formatter<std::string> {
 			"None",
 		};
 
+		std::string reg;
+		switch (ea.reg_type) {
+		case RegisterType::Data:
+			reg = std::format("D{}", ea.reg);
+			break;
+		case RegisterType::Address:
+			if (ea.reg == 7) {
+				reg = "USP/SSP";
+			} else {
+				reg = std::format("A{}", ea.reg);
+			}
+			break;
+		case RegisterType::ProgramCounter:
+			reg = "PC";
+			break;
+		case RegisterType::None:
+			reg = "None";
+			break;
+		}
+
 		// Output: {
 		//		mode: Mode
-		//		reg: Xn
+		//		reg: Xn -> reg
 		//		size: Size
 		//		offset: i16
 		//		abs: u64
@@ -141,13 +161,7 @@ struct std::formatter<rbt::EffectiveAddress> : std::formatter<std::string> {
 		// }
 		std::string out = "{\n";
 		out += std::format("\tmode: {}\n", modes[static_cast<u8>(ea.mode)]);
-		out += std::format(
-			"\treg: {} -> {:#03b}", regs[static_cast<u8>(ea.reg_type)], ea.reg
-		);
-		if (ea.reg_type == RegisterType::Data || ea.reg_type == RegisterType::Address) {
-			out += std::to_string(ea.reg);
-		}
-		out += '\n';
+		out += std::format("\treg: {} -> {:#05b}\n", reg, ea.reg);
 		out += std::format("\tsize: {}\n", sizes[static_cast<u8>(ea.size)]);
 
 		const auto index = ea.index ? std::format("{}", *ea.index) : "nullopt";
