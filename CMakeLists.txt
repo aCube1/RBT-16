@@ -29,7 +29,7 @@ endif()
 target_compile_features(
 	${RBT_LIBCORE}
 	PRIVATE
-		cxx_std_20
+		cxx_std_23
 )
 
 target_sources(

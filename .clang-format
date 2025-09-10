@@ -11,7 +11,7 @@ AlignConsecutiveShortCaseStatements:
     Enabled: true
 AlignEscapedNewlines: LeftWithLastLine
 AlignOperands: AlignAfterOperator
-AllowShortCaseLabelsOnASingleLine: true
+AllowShortCaseLabelsOnASingleLine: false
 AllowShortBlocksOnASingleLine: Empty
 AllowShortEnumsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: Empty

@@ -4,10 +4,13 @@
 #include "core/Mmu.hpp"
 #include "types.hpp"
 
+#include <algorithm>
 #include <format>
 #include <optional>
 
 namespace rbt {
+
+struct CpuState;
 
 enum class AddressMode : u8 {
 	DirectData,			   // mode:000, reg:Dn  | Dn
@@ -31,11 +34,18 @@ enum class RegisterType : u8 {
 	ProgramCounter,
 };
 
+enum class OperandSize : u8 {
+	None = 0b11,
+	Byte = 0b00,
+	Word = 0b01,
+	Long = 0b10,
+};
+
 struct IndexExtension {
-	bool mode; // Dn:0 | -(An):1
-	bool size; // W:0 | L:1
+	bool is_addr; // Dn:0 | An:1
+	bool is_long; // W:0 | L:1
 	u8 reg;
-	u8 scale; // Ignored. Must always be 0b000 on M68010.
+	u8 scale; // Ignored. Must always be 0 on M68010.
 	i8 offset;
 
 	[[nodiscard]] static std::optional<IndexExtension> decode(const Mmu& mmu, u32 pc);
@@ -47,32 +57,40 @@ struct IndexExtension {
 struct EffectiveAddress {
 	AddressMode mode;
 	RegisterType reg_type;
-	u8 reg; // Dn or An
-	u8 bytes_read;
-	i32 offset;	  // d16 or d8
-	u32 absolute; // (xxx).W or (xxx).L
+	OperandSize size; // Only needed for Immediate
+	u8 reg;			  // Dn or An
+
+	i32 offset;	   // d16 or d8
+	u32 absolute;  // (xxx).W or (xxx).L
+	u32 immediate; // #imm
 	std::optional<IndexExtension> index = std::nullopt;
 
+	u32 program_counter;
+	u32 bytes_read;
+
 	[[nodiscard]] static std::optional<EffectiveAddress> decode(
-		u8 mode, u8 reg, const Mmu& mmu, u32 pc
+		u8 mode, u8 reg, u8 size, const Mmu& mmu, u32 pc
 	);
+
+	std::optional<u32> compute_address(CpuState& state) const;
 };
 
-[[nodiscard]] inline bool operator==(
+[[nodiscard]] constexpr bool operator==(
 	const IndexExtension& left, const IndexExtension& right
-) {
-	return (left.mode == right.mode) && (left.size == right.size)
-		&& (left.reg == right.reg) && (left.scale == right.scale)
-		&& (left.offset == right.offset);
+) noexcept {
+	return left.is_addr == right.is_addr && left.is_long == right.is_long
+		&& left.reg == right.reg && left.scale == right.scale
+		&& left.offset == right.offset;
 }
 
-[[nodiscard]] inline bool operator==(
+[[nodiscard]] constexpr bool operator==(
 	const EffectiveAddress& left, const EffectiveAddress& right
-) {
-	return (left.mode == right.mode) && (left.reg_type == right.reg_type)
-		&& (left.bytes_read == right.bytes_read) && (left.reg == right.reg)
-		&& (left.offset == right.offset) && (left.absolute == right.absolute)
-		&& (left.index == right.index);
+) noexcept {
+	return left.mode == right.mode && left.reg_type == right.reg_type
+		&& left.size == right.size && left.reg == right.reg && left.offset == right.offset
+		&& left.absolute == right.absolute && left.immediate == right.immediate
+		&& left.index == right.index && left.program_counter == right.program_counter
+		&& left.bytes_read == right.bytes_read;
 }
 
 } // namespace rbt
@@ -81,8 +99,8 @@ template <>
 struct std::formatter<rbt::IndexExtension> : std::formatter<std::string> {
 	auto format(const rbt::IndexExtension& ix, std::format_context& ctx) const {
 		std::string out = std::format(
-			"{{ mode={}, size={}, reg={}, scale={}, offset={:#x} }}",
-			static_cast<i32>(ix.mode), static_cast<i32>(ix.size), ix.reg, ix.scale,
+			"{{ reg={}, size={}, Xn={}, scale={}, offset={} }}",
+			!ix.is_addr ? "Dn" : "An", !ix.is_long ? "W" : "L", ix.reg, ix.scale,
 			ix.offset
 		);
 
@@ -93,13 +111,56 @@ struct std::formatter<rbt::IndexExtension> : std::formatter<std::string> {
 template <>
 struct std::formatter<rbt::EffectiveAddress> : std::formatter<std::string> {
 	auto format(const rbt::EffectiveAddress& ea, std::format_context& ctx) const {
-		std::string out = std::format(
-			"{{ mode={}, reg_type={}, reg={}, bytes={}, offset={:#x}, absolute={}, "
-			"index={} }}",
-			static_cast<i32>(ea.mode), static_cast<i32>(ea.reg_type), ea.reg,
-			ea.bytes_read, ea.offset, ea.absolute,
-			ea.index ? std::format("{}", *ea.index) : "nullopt"
+		using namespace rbt;
+
+		const std::string_view modes[] = {
+			"Dn",	   "An",		"(An)",			"(An)+",
+			"-(An)",   "(d16, An)", "(d8, An, Xn)", "(xxx).L",
+			"(xxx).W", "(d16, PC)", "(d8, PC, Xn)", "#imm",
+		};
+
+		const std::string_view regs[] = { "None", "A", "D", "PC" };
+
+		const std::string_view sizes[] = {
+			"Byte",
+			"Word",
+			"Long",
+			"None",
+		};
+
+		// Output: {
+		//		mode: Mode
+		//		reg: Xn
+		//		size: Size
+		//		offset: i16
+		//		abs: u64
+		//		imm: u64
+		//		index: IndexExtension
+		//		pc: u32
+		//		bytes: u32
+		// }
+		std::string out = "{\n";
+		out += std::format("\tmode: {}\n", modes[static_cast<u8>(ea.mode)]);
+		out += std::format(
+			"\treg: {} -> {:#03b}", regs[static_cast<u8>(ea.reg_type)], ea.reg
 		);
+		if (ea.reg_type == RegisterType::Data || ea.reg_type == RegisterType::Address) {
+			out += std::to_string(ea.reg);
+		}
+		out += '\n';
+		out += std::format("\tsize: {}\n", sizes[static_cast<u8>(ea.size)]);
+
+		const auto index = ea.index ? std::format("{}", *ea.index) : "nullopt";
+		out += std::format(
+			"\toffset: {}\n"
+			"\tabs: {:#010x}\n"
+			"\timm: {:#010x}\n"
+			"\tindex: {}\n"
+			"\tpc: {:#010x}\n"
+			"\tbytes: {}\n",
+			ea.offset, ea.absolute, ea.immediate, index, ea.program_counter, ea.bytes_read
+		);
+		out += "}";
 
 		return std::formatter<std::string>::format(out, ctx);
 	}
