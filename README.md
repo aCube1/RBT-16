@@ -26,7 +26,7 @@ A micro-computer inspired by the Atari ST and Amiga 500.
 ### Video: codename - Killy
 
 - Output: VGA (DE-15)
-- Chip: FPGA
+- Chip: Custom FPGA
 - Resolution: 320x240
 - VRAM: 128KB. Not shared with the main RAM, only accessible by registers
 - Colors: Up to 256 colors can be displayed at same time (4 palettes each for sprites
@@ -148,7 +148,6 @@ A micro-computer inspired by the Atari ST and Amiga 500.
 |   d   | Vertical skew / cos(theta)    |
 
 $$
-
 	\begin{bmatrix}
 		X\tiny{screen} \\
 		Y\tiny{screen}
@@ -178,9 +177,9 @@ $$
 ### Audio: codename - Cibo
 
 - Output: 3.5mm stereo jack + 2 RCA stereo
-- APU: Z80 at ~4MHz
-- PSG(YM2149): 3 square wave + 1 noise channels
-- PCM: 2 sample channels; Sample rate 8-bits
+- APU: Custom FPGA
+- PSG: 4 square waves or noise channels
+- PCM: 4 sample channels; Sample rate 16-bits
 
 <!--
 NOTES:
@@ -194,8 +193,10 @@ interacted by the program.
 	(aCube) - ROM: Will it replaceable? I think users must be able to update the
 Kernel with a custom one, or update the shipped version to a new version.
 	(aCube) - VIDEO: Decide how many VRAM will be shipped.
-	(aCube) - AUDIO: Design seems pretty complex.
-	(aCube) - AUDIO: Improve audio capabilities.
+	(aCube) - AUDIO: Possible triangle or pulse wave channels?
+	(aCube) - AUDIO: It should be better to split the square and noise channels
+into their own channels, without the possibility of switching, but add two more channels
+that can switch between triangle and noise.
 
 TODO:
 	Improve video capabilities and learn more about what can be executed by the PPU.
