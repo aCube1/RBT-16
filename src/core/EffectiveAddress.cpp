@@ -5,29 +5,16 @@
 
 using namespace rbt;
 
-static i32 _sign_extend(u32 data, OperandSize size) {
-	switch (size) {
-	case OperandSize::Byte:
-		return static_cast<i32>(static_cast<i8>(static_cast<u8>(data)));
-	case OperandSize::Word:
-		return static_cast<i32>(static_cast<i16>(static_cast<u16>(data)));
-	case OperandSize::Long:
-		[[fallthrough]];
-	case OperandSize::None:
-		return static_cast<i32>(data);
-	}
-}
-
 [[nodiscard]] std::optional<IndexExtension> IndexExtension::decode(
 	const Mmu& mmu, u32 pc
 ) {
-	u16 ext;
-	if (auto err = mmu.read_be16(pc, ext); err != Mmu::Err::None) {
+	auto data = mmu.read_be16(pc);
+	if (!data) {
 		log::warn("[CPU] > Failed to read Brief Extension Word at {:#x}", pc);
 		return std::nullopt;
 	}
 
-	return IndexExtension::decode(ext);
+	return IndexExtension::decode(*data);
 }
 
 [[nodiscard]] std::optional<IndexExtension> IndexExtension::decode(u16 ext) {
@@ -37,14 +24,14 @@ static i32 _sign_extend(u32 data, OperandSize size) {
 	}
 
 	// Brief Extension Word
-	// | 15 | 14 | 13 | 12 | 11 | 10 | 9 | 8 | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
-	// | DA | Register     | WL | Scale  | 0 | Displacement Integer          |
+	// | F | E  | D  | C  | B | A | 9 | 8 | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+	// | M | Register     | S | Scale | 0 | Displacement Integer          |
 	IndexExtension ix {};
-	ix.is_addr = (ext >> 15) & 0x01;
-	ix.is_long = (ext >> 11) & 0x01;
+	ix.is_addr = (ext >> 15) & 0x01; // M
+	ix.is_long = (ext >> 11) & 0x01; // S
 	ix.reg = (ext >> 12) & 0x07;
 	ix.scale = (ext >> 9) & 0x03;
-	ix.offset = _sign_extend(ext & 0xff, OperandSize::Byte);
+	ix.displacement = operand_sign_extend(OperandSize::Byte, ext & 0xff);
 
 	return ix;
 }
@@ -56,7 +43,7 @@ u16 IndexExtension::encode() const {
 	ext |= (is_long & 0x01) << 11;
 	ext |= (reg & 0x07) << 12;
 	ext |= (scale & 0x03) << 9;
-	ext |= (offset & 0xff);
+	ext |= (displacement & 0xff);
 
 	return ext;
 }
@@ -98,20 +85,20 @@ u16 IndexExtension::encode() const {
 
 		break;
 	case 0b101: { // (d16, An)
-		ea.mode = AddressMode::IndirectOffset;
+		ea.mode = AddressMode::IndirectDisplacement;
 		ea.reg_type = RegisterType::Address;
 		ea.bytes_read = 2;
 
-		u16 offset;
-		if (auto err = mmu.read_be16(pc, offset); err != Mmu::Err::None) {
-			log::warn("[CPU] > Failed to read displacement offset at {:#x}", pc);
+		auto displacement = mmu.read_be16(pc);
+		if (!displacement) {
+			log::warn("[CPU] > Failed to read absolute address at {:#x}", pc);
 			return std::nullopt;
 		}
 
-		ea.offset = _sign_extend(offset, OperandSize::Word);
+		ea.displacement = operand_sign_extend(OperandSize::Word, *displacement);
 	} break;
 	case 0b110: // (d8, An, Xn)
-		ea.mode = AddressMode::IndirectIndexed;
+		ea.mode = AddressMode::IndirectIndex;
 		ea.reg_type = RegisterType::Address;
 		ea.bytes_read = 2;
 		ea.index = IndexExtension::decode(mmu, pc);
@@ -122,41 +109,47 @@ u16 IndexExtension::encode() const {
 		break;
 	case 0b111:
 		switch (reg) {
-		case 0b000: // (xxx).W
+		case 0b000: { // (xxx).W
 			ea.mode = AddressMode::AbsoluteShort;
 			ea.reg_type = RegisterType::None;
 			ea.bytes_read = 2;
-			if (auto err = mmu.read_be16(pc, (u16&)ea.absolute); err != Mmu::Err::None) {
+
+			auto absolute = mmu.read_be16(pc);
+			if (!absolute) {
 				log::warn("[CPU] > Failed to read absolute address at {:#x}", pc);
 				return std::nullopt;
 			}
 
-			break;
-		case 0b001: // (xxx).L
+			ea.absolute = *absolute;
+		} break;
+		case 0b001: { // (xxx).L
 			ea.mode = AddressMode::AbsoluteLong;
 			ea.reg_type = RegisterType::None;
 			ea.bytes_read = 4;
-			if (auto err = mmu.read_be32(pc, ea.absolute); err != Mmu::Err::None) {
+
+			auto absolute = mmu.read_be32(pc);
+			if (!absolute) {
 				log::warn("[CPU] > Failed to read absolute address at {:#x}", pc);
 				return std::nullopt;
 			}
 
-			break;
+			ea.absolute = *absolute;
+		} break;
 		case 0b010: { // (d16, PC)
-			ea.mode = AddressMode::ProgramCounterOffset;
+			ea.mode = AddressMode::ProgramCounterDisplacement;
 			ea.reg_type = RegisterType::ProgramCounter;
 			ea.bytes_read = 2;
 
-			u16 offset;
-			if (auto err = mmu.read_be16(pc, offset); err != Mmu::Err::None) {
-				log::warn("[CPU] > Failed to read displacement offset at {:#x}", pc);
+			auto displacement = mmu.read_be16(pc);
+			if (!displacement) {
+				log::warn("[CPU] > Failed to read displacement at {:#x}", pc);
 				return std::nullopt;
 			}
 
-			ea.offset = _sign_extend(offset, OperandSize::Word);
+			ea.displacement = operand_sign_extend(OperandSize::Word, *displacement);
 		} break;
 		case 0b011: // (d8, PC, Xn)
-			ea.mode = AddressMode::ProgramCounterIndexed;
+			ea.mode = AddressMode::ProgramCounterIndex;
 			ea.reg_type = RegisterType::ProgramCounter;
 			ea.bytes_read = 2;
 			ea.index = IndexExtension::decode(mmu, pc);
@@ -165,7 +158,7 @@ u16 IndexExtension::encode() const {
 			}
 
 			break;
-		case 0b100: // #imm
+		case 0b100: { // #imm
 			if (size >= 0x03) {
 				log::warn("[CPU] > Invalid address size for immediate mode: {:#x}", size);
 				return std::nullopt;
@@ -174,7 +167,13 @@ u16 IndexExtension::encode() const {
 			ea.mode = AddressMode::Immediate;
 			ea.reg_type = RegisterType::None;
 			ea.size = static_cast<OperandSize>(size);
-			break;
+
+			auto imm = mmu.load(pc, ea.size);
+			[[unlikely]] if (!imm) { return std::nullopt; }
+
+			ea.immediate = *imm;
+			ea.bytes_read = ea.size == OperandSize::Long ? 4 : 2;
+		} break;
 		default:
 			log::warn(
 				"[CPU] > Address mode {:#b}:{:#b} isn't supported by the M68010!", mode,
@@ -191,41 +190,10 @@ u16 IndexExtension::encode() const {
 		return std::nullopt;
 	}
 
-	switch (ea.size) {
-	case OperandSize::None:
-		break;
-	case OperandSize::Byte:
-	case OperandSize::Word: {
-		u32 data;
-		if (auto err = mmu.read_be16(pc, (u16&)data); err != Mmu::Err::None) {
-			log::warn("[CPU] > Failed to read immediate data at {:#x}", pc);
-			return std::nullopt;
-		}
-
-		ea.immediate = size == 0x00 ? (data & 0x00ff) : data;
-		ea.bytes_read = 2;
-	} break;
-	case OperandSize::Long:
-		if (auto err = mmu.read_be32(pc, ea.immediate); err != Mmu::Err::None) {
-			log::warn("[CPU] > Failed to read immediate data at {:#x}", pc);
-		}
-
-		ea.bytes_read = 4;
-		break;
-	default:
-		assert(0);
-	}
-
 	return ea;
 }
 
-static u32& _get_address_register(CpuState& state, u8 reg) {
-	return reg == 7 ? state.reg_usp : state.reg_addr[reg];
-}
-
 std::optional<u32> EffectiveAddress::compute_address(CpuState& state) const {
-	u8 size_in_bytes[] = { 1, 2, 4 };
-
 	switch (mode) {
 	case AddressMode::DirectData:
 	case AddressMode::DirectAddress:
@@ -234,7 +202,7 @@ std::optional<u32> EffectiveAddress::compute_address(CpuState& state) const {
 	case AddressMode::Indirect:
 		assert(reg < 8);
 
-		return _get_address_register(state, reg);
+		return state.get_address_register(reg);
 	case AddressMode::IndirectPostInc: {
 		assert(reg < 8);
 
@@ -243,9 +211,9 @@ std::optional<u32> EffectiveAddress::compute_address(CpuState& state) const {
 			return std::nullopt;
 		}
 
-		u32& reg_a = _get_address_register(state, reg);
+		u32& reg_a = state.get_address_register(reg);
 		u32 addr = reg_a;
-		reg_a += size_in_bytes[static_cast<u8>(size)];
+		reg_a += operand_size_in_bytes(size);
 
 		return addr;
 	};
@@ -257,60 +225,61 @@ std::optional<u32> EffectiveAddress::compute_address(CpuState& state) const {
 			return std::nullopt;
 		}
 
-		u32& reg_a = _get_address_register(state, reg);
-		reg_a -= size_in_bytes[static_cast<u8>(size)];
+		u32& reg_a = state.get_address_register(reg);
+		reg_a -= operand_size_in_bytes(size);
 		return reg_a;
 	};
-	case AddressMode::IndirectOffset:
+	case AddressMode::IndirectDisplacement:
 		assert(reg < 8);
-		return _get_address_register(state, reg) + offset;
-	case AddressMode::IndirectIndexed: {
+		return state.get_address_register(reg) + displacement;
+	case AddressMode::IndirectIndex: {
 		if (!index) {
 			log::warn("[CPU] > Invalid index extension");
 			return std::nullopt;
 		}
 		assert(index->reg < 8);
 
-		i32 base = _get_address_register(state, reg)
-				 + _sign_extend(index->offset, OperandSize::Byte);
-		i32 index_val = index->is_addr ? _get_address_register(state, index->reg)
+		i32 base = state.get_address_register(reg);
+		base += operand_sign_extend(OperandSize::Byte, index->displacement);
+
+		i32 index_val = index->is_addr ? state.get_address_register(index->reg)
 									   : state.reg_data[index->reg];
 		if (!index->is_long) {
-			index_val = _sign_extend(index_val & 0xffff, OperandSize::Word);
+			index_val = operand_sign_extend(OperandSize::Word, index_val & 0xffff);
 		}
 
 		return base + index_val;
 	}
 	case AddressMode::AbsoluteShort:
-		return _sign_extend(absolute & 0xffff, OperandSize::Word);
+		return operand_sign_extend(OperandSize::Word, absolute & 0xffff);
 	case AddressMode::AbsoluteLong:
 		return absolute;
-	case AddressMode::ProgramCounterOffset:
-		return program_counter + offset;
-	case AddressMode::ProgramCounterIndexed: {
+	case AddressMode::ProgramCounterDisplacement:
+		return program_counter + displacement;
+	case AddressMode::ProgramCounterIndex: {
 		if (!index) {
 			log::warn("[CPU] > Invalid index extension");
 			return std::nullopt;
 		}
 		assert(index->reg < 8);
 
-		i32 base = program_counter + index->offset;
+		i32 base = program_counter + index->displacement;
 		i32 index_val;
 
 		if (index->is_addr) {
-			index_val = _get_address_register(state, index->reg);
+			index_val = state.get_address_register(index->reg);
 		} else {
 			index_val = state.reg_data[index->reg];
 		}
 
 		if (!index->is_long) {
-			index_val = _sign_extend(index_val & 0xffff, OperandSize::Word);
+			index_val = operand_sign_extend(OperandSize::Word, index_val & 0xffff);
 		}
 
 		return base + index_val;
 	}
 	default:
-		assert(0);
+		std::unreachable();
 	}
 
 	return std::nullopt;
@@ -338,31 +307,31 @@ std::string EffectiveAddress::to_string() const {
 		return std::format("(A{})+", reg);
 	case AddressMode::IndirectPreDec:
 		return std::format("-(A{})", reg);
-	case AddressMode::IndirectOffset:
-		return std::format("({:#x}, A{})", offset, reg);
-	case AddressMode::IndirectIndexed:
+	case AddressMode::IndirectDisplacement:
+		return std::format("({:#x}, A{})", displacement, reg);
+	case AddressMode::IndirectIndex:
 		assert(index);
 
 		return std::format(
-			"({:#x}, A{}, {}.{})", index->offset, reg,
+			"({:#x}, A{}, {}.{})", index->displacement, reg,
 			_get_register_name(index->is_addr, index->reg), index->is_long ? 'L' : 'W'
 		);
 	case AddressMode::AbsoluteShort:
 		return std::format("({:#06x}).W", absolute);
 	case AddressMode::AbsoluteLong:
 		return std::format("({:#010x}).L", absolute);
-	case AddressMode::ProgramCounterOffset:
-		return std::format("({:#x}, PC)", offset);
-	case AddressMode::ProgramCounterIndexed:
+	case AddressMode::ProgramCounterDisplacement:
+		return std::format("({:#x}, PC)", displacement);
+	case AddressMode::ProgramCounterIndex:
 		assert(index);
 
 		return std::format(
-			"({:#x}, PC, {}.{})", index->offset,
+			"({:#x}, PC, {}.{})", index->displacement,
 			_get_register_name(index->is_addr, index->reg), index->is_long ? 'L' : 'W'
 		);
 	case AddressMode::Immediate:
 		return std::format("#{:#010x}", immediate);
 	default:
-		assert(0);
+		std::unreachable();
 	}
 }

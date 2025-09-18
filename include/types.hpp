@@ -1,7 +1,9 @@
 #ifndef _RBT_TYPES_HPP
 #define _RBT_TYPES_HPP
 
+#include <cassert>
 #include <cstdint>
+#include <utility>
 
 #define _UNUSED(x) ((void)(x))
 

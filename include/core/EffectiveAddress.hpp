@@ -2,9 +2,9 @@
 #define _RBT_CORE_EFFECTIVEADDRESS_HPP
 
 #include "core/Mmu.hpp"
+#include "core/common.hpp"
 #include "types.hpp"
 
-#include <algorithm>
 #include <format>
 #include <optional>
 
@@ -13,18 +13,18 @@ namespace rbt {
 struct CpuState;
 
 enum class AddressMode : u8 {
-	DirectData,			   // mode:000, reg:Dn  | Dn
-	DirectAddress,		   // mode:001, reg:An  | An
-	Indirect,			   // mode:010, reg:An  | (An)
-	IndirectPostInc,	   // mode:011, reg:An  | (An)+
-	IndirectPreDec,		   // mode:100, reg:An  | -(An)
-	IndirectOffset,		   // mode:101, reg:An  | (d16, An)
-	IndirectIndexed,	   // mode:110, reg:An  | (d8, An, Xn)
-	AbsoluteShort,		   // mode:111, reg:000 | (xxx).W
-	AbsoluteLong,		   // mode:111, reg:001 | (xxx).L
-	ProgramCounterOffset,  // mode:111, reg:010 | (d16, PC)
-	ProgramCounterIndexed, // mode:111, reg:011 | (d8, PC, Xn)
-	Immediate,			   // mode:111, reg:100 | #imm
+	DirectData,					// mode:000, reg:Dn  | Dn
+	DirectAddress,				// mode:001, reg:An  | An
+	Indirect,					// mode:010, reg:An  | (An)
+	IndirectPostInc,			// mode:011, reg:An  | (An)+
+	IndirectPreDec,				// mode:100, reg:An  | -(An)
+	IndirectDisplacement,		// mode:101, reg:An  | (d16, An)
+	IndirectIndex,				// mode:110, reg:An  | (d8, An, Xn)
+	AbsoluteShort,				// mode:111, reg:000 | (xxx).W
+	AbsoluteLong,				// mode:111, reg:001 | (xxx).L
+	ProgramCounterDisplacement, // mode:111, reg:010 | (d16, PC)
+	ProgramCounterIndex,		// mode:111, reg:011 | (d8, PC, Xn)
+	Immediate,					// mode:111, reg:100 | #imm
 };
 
 enum class RegisterType : u8 {
@@ -34,19 +34,12 @@ enum class RegisterType : u8 {
 	ProgramCounter,
 };
 
-enum class OperandSize : u8 {
-	None = 0b11,
-	Byte = 0b00,
-	Word = 0b01,
-	Long = 0b10,
-};
-
 struct IndexExtension {
 	bool is_addr; // Dn:0 | An:1
 	bool is_long; // W:0 | L:1
 	u8 reg;
 	u8 scale; // Ignored. Must always be 0 on M68010.
-	i8 offset;
+	i32 displacement;
 
 	[[nodiscard]] static std::optional<IndexExtension> decode(const Mmu& mmu, u32 pc);
 	[[nodiscard]] static std::optional<IndexExtension> decode(u16 ext);
@@ -60,9 +53,9 @@ struct EffectiveAddress {
 	OperandSize size; // Only needed for Immediate
 	u8 reg;			  // Dn or An
 
-	i32 offset;	   // d16 or d8
-	u32 absolute;  // (xxx).W or (xxx).L
-	u32 immediate; // #imm
+	i32 displacement; // d16 or d8
+	u32 absolute;	  // (xxx).W or (xxx).L
+	u32 immediate;	  // #imm
 	std::optional<IndexExtension> index = std::nullopt;
 
 	u32 program_counter;
@@ -82,16 +75,17 @@ struct EffectiveAddress {
 ) noexcept {
 	return left.is_addr == right.is_addr && left.is_long == right.is_long
 		&& left.reg == right.reg && left.scale == right.scale
-		&& left.offset == right.offset;
+		&& left.displacement == right.displacement;
 }
 
 [[nodiscard]] constexpr bool operator==(
 	const EffectiveAddress& left, const EffectiveAddress& right
 ) noexcept {
 	return left.mode == right.mode && left.reg_type == right.reg_type
-		&& left.size == right.size && left.reg == right.reg && left.offset == right.offset
-		&& left.absolute == right.absolute && left.immediate == right.immediate
-		&& left.index == right.index && left.program_counter == right.program_counter
+		&& left.size == right.size && left.reg == right.reg
+		&& left.displacement == right.displacement && left.absolute == right.absolute
+		&& left.immediate == right.immediate && left.index == right.index
+		&& left.program_counter == right.program_counter
 		&& left.bytes_read == right.bytes_read;
 }
 
@@ -101,9 +95,9 @@ template <>
 struct std::formatter<rbt::IndexExtension> : std::formatter<std::string> {
 	auto format(const rbt::IndexExtension& ix, std::format_context& ctx) const {
 		std::string out = std::format(
-			"{{ reg={}, size={}, Xn={}, scale={}, offset={} }}",
+			"{{ reg={}, size={}, Xn={}, scale={}, displacement={} }}",
 			!ix.is_addr ? "Dn" : "An", !ix.is_long ? "W" : "L", ix.reg, ix.scale,
-			ix.offset
+			ix.displacement
 		);
 
 		return std::formatter<std::string>::format(out, ctx);
@@ -117,8 +111,8 @@ struct std::formatter<rbt::EffectiveAddress> : std::formatter<std::string> {
 
 		const std::string_view modes[] = {
 			"Dn",	   "An",		"(An)",			"(An)+",
-			"-(An)",   "(d16, An)", "(d8, An, Xn)", "(xxx).L",
-			"(xxx).W", "(d16, PC)", "(d8, PC, Xn)", "#imm",
+			"-(An)",   "(d16, An)", "(d8, An, Xn)", "(xxx).W",
+			"(xxx).L", "(d16, PC)", "(d8, PC, Xn)", "#imm",
 		};
 
 		const std::string_view sizes[] = {
@@ -152,7 +146,7 @@ struct std::formatter<rbt::EffectiveAddress> : std::formatter<std::string> {
 		//		mode: Mode
 		//		reg: Xn -> reg
 		//		size: Size
-		//		offset: i16
+		//		dis: i16
 		//		abs: u64
 		//		imm: u64
 		//		index: IndexExtension
@@ -166,13 +160,14 @@ struct std::formatter<rbt::EffectiveAddress> : std::formatter<std::string> {
 
 		const auto index = ea.index ? std::format("{}", *ea.index) : "nullopt";
 		out += std::format(
-			"\toffset: {}\n"
+			"\tdis: {}\n"
 			"\tabs: {:#010x}\n"
 			"\timm: {:#010x}\n"
 			"\tindex: {}\n"
 			"\tpc: {:#010x}\n"
 			"\tbytes: {}\n",
-			ea.offset, ea.absolute, ea.immediate, index, ea.program_counter, ea.bytes_read
+			ea.displacement, ea.absolute, ea.immediate, index, ea.program_counter,
+			ea.bytes_read
 		);
 		out += "}";
 

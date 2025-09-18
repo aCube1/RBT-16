@@ -1,8 +1,10 @@
 #ifndef _RBT_CORE_MMU_HPP
 #define _RBT_CORE_MMU_HPP
 
+#include "core/common.hpp"
 #include "types.hpp"
 
+#include <expected>
 #include <span>
 #include <vector>
 
@@ -17,6 +19,7 @@ public:
 		None = 0,
 		InvalidAddress,
 		MemoryOverflow,
+		InvalidOperandSize,
 	};
 
 	Mmu(i32 slots);
@@ -26,36 +29,42 @@ public:
 	 * were read.
 	 *
 	 * @param addr Address to begin reading
-	 * @param data Slice of memory to write bytes to
+	 * @param count How many bytes to read
 	 * @param partial If true, partial readings are allowed, even if the
 	 * memory overflows, the read bytes will be written to the data slice
 	 *
-	 * @return '.first' has the number of bytes read; '.second' has the error
-	 * code if any occurs.
+	 * @return Span view of memory region or an error if failed to read memory
 	 */
-	std::pair<u64, Err> read(u32 addr, std::span<u8> data, bool partial = true) const;
+	std::expected<std::span<const u8>, Err> read(
+		u32 addr, usize count, bool partial = false
+	) const noexcept;
 
 	/**
 	 * @brief Write range of bytes to the memory, returns a possible error and
 	 * how many bytes were written.
 	 *
 	 * @param addr Address to begin writing
-	 * @param data Slice of memory to read bytes from
+	 * @param data Memory to be written
 	 * @param partial If true, partial writes are allowed, even if the
 	 * memory overflows, the bytes will be written into the valid addresses
 	 *
-	 * @return '.first' has the number of bytes written; '.second' has the error
-	 * code if any occurs.
+	 * @return How many bytes were written or an error if couldn't write on memory
 	 */
-	std::pair<u64, Err> write(u32 addr, std::span<const u8> data, bool partial = true);
+	std::expected<usize, Err> write(
+		u32 addr, std::span<const u8> data, bool partial = false
+	) noexcept;
 
-	Err read8(u32 addr, u8& byte) const;
-	Err write8(u32 addr, u8 byte);
+	std::expected<u8, Err> read8(u32 addr) const;
+	std::expected<void, Err> write8(u32 addr, u8 byte);
 
-	Err read_be16(u32 addr, u16& word) const;
-	Err read_be32(u32 addr, u32& dword) const;
-	Err write_be16(u32 addr, u16 word);
-	Err write_be32(u32 addr, u32 dword);
+	std::expected<u16, Err> read_be16(u32 addr) const;
+	std::expected<void, Err> write_be16(u32 addr, u16 word);
+
+	std::expected<u32, Err> read_be32(u32 addr) const;
+	std::expected<void, Err> write_be32(u32 addr, u32 dword);
+
+	std::expected<u32, Err> load(u32 addr, OperandSize size) const;
+	std::expected<void, Err> store(u32 addr, OperandSize size, u32 data);
 
 private:
 	i32 m_active_slots;
