@@ -5,6 +5,7 @@
 #include "types.hpp"
 
 #include <expected>
+#include <format>
 #include <span>
 #include <vector>
 
@@ -72,5 +73,32 @@ private:
 };
 
 } // namespace rbt
+
+template <>
+struct std::formatter<rbt::Mmu::Err> : std::formatter<std::string> {
+	auto format(const rbt::Mmu::Err& err, std::format_context& ctx) const {
+		using Err = rbt::Mmu::Err;
+
+		std::string out;
+
+		switch (err) {
+		case Err::InvalidAddress:
+			out = "Access to Invalid Address";
+			break;
+		case Err::MemoryOverflow:
+			out = "Address is out of bounds";
+			break;
+		case Err::InvalidOperandSize:
+			out = "Invalid operand size";
+			break;
+		case Err::None:
+		default:
+			out = "None";
+			break;
+		}
+
+		return std::formatter<std::string>::format(out, ctx);
+	}
+};
 
 #endif

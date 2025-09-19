@@ -10,7 +10,10 @@ using namespace rbt;
 ) {
 	auto data = mmu.read_be16(pc);
 	if (!data) {
-		log::warn("[CPU] > Failed to read Brief Extension Word at {:#x}", pc);
+		log::warn(
+			"[CPU](PC: {:#010x}) > Failed to read brief extension word: {}", pc,
+			data.error()
+		);
 		return std::nullopt;
 	}
 
@@ -89,13 +92,16 @@ u16 IndexExtension::encode() const {
 		ea.reg_type = RegisterType::Address;
 		ea.bytes_read = 2;
 
-		auto displacement = mmu.read_be16(pc);
-		if (!displacement) {
-			log::warn("[CPU] > Failed to read absolute address at {:#x}", pc);
+		auto disp = mmu.read_be16(pc);
+		if (!disp) {
+			log::warn(
+				"[CPU](PC: {:#010x}) > Failed to read absolute address: {}", pc,
+				disp.error()
+			);
 			return std::nullopt;
 		}
 
-		ea.displacement = operand_sign_extend(OperandSize::Word, *displacement);
+		ea.displacement = operand_sign_extend(OperandSize::Word, *disp);
 	} break;
 	case 0b110: // (d8, An, Xn)
 		ea.mode = AddressMode::IndirectIndex;
@@ -114,39 +120,48 @@ u16 IndexExtension::encode() const {
 			ea.reg_type = RegisterType::None;
 			ea.bytes_read = 2;
 
-			auto absolute = mmu.read_be16(pc);
-			if (!absolute) {
-				log::warn("[CPU] > Failed to read absolute address at {:#x}", pc);
+			auto abs = mmu.read_be16(pc);
+			if (!abs) {
+				log::warn(
+					"[CPU](PC: {:#010x}) > Failed to read absolute address: {}", pc,
+					abs.error()
+				);
 				return std::nullopt;
 			}
 
-			ea.absolute = *absolute;
+			ea.absolute = *abs;
 		} break;
 		case 0b001: { // (xxx).L
 			ea.mode = AddressMode::AbsoluteLong;
 			ea.reg_type = RegisterType::None;
 			ea.bytes_read = 4;
 
-			auto absolute = mmu.read_be32(pc);
-			if (!absolute) {
-				log::warn("[CPU] > Failed to read absolute address at {:#x}", pc);
+			auto abs = mmu.read_be32(pc);
+			if (!abs) {
+				log::warn(
+					"[CPU](PC: {:#010x}) > Failed to read absolute address: {}", pc,
+					abs.error()
+				);
 				return std::nullopt;
 			}
 
-			ea.absolute = *absolute;
+			ea.absolute = *abs;
 		} break;
 		case 0b010: { // (d16, PC)
 			ea.mode = AddressMode::ProgramCounterDisplacement;
 			ea.reg_type = RegisterType::ProgramCounter;
 			ea.bytes_read = 2;
 
-			auto displacement = mmu.read_be16(pc);
-			if (!displacement) {
-				log::warn("[CPU] > Failed to read displacement at {:#x}", pc);
+			auto disp = mmu.read_be16(pc);
+			if (!disp) {
+				log::warn(
+					"[CPU](PC: {:#010x}) > Failed to read displacement: {}", pc,
+					disp.error()
+				);
 				return std::nullopt;
 			}
 
-			ea.displacement = operand_sign_extend(OperandSize::Word, *displacement);
+			ea.displacement = operand_sign_extend(OperandSize::Word, *disp);
 		} break;
 		case 0b011: // (d8, PC, Xn)
 			ea.mode = AddressMode::ProgramCounterIndex;
@@ -160,7 +175,9 @@ u16 IndexExtension::encode() const {
 			break;
 		case 0b100: { // #imm
 			if (size >= 0x03) {
-				log::warn("[CPU] > Invalid address size for immediate mode: {:#x}", size);
+				log::warn(
+					"[CPU] > Invalid address size for immediate mode: {:#05b}", size
+				);
 				return std::nullopt;
 			}
 
@@ -169,15 +186,21 @@ u16 IndexExtension::encode() const {
 			ea.size = static_cast<OperandSize>(size);
 
 			auto imm = mmu.load(pc, ea.size);
-			[[unlikely]] if (!imm) { return std::nullopt; }
+			if (!imm) {
+				log::warn(
+					"[CPU](PC: {:#010x}) > Failed to read immediate data: {}", pc,
+					imm.error()
+				);
+				return std::nullopt;
+			}
 
 			ea.immediate = *imm;
 			ea.bytes_read = ea.size == OperandSize::Long ? 4 : 2;
 		} break;
 		default:
 			log::warn(
-				"[CPU] > Address mode {:#b}:{:#b} isn't supported by the M68010!", mode,
-				reg
+				"[CPU] > Address mode {:#05b}:{:#05b} isn't supported by the M68010!",
+				mode, reg
 			);
 			return std::nullopt;
 		}
@@ -185,7 +208,9 @@ u16 IndexExtension::encode() const {
 		break;
 	default:
 		log::warn(
-			"[CPU] > Address mode {:#b}:{:#b} isn't supported by the M68010!", mode, reg
+			"[CPU] > Address mode {:#05b}:{:#05b} isn't supported by the M68010!", mode,
+			reg
+
 		);
 		return std::nullopt;
 	}
@@ -207,7 +232,7 @@ std::optional<u32> EffectiveAddress::compute_address(CpuState& state) const {
 		assert(reg < 8);
 
 		if (size == OperandSize::None) {
-			log::warn("[CPU] > Invalid operand size for IndireictPostInc address mode");
+			log::warn("[CPU] > Invalid operand size for IndirectPostInc address mode");
 			return std::nullopt;
 		}
 
