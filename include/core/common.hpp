@@ -12,7 +12,7 @@ enum class OperandSize : u8 {
 	Long = 0b10,
 };
 
-[[nodiscard]] constexpr u8 operand_size_in_bytes(OperandSize size) {
+[[nodiscard]] constexpr u8 operand_width(OperandSize size) {
 	switch (size) {
 	case OperandSize::None:
 		return 0;
@@ -24,7 +24,21 @@ enum class OperandSize : u8 {
 		return 4;
 	}
 
-	assert(0);
+	std::unreachable();
+}
+
+[[nodiscard]] constexpr u8 operand_word_count(OperandSize size) {
+	switch (size) {
+	case OperandSize::None:
+		return 0;
+	case OperandSize::Byte:
+	case OperandSize::Word:
+		return 1;
+	case OperandSize::Long:
+		return 2;
+	}
+
+	std::unreachable();
 }
 
 [[nodiscard]] constexpr i32 operand_sign_extend(OperandSize size, u32 data) {
@@ -38,7 +52,7 @@ enum class OperandSize : u8 {
 		return static_cast<i32>(data);
 	}
 
-	assert(0);
+	std::unreachable();
 }
 
 } // namespace rbt

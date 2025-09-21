@@ -25,6 +25,7 @@ enum class AddressMode : u8 {
 	ProgramCounterDisplacement, // mode:111, reg:010 | (d16, PC)
 	ProgramCounterIndex,		// mode:111, reg:011 | (d8, PC, Xn)
 	Immediate,					// mode:111, reg:100 | #imm
+	ImpliedRegister,			// CCR, SR
 };
 
 enum class RegisterType : u8 {
@@ -32,6 +33,8 @@ enum class RegisterType : u8 {
 	Data,
 	Address,
 	ProgramCounter,
+	StatusRegister,
+	ConditionCode,
 };
 
 struct IndexExtension {
@@ -50,8 +53,8 @@ struct IndexExtension {
 struct EffectiveAddress {
 	AddressMode mode;
 	RegisterType reg_type;
-	OperandSize size; // Only needed for Immediate
-	u8 reg;			  // Dn or An
+	OperandSize size;
+	u8 reg; // Dn or An
 
 	i32 displacement; // d16 or d8
 	u32 absolute;	  // (xxx).W or (xxx).L
@@ -65,9 +68,23 @@ struct EffectiveAddress {
 		u8 mode, u8 reg, u8 size, const Mmu& mmu, u32 pc
 	);
 
+	[[nodiscard]] static EffectiveAddress from_register(
+		RegisterType type, u8 reg, OperandSize size = OperandSize::Long
+	);
+
+	[[nodiscard]] static constexpr std::optional<EffectiveAddress> from_displacement(
+		OperandSize size, const Mmu& mmu, u32 pc
+	);
+
 	std::optional<u32> compute_address(CpuState& state) const;
 
 	std::string to_string() const;
+
+	[[nodiscard]] static constexpr std::optional<EffectiveAddress> from_immediate(
+		u8 size, const Mmu& mmu, u32 pc
+	) {
+		return EffectiveAddress::decode(0b111, 0b100, size, mmu, pc);
+	}
 };
 
 [[nodiscard]] constexpr bool operator==(
@@ -136,6 +153,12 @@ struct std::formatter<rbt::EffectiveAddress> : std::formatter<std::string> {
 			break;
 		case RegisterType::ProgramCounter:
 			reg = "PC";
+			break;
+		case RegisterType::StatusRegister:
+			reg = "SR";
+			break;
+		case RegisterType::ConditionCode:
+			reg = "CCR";
 			break;
 		case RegisterType::None:
 			reg = "None";

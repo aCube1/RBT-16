@@ -11,8 +11,7 @@ using namespace rbt;
 	auto data = mmu.read_be16(pc);
 	if (!data) {
 		log::warn(
-			"[CPU](PC: {:#010x}) > Failed to read brief extension word: {}", pc,
-			data.error()
+			"[CPU]({:#010x}) > Failed to read brief extension word: {}", pc, data.error()
 		);
 		return std::nullopt;
 	}
@@ -28,10 +27,10 @@ using namespace rbt;
 
 	// Brief Extension Word
 	// | F | E  | D  | C  | B | A | 9 | 8 | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
-	// | M | Register     | S | Scale | 0 | Displacement Integer          |
+	// |A/D| Register     | S | Scale | 0 | Displacement Integer          |
 	IndexExtension ix {};
-	ix.is_addr = (ext >> 15) & 0x01; // M
-	ix.is_long = (ext >> 11) & 0x01; // S
+	ix.is_addr = (ext >> 15) & 0x01; // A/D: 0=Dn; 1=An
+	ix.is_long = (ext >> 11) & 0x01; // S: 0=W; 1=L
 	ix.reg = (ext >> 12) & 0x07;
 	ix.scale = (ext >> 9) & 0x03;
 	ix.displacement = operand_sign_extend(OperandSize::Byte, ext & 0xff);
@@ -63,11 +62,13 @@ u16 IndexExtension::encode() const {
 	case 0b000: // Dn
 		ea.mode = AddressMode::DirectData;
 		ea.reg_type = RegisterType::Data;
+		ea.size = static_cast<OperandSize>(size);
 
 		break;
 	case 0b001: // An
 		ea.mode = AddressMode::DirectAddress;
 		ea.reg_type = RegisterType::Address;
+		ea.size = static_cast<OperandSize>(size);
 
 		break;
 	case 0b010: // (An)
@@ -95,8 +96,7 @@ u16 IndexExtension::encode() const {
 		auto disp = mmu.read_be16(pc);
 		if (!disp) {
 			log::warn(
-				"[CPU](PC: {:#010x}) > Failed to read absolute address: {}", pc,
-				disp.error()
+				"[CPU]({:#010x}) > Failed to read absolute address: {}", pc, disp.error()
 			);
 			return std::nullopt;
 		}
@@ -123,7 +123,7 @@ u16 IndexExtension::encode() const {
 			auto abs = mmu.read_be16(pc);
 			if (!abs) {
 				log::warn(
-					"[CPU](PC: {:#010x}) > Failed to read absolute address: {}", pc,
+					"[CPU]({:#010x}) > Failed to read absolute address: {}", pc,
 					abs.error()
 				);
 				return std::nullopt;
@@ -139,7 +139,7 @@ u16 IndexExtension::encode() const {
 			auto abs = mmu.read_be32(pc);
 			if (!abs) {
 				log::warn(
-					"[CPU](PC: {:#010x}) > Failed to read absolute address: {}", pc,
+					"[CPU]({:#010x}) > Failed to read absolute address: {}", pc,
 					abs.error()
 				);
 				return std::nullopt;
@@ -155,8 +155,7 @@ u16 IndexExtension::encode() const {
 			auto disp = mmu.read_be16(pc);
 			if (!disp) {
 				log::warn(
-					"[CPU](PC: {:#010x}) > Failed to read displacement: {}", pc,
-					disp.error()
+					"[CPU]({:#010x}) > Failed to read displacement: {}", pc, disp.error()
 				);
 				return std::nullopt;
 			}
@@ -188,8 +187,7 @@ u16 IndexExtension::encode() const {
 			auto imm = mmu.load(pc, ea.size);
 			if (!imm) {
 				log::warn(
-					"[CPU](PC: {:#010x}) > Failed to read immediate data: {}", pc,
-					imm.error()
+					"[CPU]({:#010x}) > Failed to read immediate data: {}", pc, imm.error()
 				);
 				return std::nullopt;
 			}
@@ -218,6 +216,33 @@ u16 IndexExtension::encode() const {
 	return ea;
 }
 
+[[nodiscard]] EffectiveAddress EffectiveAddress::from_register(
+	RegisterType type, u8 reg, OperandSize size
+) {
+	EffectiveAddress ea;
+
+	if (type == RegisterType::Data) {
+		ea.mode = AddressMode::DirectData;
+		ea.reg_type = RegisterType::Data;
+	} else if (type == RegisterType::Address) {
+		ea.mode = AddressMode::DirectAddress;
+		ea.reg_type = RegisterType::Address;
+	} else {
+		ea.mode = AddressMode::ImpliedRegister;
+		ea.reg_type = type;
+	}
+
+	ea.size = size;
+	ea.reg = reg;
+	ea.displacement = 0;
+	ea.absolute = 0;
+	ea.immediate = 0;
+	ea.index = std::nullopt;
+	ea.program_counter = 0;
+	ea.bytes_read = 0;
+	return ea;
+}
+
 std::optional<u32> EffectiveAddress::compute_address(CpuState& state) const {
 	switch (mode) {
 	case AddressMode::DirectData:
@@ -238,7 +263,7 @@ std::optional<u32> EffectiveAddress::compute_address(CpuState& state) const {
 
 		u32& reg_a = state.get_address_register(reg);
 		u32 addr = reg_a;
-		reg_a += operand_size_in_bytes(size);
+		reg_a += operand_width(size);
 
 		return addr;
 	};
@@ -251,7 +276,7 @@ std::optional<u32> EffectiveAddress::compute_address(CpuState& state) const {
 		}
 
 		u32& reg_a = state.get_address_register(reg);
-		reg_a -= operand_size_in_bytes(size);
+		reg_a -= operand_width(size);
 		return reg_a;
 	};
 	case AddressMode::IndirectDisplacement:

@@ -5,7 +5,20 @@
 #include <cstdint>
 #include <utility>
 
+#ifdef __clang__
+#	pragma clang diagnostic push
+#	pragma clang diagnostic ignored "-Wgnu-statement-expression"
+#endif
+
 #define _UNUSED(x) ((void)(x))
+
+#define _TRY(expr)               \
+	({                           \
+		auto&& x = expr;         \
+		if (!x)                  \
+			return std::nullopt; \
+		std::move(*x);           \
+	})
 
 using u8 = std::uint8_t;
 using u16 = std::uint16_t;
