@@ -63,7 +63,7 @@ A micro-computer inspired by the Atari ST and Amiga 500.
 | :--: | ------- | :----------: | --------- | -------------------------------- |
 | 0b00 | 4 Tiled | `64; 4 x 16` | 1024x1024 | All layers are static            |
 | 0b01 | 2 Tiled | `64; 4 x 16` | 1024x1024 | Layers can be affine transformed |
-| 0b10 | 1 Tiled |    `256`     | 320x240   | Double buffered                  |
+| 0b10 | 1 Tiled |    `256`     | 320x240   | 8bpp, not scrollable             |
 
 - Layer control layout
 
@@ -122,12 +122,11 @@ A micro-computer inspired by the Atari ST and Amiga 500.
 
 ##### Background Mode 0b10:
 
-| Region          |  Size   | Notes                       |
-| --------------- | :-----: | --------------------------- |
-| Bitmap Palette  |  512B   | 256 entries of 555RGB color |
-| Bitmap Buffer 0 | 37.5KB  | 320x240, 4bpp               |
-| Bitmap Buffer 1 | 37.5KB  | 320x240, 4bpp               |
-| Unused          | ~19.3KB | Free/Unused memory          |
+| Region         |  Size   | Notes                       |
+| -------------- | :-----: | --------------------------- |
+| Bitmap Palette |  512B   | 256 entries of 555RGB color |
+| Bitmap Buffer  |  75KB   | 320x240, 8bpp               |
+| Unused         | ~19.3KB | Free/Unused memory          |
 
 > Used: 77,312B (75.5KB)
 
@@ -199,5 +198,5 @@ into their own channels, without the possibility of switching, but add two more 
 that can switch between triangle and noise.
 
 TODO:
-	Improve video capabilities and learn more about what can be executed by the PPU.
+	Improve video capabilities and learn more about what can be executed by the VDP.
 -->
