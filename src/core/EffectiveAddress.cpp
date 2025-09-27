@@ -51,7 +51,7 @@ u16 IndexExtension::encode() const {
 }
 
 [[nodiscard]] std::optional<EffectiveAddress> EffectiveAddress::decode(
-	u8 mode, u8 reg, u8 size, const Mmu& mmu, u32 pc
+	u8 mode, u8 reg, OperandSize size, const Mmu& mmu, u32 pc
 ) {
 	EffectiveAddress ea {};
 	ea.reg = reg;
@@ -62,13 +62,13 @@ u16 IndexExtension::encode() const {
 	case 0b000: // Dn
 		ea.mode = AddressMode::DirectData;
 		ea.reg_type = RegisterType::Data;
-		ea.size = static_cast<OperandSize>(size);
+		ea.size = size;
 
 		break;
 	case 0b001: // An
 		ea.mode = AddressMode::DirectAddress;
 		ea.reg_type = RegisterType::Address;
-		ea.size = static_cast<OperandSize>(size);
+		ea.size = size;
 
 		break;
 	case 0b010: // (An)
@@ -79,13 +79,13 @@ u16 IndexExtension::encode() const {
 	case 0b011: // (An)+
 		ea.mode = AddressMode::IndirectPostInc;
 		ea.reg_type = RegisterType::Address;
-		ea.size = static_cast<OperandSize>(size);
+		ea.size = size;
 
 		break;
 	case 0b100: // -(An)
 		ea.mode = AddressMode::IndirectPreDec;
 		ea.reg_type = RegisterType::Address;
-		ea.size = static_cast<OperandSize>(size);
+		ea.size = size;
 
 		break;
 	case 0b101: { // (d16, An)
@@ -173,16 +173,9 @@ u16 IndexExtension::encode() const {
 
 			break;
 		case 0b100: { // #imm
-			if (size >= 0x03) {
-				log::warn(
-					"[CPU] > Invalid address size for immediate mode: {:#05b}", size
-				);
-				return std::nullopt;
-			}
-
 			ea.mode = AddressMode::Immediate;
 			ea.reg_type = RegisterType::None;
-			ea.size = static_cast<OperandSize>(size);
+			ea.size = size;
 
 			auto imm = mmu.load(pc, ea.size);
 			if (!imm) {
@@ -219,7 +212,9 @@ u16 IndexExtension::encode() const {
 [[nodiscard]] EffectiveAddress EffectiveAddress::from_register(
 	RegisterType type, u8 reg, OperandSize size
 ) {
-	EffectiveAddress ea;
+	EffectiveAddress ea {};
+	ea.size = size;
+	ea.reg = reg;
 
 	if (type == RegisterType::Data) {
 		ea.mode = AddressMode::DirectData;
@@ -232,14 +227,6 @@ u16 IndexExtension::encode() const {
 		ea.reg_type = type;
 	}
 
-	ea.size = size;
-	ea.reg = reg;
-	ea.displacement = 0;
-	ea.absolute = 0;
-	ea.immediate = 0;
-	ea.index = std::nullopt;
-	ea.program_counter = 0;
-	ea.bytes_read = 0;
 	return ea;
 }
 
@@ -358,12 +345,12 @@ std::string EffectiveAddress::to_string() const {
 	case AddressMode::IndirectPreDec:
 		return std::format("-(A{})", reg);
 	case AddressMode::IndirectDisplacement:
-		return std::format("({:#x}, A{})", displacement, reg);
+		return std::format("(${:#x}, A{})", displacement, reg);
 	case AddressMode::IndirectIndex:
 		assert(index);
 
 		return std::format(
-			"({:#x}, A{}, {}.{})", index->displacement, reg,
+			"(${:#04x}, A{}, {}.{})", index->displacement, reg,
 			_get_register_name(index->is_addr, index->reg), index->is_long ? 'L' : 'W'
 		);
 	case AddressMode::AbsoluteShort:
@@ -371,12 +358,12 @@ std::string EffectiveAddress::to_string() const {
 	case AddressMode::AbsoluteLong:
 		return std::format("({:#010x}).L", absolute);
 	case AddressMode::ProgramCounterDisplacement:
-		return std::format("({:#x}, PC)", displacement);
+		return std::format("(${:#06x}, PC)", displacement);
 	case AddressMode::ProgramCounterIndex:
 		assert(index);
 
 		return std::format(
-			"({:#x}, PC, {}.{})", index->displacement,
+			"({}, PC, {}.{})", index->displacement,
 			_get_register_name(index->is_addr, index->reg), index->is_long ? 'L' : 'W'
 		);
 	case AddressMode::Immediate:

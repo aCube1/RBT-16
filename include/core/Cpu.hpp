@@ -3,6 +3,7 @@
 
 #include "core/EffectiveAddress.hpp"
 #include "core/Mmu.hpp"
+#include "core/decoder.hpp"
 #include "types.hpp"
 
 namespace rbt {
@@ -73,20 +74,18 @@ private:
 	Mmu m_mmu;
 	CpuState m_state;
 
-	void op_or(const EffectiveAddress& src, const EffectiveAddress& dest);
-	void op_and(const EffectiveAddress& src, const EffectiveAddress& dest);
-	void op_sub(const EffectiveAddress& src, const EffectiveAddress& dest);
-	void op_add(const EffectiveAddress& src, const EffectiveAddress& dest);
-	void op_eor(const EffectiveAddress& src, const EffectiveAddress& dest);
-	void op_cmp(const EffectiveAddress& src, const EffectiveAddress& dest);
-	void op_btst(bool is_immediate, u8 data, const EffectiveAddress& dest);
-	void op_bchg(bool is_immediate, u8 data, const EffectiveAddress& dest);
-	void op_bclr(bool is_immediate, u8 data, const EffectiveAddress& dest);
-	void op_bset(bool is_immediate, u8 data, const EffectiveAddress& dest);
-	void op_moves(const EffectiveAddress& ea, bool is_addr, u8 reg, bool to_memory);
-	void op_movep(u8 dx_reg, u8 ay_reg, bool to_memory, bool is_long, i32 displacement);
-
-	friend class Instruction;
+	void op_or(const Instruction& instr);
+	void op_and(const Instruction& instr);
+	void op_sub(const Instruction& instr);
+	void op_add(const Instruction& instr);
+	void op_eor(const Instruction& instr);
+	void op_cmp(const Instruction& instr);
+	void op_btst(const Instruction& instr);
+	void op_bchg(const Instruction& instr);
+	void op_bclr(const Instruction& instr);
+	void op_bset(const Instruction& instr);
+	void op_moves(const Instruction& instr);
+	void op_movep(const Instruction& instr);
 };
 
 } // namespace rbt

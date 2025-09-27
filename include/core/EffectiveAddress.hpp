@@ -4,6 +4,7 @@
 #include "core/Mmu.hpp"
 #include "core/common.hpp"
 #include "types.hpp"
+#include "utils/log.hpp"
 
 #include <format>
 #include <optional>
@@ -65,7 +66,7 @@ struct EffectiveAddress {
 	u32 bytes_read;
 
 	[[nodiscard]] static std::optional<EffectiveAddress> decode(
-		u8 mode, u8 reg, u8 size, const Mmu& mmu, u32 pc
+		u8 mode, u8 reg, OperandSize size, const Mmu& mmu, u32 pc
 	);
 
 	[[nodiscard]] static EffectiveAddress from_register(
@@ -84,6 +85,18 @@ struct EffectiveAddress {
 		u8 size, const Mmu& mmu, u32 pc
 	) {
 		return EffectiveAddress::decode(0b111, 0b100, size, mmu, pc);
+	}
+
+	[[nodiscard]] static std::optional<EffectiveAddress> decode(
+		u8 mode, u8 reg, u8 size, const Mmu& mmu, u32 pc
+	) {
+		if (size >= 0x03) {
+			log::error("[CPU] > Invalid address size for immediate mode: {:#05b}", size);
+			return std::nullopt;
+		}
+
+		auto opsize = static_cast<OperandSize>(size);
+		return EffectiveAddress::decode(mode, reg, opsize, mmu, pc);
 	}
 };
 
