@@ -1,0 +1,7 @@
+.{
+    .name = .RBT_16,
+    .version = "0.0.1",
+    .minimum_zig_version = "0.16.0-dev.452+1f7ee99b3",
+    .paths = .{""},
+    .fingerprint = 0xf8df6025a7ebfe55,
+}
