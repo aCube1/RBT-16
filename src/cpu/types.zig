@@ -130,8 +130,7 @@ test "StatusRegister" {
     const std = @import("std");
 
     const sr: StatusRegister = .from_word(0b1010_0000_0001_1111);
-
-    try std.testing.expectEqual(StatusRegister{
+    const expected: StatusRegister = .{
         .carry = true,
         .overflow = true,
         .zero = true,
@@ -140,7 +139,25 @@ test "StatusRegister" {
         .interrupt_priority = 0b000,
         .supervisor = true,
         .trace1 = true,
-    }, sr);
+    };
+
+    try std.testing.expectEqual(expected, sr);
 
     try std.testing.expectEqual(0b1010_0000_0001_1111, sr.to_word());
+}
+
+test "GeneralPurposeRegisters" {
+    const std = @import("std");
+
+    var gpr: GeneralPurpose = .{
+        .flat = [_]u32{0} ** 16,
+    };
+
+    try std.testing.expectEqualSlices(u32, &([_]u32{0}) ** 16, &gpr.flat);
+
+    gpr.addr()[0] = 0xcafe;
+    gpr.data()[2] = 0xbeef;
+
+    try std.testing.expectEqual(0xcafe, gpr.flat[8]);
+    try std.testing.expectEqual(0xbeef, gpr.flat[2]);
 }

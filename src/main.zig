@@ -6,4 +6,5 @@ pub fn main() !void {
 
 test {
     _ = @import("cpu/types.zig");
+    _ = @import("cpu/Mmu.zig");
 }
