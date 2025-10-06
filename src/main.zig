@@ -6,5 +6,7 @@ pub fn main() !void {
 
 test {
     _ = @import("core/Mmu.zig");
+    _ = @import("core/effective_address.zig");
     _ = @import("core/types.zig");
+    _ = @import("helpers.zig");
 }
