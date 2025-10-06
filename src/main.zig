@@ -5,6 +5,6 @@ pub fn main() !void {
 }
 
 test {
-    _ = @import("cpu/types.zig");
-    _ = @import("cpu/Mmu.zig");
+    _ = @import("core/Mmu.zig");
+    _ = @import("core/types.zig");
 }
