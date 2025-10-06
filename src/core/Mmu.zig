@@ -1,12 +1,14 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
+const OperandSize = @import("types.zig").OperandSize;
 
 const Mmu = @This();
 
 pub const Error = error{
     InvalidAddress,
     MemoryOverflow,
+    UnknownOperandSize,
 };
 
 pub const max_slot_size = 512 * 1024; // Each RAM slot has 512KB
@@ -87,6 +89,27 @@ pub fn writeBe32(self: *Mmu, addr: u32, long: u32) Error!void {
     bytes[1] = @truncate(long >> 16);
     bytes[2] = @truncate(long >> 8);
     bytes[3] = @truncate(long);
+}
+
+pub fn load(self: *Mmu, size: OperandSize, addr: u32) Error!u32 {
+    return switch (size) {
+        .byte, .word => blk: {
+            const word = try self.readBe16(addr);
+
+            break :blk if (size == .byte) (word & 0xff) else word;
+        },
+        .word => self.readBe32(addr),
+        .none => Error.UnknownOperandSize,
+    };
+}
+
+pub fn store(self: *Mmu, size: OperandSize, addr: u32, data: u32) Error!void {
+    switch (size) {
+        .byte => self.writeBe16(addr, @truncate(data & 0x00ff)),
+        .word => self.writeBe16(addr, @truncate(data & 0xffff)),
+        .long => self.writeBe32(addr, data),
+        .none => Error.UnknownOperandSize,
+    }
 }
 
 test "MMU" {
