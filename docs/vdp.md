@@ -3,7 +3,7 @@
 - Output: VGA-compatible
 - Chip: FPGA
 - Resolution: 640x480@60Hz
-- VRAM: Dedicated 128KB. (Not accessible directly the main CPU)
+- VRAM: Dedicated 128KB. (Not accessible directly by the main CPU)
 
 ---
 
@@ -63,7 +63,7 @@ Word 3:
 | X Position    | 10 bits  | 0-1023 horizontal; allows off-screen positioning |
 | Y Position    | 10 bits  | 0-1023 vertical                                  |
 | Tile Index    | 10 bits  | Index of the first tile; Up to 1024 tiles        |
-| Palete Index  |  3 bits  | Selects one of the 4 palettes in VRAM            |
+| Palete Index  |  3 bits  | Selects one of 8 palettes in VRAM                |
 | Size          | 2+2 bits | Selects sprite's width/height; HHxWW             |
 | Flip H/V      | 1+1 bits | On bit set, flips sprite horizontally/vertically |
 | Priority      |  2 bits  | Sprite Z-index relative to background layers     |
