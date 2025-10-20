@@ -4,6 +4,7 @@
 - Chip: FPGA
 - Resolution: 640x480@60Hz
 - VRAM: Dedicated 128KB. (Not accessible directly by the main CPU)
+- Interrupts: H-Blank and V-Blank, with line counting
 
 ---
 
@@ -12,6 +13,13 @@
 - 8 palettes of 16 colors
 - 12-bit RGB colors; 4096 possible combinations
 - Color `#0000` is not rendered; Transparent color
+
+--
+
+## Tiles
+
+- Are stored in 4bpp, with the maximum size of 8x8.
+- They can be combined into bigger ones either with sprites or metatiles.
 
 ---
 
@@ -24,7 +32,7 @@
 
 ### Sprite Attribute Object layout
 
-```
+```asm
 Word 0:
  F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
  V  .  v  h  W  W  x  x  x  x  x  x  x  x  x  x
@@ -81,7 +89,7 @@ Word 3:
 > Sprites with the same priority are ordered by first sprite in OAM
 > appearing in the front. Priority order relative to the background:
 >
-> ```
+> ```asm
 > | Front |
 >  Sprite -> Priority 0
 >   BG0
@@ -111,8 +119,9 @@ Word 3:
 |  00  | 4 Tiled  | `128; 8 x 16` |   1024x1024px   | 4 static                 |
 |  01  | 4 Tiled  | `128; 8 x 16` |   1024x1024px   | 2 static + 2 affine      |
 |  10  | 1 Bitmap |     `256`     | Up to 640x400px | 2/4/8bpp; not scrollable |
+|  11  | -------- |  -----------  | --------------- | Video blank              |
 
-> Mode 11 is reserved: Video Display must turn off if enabled
+> Mode 11 is reserved: Video Display is turned off if enabled
 
 > Affine transformation is applied on the top-left corner
 
@@ -123,12 +132,12 @@ Word 3:
 
 #### Tile Attribute Object layout
 
-```
+```asm
 Word 0:
  F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
  v  h  p  p  p  .  t  t  t  t  t  t  t  t  t  t
 
- t - tile index(0-1023)
+ t - tile index (0-1023)
  p - palette (0-7)
  h - flip horizontal
  v - flip vertical
@@ -150,6 +159,8 @@ Word 0:
 - Maximum of 32 unique entries
 - Size per matrix: 16-bits x 4 -> 64-bits = 8 bytes
 
+![](https://latex.codecogs.com/svg.image?%7B%5Ccolor%7BGray%7D%5Cbegin%7Bbmatrix%7DX_%7Bscreen%7D%5C%5CY_%7Bscreen%7D%5C%5C%5Cend%7Bbmatrix%7D=%5Cbegin%7Bbmatrix%7Da&b%5C%5Cc&d%5C%5C%5Cend%7Bbmatrix%7D%5Cbegin%7Bbmatrix%7Dx%5C%5Cy%5C%5C%5Cend%7Bbmatrix%7D-%5Cbegin%7Bbmatrix%7DO_X%5C%5CO_Y%5C%5C%5Cend%7Bbmatrix%7D%7D "Affine Formula")
+
 | Field | Notes                |
 | :---: | -------------------- |
 |   a   | H scale / cos(theta) |
@@ -157,16 +168,7 @@ Word 0:
 |   c   | V scale / sin(theta) |
 |   d   | V skew / cos(theta)  |
 
-$$
-\begin{bmatrix} X_{screen} \\ Y_{screen} \end{bmatrix} =
-\begin{bmatrix} a & b \\ c & d \end{bmatrix}
-\begin{bmatrix} x \\ y \end{bmatrix} -
-\begin{bmatrix} Ox \\ Oy \end{bmatrix}
-$$
-
-$$
-\begin{pmatrix} x & y \end{pmatrix} \rightarrow \text{Pixel local position} \\
-\begin{pmatrix} Ox & Oy \end{pmatrix}\rightarrow \text{Object's origin} \\
-$$
+> $\left[x   \; y   \right] \rightarrow \text{Pixel local position}$ <br>
+> $\left[O_X \; O_Y \right] \rightarrow \text{Object's origin position}$ <br>
 
 ---
