@@ -3,7 +3,7 @@
 &nbsp;&nbsp;&nbsp;&nbsp;A micro-computer inspired by the Atari ST and Amiga 500.
 
 &nbsp;&nbsp;&nbsp;&nbsp;The RBT-16 is a micro-computer designed to be an Atari STe and Amiga 500
-successor, not limited by their technology and history, but by we have
+successor, not limited by their technology and history, but by what we have
 and know today. The RBT-16 is a middle-term between 3 worlds: Atari,
 Commodore and IBM.<br>
 &nbsp;&nbsp;&nbsp;&nbsp;Our design goal is to have something fun and interesting to play and use.
