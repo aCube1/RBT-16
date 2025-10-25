@@ -15,7 +15,6 @@ Commodore and IBM.<br>
 - CPU: Motorola 68010 at ~8/12MHz
 - RAM: Shipped with 512KB of Static RAM. Eight SRAM slots of 512KB, up to 4MB max RAM
 - ROM: Base 512KB system ROM
-- Blitter: TODO!
 
 > CPU can be boosted by software up to 12MHz
 
@@ -35,35 +34,27 @@ Commodore and IBM.<br>
 - The RBT-16 is shipped with 512KB SRAM, but can expaned up to 4MB.
 - Memory is managed by a PMMU chip on board.
 
-|    Address Range    | Size  | Description                                           |
-| :-----------------: | :---: | ----------------------------------------------------- |
-| 0x00'0000-0x07'ffff | 512KB | Default 512KB RAM chip                                |
-| 0x08'0000-0x3f'ffff | 3.5MB | RAM Expansion slots; 7 slots of 512KB                 |
-| 0x40'0000-0xef'ffff | 11MB  | Reserved; Bus exception on access                     |
-| 0xf0'0000-0xf7'ffff | 512KB | BIOS + System OS/DOS                                  |
-| 0xf8'0000-0xf8'ffff | 64KB  | Video MMIO                                            |
-| 0xf9'0000-0xf9'ffff | 64KB  | Audio MMIO                                            |
-| 0xfa'0000-0xfa'ffff | 64KB  | I/O registers (Controllers, SD Card, Blitter, etc...) |
-| 0xfb'0000-0xff'ffff | 320KB | Reserved; Future expansion/Debug I/O                  |
+|    Address Range    | Size  | Description                                  |
+| :-----------------: | :---: | -------------------------------------------- |
+| 0x00'0000-0x07'ffff | 512KB | Default 512KB RAM chip                       |
+| 0x08'0000-0x3f'ffff | 3.5MB | RAM Expansion slots; 7 slots of 512KB        |
+| 0x40'0000-0xef'ffff | 11MB  | Reserved; Bus exception on access            |
+| 0xf0'0000-0xf7'ffff | 512KB | BIOS + System OS/DOS                         |
+| 0xf8'0000-0xf8'ffff | 64KB  | Video MMIO                                   |
+| 0xf9'0000-0xf9'ffff | 64KB  | Audio MMIO                                   |
+| 0xfa'0000-0xfa'ffff | 64KB  | I/O registers (Controllers, SD Card, etc...) |
+| 0xfb'0000-0xff'ffff | 320KB | Reserved; Future expansion/Debug I/O         |
 
 > Memory Map is subject to changes
 
 ### Chips references
 
 - [Video Display Processor](docs/vdp.md)
-
----
-
-### Audio: codename - Cibo
-
-- Output: 3.5mm stereo jack + 2 RCA stereo
-- APU: Custom FPGA
-- PSG: 4 square waves or noise channels
-- PCM: 4 sample channels; Sample rate 16-bits
+- [Audio Processor Unit](docs/apu.md)
 
 <!--
 NOTES:
-	(Outlaf) - CPU: Possibility to change CPU clock via software using custom wiring.
+	(uotlaf) - CPU: Possibility to change CPU clock via software using custom wiring.
 	(aCube) - RAM: Manager memory regions for each device, and how memory will be
 interacted by the program.
 	(aCube) - ROM: Decide how much ROM will be shipped for the Kernel.

@@ -6,7 +6,7 @@
 - VRAM: Dedicated 128KB. (Not accessible directly by the main CPU)
 - Interrupts: H-Blank and V-Blank, with line counting
 - Blitter: Fast memory operations and FX drawing.
-    - Copy/Move chunks of data from RAM->VRAM or VRAM->VRAM
+    - Copy/Move chunks of data from: RAM->VRAM, VRAM->VRAM, RAM->AUDIO
     - Primitive drawing: Lines, Triangles, Quads and Polygons
     - Polygons can have flat color or a texture
 
@@ -424,7 +424,7 @@ VDP_ADDR + 0x008a -> BLT_CTRL | R/W
     .  .  .  S  A  .  T  T  .  .  .  .  O  O  O  O
 
     [3:0]   O - OP -> Operation (0000: Copy, 0001: Fill, 0010: Pattern, 0011: Clear)
-    [9:8]   T - TYPE -> Transfer type (00: VRAM->VRAM, 01: RAM->VRAM, 10: RAM->Audio)
+    [9:8]   T - TYPE -> Transfer type (00: VRAM->VRAM, 01: RAM->VRAM)
     [11:11] A - ABORT -> Abort current blit (write-only)
     [12:12] S - START -> Start blit operation (write-only)
 
@@ -522,7 +522,7 @@ VDP_ADDR + 0x00fe -> VDP_BUILD_H | R
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     B  B  B  B  B  B  B  B  B  B  B  B  B  B  B  B
 
-    [31:0] B - Build hash identifier
+    [31:0] B - BUILD_HASH -> Build hash identifier
 ```
 
 <!--
