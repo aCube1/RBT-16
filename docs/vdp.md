@@ -239,8 +239,8 @@ VDP_ADDR + 0x0006 -> VDP_BACKDROP | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     .  .  .  .  r  r  r  r  g  g  g  g  b  b  b  b
 
-    [3:0]   b - BLUE -> Blue component (0-15)
-    [7:4]   g - GREEN -> Green component (0-15)
+    [3:0]  b - BLUE -> Blue component (0-15)
+    [7:4]  g - GREEN -> Green component (0-15)
     [11:8] r - RED -> Reg component (0-15)
 
 ; Backdrop color displayed where no layers are visible
@@ -252,17 +252,16 @@ VDP_ADDR + 0x0010 -> VDP_VRAM_ADDR_L | W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     a  a  a  a  a  a  a  a  a  a  a  a  a  a  a  a
 
-    [15:0] a - ADDR_LOW -> VRAM address low word
+    [15:0] a - ADDR_LOW -> VRAM address low word (VRAM_ADDR[15:0])
 
 VDP_ADDR + 0x0012 -> VDP_VRAM_ADDR_H | W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
-    .  .  .  D  i  i  i  i  a  a  a  a  a  a  a  a
+    .  .  s  D  i  i  i  i  .  .  .  .  .  .  .  a
 
-    [7:0]   a - ADDR_HI -> VRAM address high byte
+    [0:0]   a - ADDR_HI -> VRAM address high byte (VRAM_ADDR[16])
     [11:8]  i - INC_RATE -> Auto increment (0-15, see table below)
-    [12:12] D - DEC -> 1: decrement, 0: increment
-
-; Address beyond 0x1ffff mirror base within 128KB (ADDR[23:0])
+    [12:12] D - DECR -> 1: decrement, 0: increment
+    [13:13] s - SIZE -> 1: word, 0: byte
 
 ; auto-increment
 ; 0 -> 0     8 -> 128
@@ -290,7 +289,7 @@ VDP_ADDR + 0x0022 -> BG_TILE_BASE | R/W
 
     [15:0] a - TILE_ADDR -> Tileset base address (32-byte aligned)
 
-; VRAM_ADDR = TILE_BASE[16:5] << 5
+; VRAM_ADDR[16:5] = TILE_BASE
 
 VDP_ADDR + 0x0024 -> SPR_PALETTE_BASE | R/W
 VDP_ADDR + 0x0026 -> BG_PALETTE_BASE | R/W
@@ -299,7 +298,7 @@ VDP_ADDR + 0x0026 -> BG_PALETTE_BASE | R/W
 
     [15:0] a - PAL_ADDR -> Palette base address (256-byte aligned)
 
-; VRAM_ADDR = PAL_ADDR[16:8] << 8
+; VRAM_ADDR[16:8] = PAL_ADDR
 
 VDP_ADDR + 0x028 -> SPR_OAM_BASE | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
@@ -307,7 +306,7 @@ VDP_ADDR + 0x028 -> SPR_OAM_BASE | R/W
 
     [15:0] a - OAM_ADDR -> Sprite's OAM base address (32-byte aligned)
 
-; VRAM_ADDR = OAM_ADDR[16:5] << 5
+; VRAM_ADDR[16:5] = OAM_ADDR
 
 VDP_ADDR + 0x02a -> AFFINE_BASE | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
@@ -315,7 +314,7 @@ VDP_ADDR + 0x02a -> AFFINE_BASE | R/W
 
     [15:0] a - AFFINE_ADDR -> Affine matrices base address (64-byte aligned)
 
-; VRAM_ADDR = AFFINE_BASE[16:6] << 6
+; VRAM_ADDR[16:6] = AFFINE_BASE
 
 VDP_ADDR + 0x02c -> META_BASE | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
@@ -323,7 +322,7 @@ VDP_ADDR + 0x02c -> META_BASE | R/W
 
     [15:0] a - METATILE_ADDR -> Metatiles base address (128-byte aligned)
 
-; VRAM_ADDR = METATILE_BASE[16:7] << 7
+; VRAM_ADDR[16:7] = METATILE_BASE
 
 ;=====================================
 ; Background layer control (4 layers)
@@ -339,8 +338,7 @@ VDP_ADDR + 0x0036 -> BG3_CTRL | R/W
     [14:13] S - METASIZE -> Metatile size (00: 2x2, 01: 4x4, 10: 8x8)
     [15:15] E - ENABLE -> Layer enable
 
-; 128KB VRAM = 17-bit address, uses [16:8] for 32-byte alignment
-; VRAM_ADDR = TILE_BASE << 5
+; VRAM_ADDR[16:8] = MAP_BASE
 
 VDP_ADDR + 0x0040 -> BG0_SCROLL_X | R/W
 VDP_ADDR + 0x0042 -> BG0_SCROLL_Y | R/W
@@ -361,19 +359,20 @@ VDP_ADDR + 0x004e -> BG3_SCROLL_Y | R/W
 VDP_ADDR + 0x0050 -> BG0_AFFINE | R/W
 VDP_ADDR + 0x0052 -> BG1_AFFINE | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
-    e  .  .  .  .  .  .  .  .  .  .  f  f  f  f  f
+    a  .  .  .  .  .  .  .  .  .  .  A  A  A  A  A
 
-    [4:0]   f - AFFINE_IDX -> Index of the affine matrix (0-31)
-    [15:15] e - AFFINE_E -> Affine enable
+    [4:0]   A - AFFINE_IDX -> Index of the affine matrix (0-31)
+    [15:15] a - AFFINE_E -> Affine enable
 
 ;=====================
 ; Bitmap mode control
 ;=====================
 VDP_ADDR + 0x0060 -> BMP_CTRL | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
-    .  .  .  .  .  .  .  .  .  .  .  .  .  M  M  M
+    .  .  .  .  .  a  a  a  .  .  .  .  .  M  M  M
 
-    [2:0] M - BMP_MODE -> Bitmap Mode (0-7, see table below)
+    [2:0]  M - BMP_MODE -> Bitmap Mode (0-7, see table below)
+    [10:8] a - BMP_ADDR -> Bitmap base address (see alignment table below)
 
 ; Valid bitmap modes
 ; 000 -> 320x200x8    100 -> 640x200x2
@@ -381,15 +380,10 @@ VDP_ADDR + 0x0060 -> BMP_CTRL | R/W
 ; 010 -> 320x200x2    110 -> Invalid
 ; 011 -> 640x200x4    111 -> Invalid
 
-VDP_ADDR + 0x0062 -> BMP_BASE | R/W
-    F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
-    a  a  a  a  a  a  a  a  a  a  a  a  a  a  a  a
-
-    [15:0] a - BMP_ADDR -> Bitmap base address (see alignment table below)
-
-; 8bpp modes: 64KB alignment (BMP_ADDR[15:0])
-; 4bpp modes: 32KB alignment (BMP_ADDR[15:1])
-; 2bpp modes: 16KB alignment (BMP_ADDR[15:2])
+; Alignment
+; 8bpp modes: 64KB alignment (VRAM_ADDR[16:16] = BMP_ADDR[0:0])
+; 4bpp modes: 32KB alignment (VRAM_ADDR[16:15] = BMP_ADDR[1:0])
+; 2bpp modes: 16KB alignment (VRAM_ADDR[16:14] = BMP_ADDR[2:0])
 
 ;================
 ; Blitter Engine
@@ -427,7 +421,7 @@ VDP_ADDR + 0x0088 -> BLT_SIZE | W
 
 VDP_ADDR + 0x008a -> BLT_CTRL | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
-    .  .  .  S  A  T  T  T  .  .  .  .  O  O  O  O
+    .  .  .  S  A  .  T  T  .  .  .  .  O  O  O  O
 
     [3:0]   O - OP -> Operation (0000: Copy, 0001: Fill, 0010: Pattern, 0011: Clear)
     [9:8]   T - TYPE -> Transfer type (00: VRAM->VRAM, 01: RAM->VRAM, 10: RAM->Audio)
@@ -474,7 +468,7 @@ VDP_ADDR + 0x0094 -> FX_VERTEX_BASE | R/W
 
     [15:0] a - VERTEX_ADDR -> Vertex data base address (64-byte aligned)
 
-; VRAM_ADDR = VERTEX_ADDR[16:6] << 6
+; VRAM_ADDR[16:6] = VERTEX_ADDR
 
 VDP_ADDR + 0x0096 -> FX_TEX_BASE | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
@@ -482,7 +476,7 @@ VDP_ADDR + 0x0096 -> FX_TEX_BASE | R/W
 
     [15:0] a - TEX_ADDR -> Texture base address (32-byte aligned)
 
-; VRAM_ADDR = TEX_ADDR[16:5] << 5
+; VRAM_ADDR[16:5] = TEX_ADDR
 
 VDP_ADDR + 0x0098 -> FX_TEX_SIZE | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
