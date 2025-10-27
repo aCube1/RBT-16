@@ -1,8 +1,0 @@
-{
-    "$schema": "https://raw.githubusercontent.com/zigtools/zls/refs/heads/master/schema.json",
-    "enable_build_on_save": true,
-    "build_on_save_args": ["check", "test"],
-    "highlight_global_var_declarations": true,
-    "semantic_tokens": "partial",
-    "warn_style": true
-}

@@ -1,3 +1,6 @@
 # Directiories
-.zig-cache/
-zig-out/
+build/
+.cache/
+
+# Files
+assets/shaders/**/*.h
