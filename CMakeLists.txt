@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.24)
 project(
-    rbt
-    VERSION 0.1.0
-    LANGUAGES C
+				rbt
+				VERSION 0.1.0
+				LANGUAGES C
 )
 
 option(WARNINGS_AS_ERRORS "Treat compiler warnings as errors." ON)
@@ -20,29 +20,31 @@ enable_tools(${RBT_LIBCORE})
 
 # Enable code sanitizers
 if(ASAN_SANITIZER_FLAGS)
-    target_compile_options(${RBT_LIBCORE} PRIVATE ${ASAN_SANITIZER_FLAGS})
+	target_compile_options(${RBT_LIBCORE} PRIVATE ${ASAN_SANITIZER_FLAGS})
 endif()
 
 target_compile_features(
-    ${RBT_LIBCORE}
-    PRIVATE
-        c_std_23
+	${RBT_LIBCORE}
+	PRIVATE
+		c_std_23
 )
 
 target_sources(
-    ${RBT_LIBCORE}
-    PRIVATE
-        "src/log.c"
+	${RBT_LIBCORE}
+	PRIVATE
+		"src/cpu/register_types.c"
+		"src/helpers.c"
+		"src/log.c"
 )
 
 target_include_directories(
-    ${RBT_LIBCORE}
-    PUBLIC
-        "${CMAKE_SOURCE_DIR}/include"
-    PRIVATE
-        "${CMAKE_SOURCE_DIR}/src"
+	${RBT_LIBCORE}
+	PUBLIC
+		"${CMAKE_SOURCE_DIR}/include"
+	PRIVATE
+		"${CMAKE_SOURCE_DIR}/src"
 )
 
 if(BUILD_TESTS)
-    add_subdirectory("${CMAKE_SOURCE_DIR}/tests")
+	add_subdirectory("${CMAKE_SOURCE_DIR}/tests")
 endif()

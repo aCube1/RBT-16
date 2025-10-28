@@ -25,7 +25,7 @@ IndentExternBlock: NoIndent
 IndentGotoLabels: false
 IndentPPDirectives: AfterHash
 IndentWidth: 4
-InsertBraces: true
+InsertBraces: false
 InsertNewlineAtEOF: true
 KeepEmptyLines:
     AtEndOfFile: true

@@ -1,6 +1,4 @@
-// clang-format Language: C
-#ifndef _RBT_TYPES_H
-#define _RBT_TYPES_H
+#pragma once
 
 #include <stddef.h>
 #include <stdint.h>
@@ -19,5 +17,3 @@ typedef float f32;
 typedef double f64;
 
 typedef size_t usize;
-
-#endif

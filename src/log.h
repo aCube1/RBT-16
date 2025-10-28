@@ -1,5 +1,4 @@
-#ifndef _RBT_LOG_H
-#define _RBT_LOG_H
+#pragma once
 
 #include "rbt/basic_types.h"
 
@@ -22,5 +21,3 @@ enum {
 };
 
 void log_message(int level, const char *file, i32 line, const char *msg, ...);
-
-#endif
