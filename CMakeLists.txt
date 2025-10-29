@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.24)
 project(
-				rbt
-				VERSION 0.1.0
-				LANGUAGES C
+	rbt
+	VERSION 0.1.0
+	LANGUAGES C
 )
 
 option(WARNINGS_AS_ERRORS "Treat compiler warnings as errors." ON)
@@ -35,7 +35,6 @@ target_sources(
 		"src/cpu/effective_address.c"
 		"src/cpu/register_types.c"
 		"src/error.c"
-		"src/log.c"
 )
 
 target_include_directories(

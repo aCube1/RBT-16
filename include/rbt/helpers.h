@@ -19,7 +19,7 @@ typedef enum RBT_OperandSize {
 	case RBT_SIZE_LONG:
 		return value;
 	case RBT_SIZE_NONE:
-		rbt_errno = RBT_ERR_INVALID_SIZE;
+		rbt_push_error(RBT_ERR_DECODE_INVALID_OPERAND_SIZE, "Cannot truncate to None");
 		return 0;
 	}
 
@@ -35,7 +35,7 @@ typedef enum RBT_OperandSize {
 	case RBT_SIZE_LONG:
 		return value;
 	case RBT_SIZE_NONE:
-		rbt_errno = RBT_ERR_INVALID_SIZE;
+		rbt_push_error(RBT_ERR_DECODE_INVALID_OPERAND_SIZE, "Cannot write None size");
 		return 0;
 	}
 
@@ -51,7 +51,9 @@ typedef enum RBT_OperandSize {
 	case RBT_SIZE_LONG:
 		return value;
 	case RBT_SIZE_NONE:
-		rbt_errno = RBT_ERR_INVALID_SIZE;
+		rbt_push_error(
+			RBT_ERR_DECODE_INVALID_OPERAND_SIZE, "Cannot sign extend with size None"
+		);
 		return 0;
 	}
 

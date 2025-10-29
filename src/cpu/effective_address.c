@@ -14,7 +14,9 @@ bool rbt_indexext_from_word(u16 ext, RBT_IndexExtension *ix) {
 
 	ix->scale = (ext >> 8) & 0x03;
 	if (ix->scale) {
-		rbt_errno = RBT_ERR_INVALID_EXTENSION_WORD;
+		rbt_push_error(
+			RBT_ERR_DECODE_INVALID_ADDRESS_MODE, "Extesion word's scale bit is set"
+		);
 		return false;
 	}
 
