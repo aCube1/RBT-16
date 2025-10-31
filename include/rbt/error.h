@@ -7,24 +7,26 @@
 #define RBT_ERR_STACK_MAX	64
 #define RBT_ERR_MESSAGE_MAX 256
 
-#define rbt_push_info(...)                                                            \
-	rbt_err_push(                                                                     \
-		RBT_ERR_SUCCESS, RBT_ERR_INFO, __func__, __FILE_NAME__, __LINE__, __VA_ARGS__ \
+#define rbt_push_info(...)                                                     \
+	rbt_err_push(                                                              \
+		RBT_SEVERITY_INFO, RBT_ERR_SUCCESS, __func__, __FILE_NAME__, __LINE__, \
+		__VA_ARGS__                                                            \
 	)
-#define rbt_push_warn(...)                                                            \
-	rbt_err_push(                                                                     \
-		RBT_ERR_SUCCESS, RBT_ERR_WARN, __func__, __FILE_NAME__, __LINE__, __VA_ARGS__ \
+#define rbt_push_warn(...)                                                     \
+	rbt_err_push(                                                              \
+		RBT_SEVERITY_WARN, RBT_ERR_SUCCESS, __func__, __FILE_NAME__, __LINE__, \
+		__VA_ARGS__                                                            \
 	)
-#define rbt_push_error(code, ...)                                                     \
-	rbt_err_push(RBT_ERR_ERROR, code, __func__, __FILE_NAME__, __LINE__, __VA_ARGS__)
-#define rbt_push_fatal(code, ...)                                                     \
-	rbt_err_push(RBT_ERR_FATAL, code, __func__, __FILE_NAME__, __LINE__, __VA_ARGS__)
+#define rbt_push_error(code, ...) \
+	rbt_err_push(RBT_SEVERITY_ERROR, code, __func__, __FILE_NAME__, __LINE__, __VA_ARGS__)
+#define rbt_push_fatal(code, ...) \
+	rbt_err_push(RBT_SEVERITY_FATAL, code, __func__, __FILE_NAME__, __LINE__, __VA_ARGS__)
 
 typedef enum RBT_ErrorSeverity {
-	RBT_ERR_INFO,
-	RBT_ERR_WARN,
-	RBT_ERR_ERROR,
-	RBT_ERR_FATAL,
+	RBT_SEVERITY_INFO,
+	RBT_SEVERITY_WARN,
+	RBT_SEVERITY_ERROR,
+	RBT_SEVERITY_FATAL,
 } RBT_ErrorSeverity;
 
 typedef enum RBT_ErrorCode {
@@ -37,7 +39,10 @@ typedef enum RBT_ErrorCode {
 	// CPU errors (0x20-0x3f)
 
 	// Memory errors (0x40-0x5f)
-	RBT_ERR_MEM_MAPPING_FAILED = 0x40,
+	RBT_ERR_MEM_OUT_OF_BOUNDS = 0x40,
+	RBT_ERR_MEM_MAPPING_FAILED = 0x41,
+	RBT_ERR_MEM_PROTECTION_FAULT = 0x42,
+	RBT_ERR_MEM_PAGE_FAULT = 0x43,
 
 	// System/Platform errors (0xf0-0xff)
 	RBT_ERR_SYS_OUT_OF_MEMORY = 0xf0,

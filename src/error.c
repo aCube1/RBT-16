@@ -98,7 +98,7 @@ void rbt_err_flush(void) {
 		const char *sev_color = _severity_color[entry->severity];
 
 		fprintf(
-			out, "#%02zu - [%s] %s%s\x1b[0m (%#02X)\n", i,
+			out, "#%02zu - [%s] %s%s\x1b[0m (%#02x)\n", i,
 			timestamp_buf[0] ? timestamp_buf : "no-time", sev_color, sev_name, entry->code
 		);
 #ifndef NDEBUG
