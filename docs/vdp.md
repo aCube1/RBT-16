@@ -33,7 +33,7 @@
 ## Sprite system
 
 - Size: 8x8 up to 64x64 pixels
-- Affine fransform: Scale, Rotate, Skew
+- Affine transform: Scale, Rotate, Skew
 - Up to 96 sprites on screen
 - Sprite priority: Can be draw above or below backgrounds
 

@@ -19,3 +19,7 @@
 ---
 
 [^1] Paula FPGA: https://github.com/nonarkitten/amiga_replacement_project/blob/master/paula/Paula.v
+
+<!--
+	(YAN) - Use the YM2413 OPLL FM chip as the secondary audio chip
+-->

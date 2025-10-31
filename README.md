@@ -14,7 +14,7 @@ Commodore and IBM.<br>
 
 - CPU: Motorola 68010 at ~8/12MHz
 - RAM: Shipped with 512KB of Static RAM. Eight SRAM slots of 512KB, up to 4MB max RAM
-- ROM: Base 512KB system ROM
+- ROM: 512KB EEPROM; BIOS/Kernel
 
 > CPU can be boosted by software up to 12MHz
 
@@ -36,14 +36,14 @@ Commodore and IBM.<br>
 
 |    Address Range    | Size  | Description                                  |
 | :-----------------: | :---: | -------------------------------------------- |
-| 0x00'0000-0x07'ffff | 512KB | Default 512KB RAM chip                       |
-| 0x08'0000-0x3f'ffff | 3.5MB | RAM Expansion slots; 7 slots of 512KB        |
-| 0x40'0000-0xef'ffff | 11MB  | Reserved; Bus exception on access            |
-| 0xf0'0000-0xf7'ffff | 512KB | BIOS + System OS/DOS                         |
-| 0xf8'0000-0xf8'ffff | 64KB  | Video MMIO                                   |
-| 0xf9'0000-0xf9'ffff | 64KB  | Audio MMIO                                   |
+| 0x00'0000-0x07'ffff | 512KB | Default 512KB RAM chip (Slot 0)              |
+| 0x08'0000-0x3f'ffff | 3.5MB | RAM Expansion slots (Slots 1-7)              |
+| 0x40'0000-0xef'ffff | 11MB  | Reserved (Bus Error)                         |
+| 0xf0'0000-0xf7'ffff | 512KB | System ROM (BIOS/Kernel)                     |
+| 0xf8'0000-0xf8'ffff | 64KB  | Video MMIO (VDP)                             |
+| 0xf9'0000-0xf9'ffff | 64KB  | Audio MMIO (APU)                             |
 | 0xfa'0000-0xfa'ffff | 64KB  | I/O registers (Controllers, SD Card, etc...) |
-| 0xfb'0000-0xff'ffff | 320KB | Reserved; Future expansion/Debug I/O         |
+| 0xfb'0000-0xff'ffff | 320KB | Reserved / Debug I/O                         |
 
 > Memory Map is subject to changes
 
