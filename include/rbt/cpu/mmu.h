@@ -2,6 +2,7 @@
 
 #include "rbt/basic_types.h"
 #include "rbt/error.h"
+#include "rbt/helpers.h"
 
 enum {
 	RBT_MMU_SLOT_SIZE = 512 * 1024, // 512KB per RAM chip
@@ -61,3 +62,6 @@ u32 rbt_bus_read_long(RBT_MemoryBus *bus, u32 addr);
 void rbt_bus_write_byte(RBT_MemoryBus *bus, u32 addr, u8 byte);
 void rbt_bus_write_word(RBT_MemoryBus *bus, u32 addr, u16 word);
 void rbt_bus_write_long(RBT_MemoryBus *bus, u32 addr, u32 long_);
+
+u32 rbt_bus_load(RBT_MemoryBus *bus, RBT_OperandSize size, u32 addr);
+void rbt_bus_store(RBT_MemoryBus *bus, RBT_OperandSize size, u32 addr, u32 data);

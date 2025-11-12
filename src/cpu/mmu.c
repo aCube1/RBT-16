@@ -435,3 +435,31 @@ void rbt_bus_write_long(RBT_MemoryBus *bus, u32 addr, u32 long_) {
 		return;
 	rbt_bus_write_word(bus, addr + 2, long_ & 0xffff);
 }
+
+u32 rbt_bus_load(RBT_MemoryBus *bus, RBT_OperandSize size, u32 addr) {
+	switch (size) {
+	case RBT_SIZE_BYTE:
+		[[fallthrough]];
+	case RBT_SIZE_WORD: {
+		u16 word = rbt_bus_read_word(bus, addr);
+		return size == RBT_SIZE_BYTE ? (word & 0xff) : word;
+	}
+	case RBT_SIZE_LONG:
+		return rbt_bus_read_long(bus, addr);
+	default:
+		return 0;
+	}
+}
+
+void rbt_bus_store(RBT_MemoryBus *bus, RBT_OperandSize size, u32 addr, u32 data) {
+	switch (size) {
+	case RBT_SIZE_BYTE:
+		rbt_bus_write_byte(bus, addr, data & 0x00ff);
+	case RBT_SIZE_WORD:
+		rbt_bus_write_word(bus, addr, data & 0xffff);
+	case RBT_SIZE_LONG:
+		rbt_bus_write_long(bus, addr, data);
+	default:
+		break;
+	}
+}

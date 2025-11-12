@@ -117,3 +117,7 @@ void rbt_set_err_stream(FILE *stream) {
 	memset(&_err_ctx, 0, sizeof(struct RBT_ErrorContext));
 	_err_ctx.stream = stream;
 }
+
+const RBT_ErrorEntry *rbt_query_last_error(void) {
+	return &_err_ctx.stack[_err_ctx.stack_top - 1];
+}

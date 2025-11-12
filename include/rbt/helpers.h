@@ -10,7 +10,7 @@ typedef enum RBT_OperandSize {
 	RBT_SIZE_NONE = 0,
 } RBT_OperandSize;
 
-[[nodiscard]] inline u32 rbt_truncate(RBT_OperandSize size, u32 value) {
+[[nodiscard]] static inline u32 rbt_truncate(RBT_OperandSize size, u32 value) {
 	switch (size) {
 	case RBT_SIZE_BYTE:
 		return value & 0x000000ff;
@@ -19,14 +19,16 @@ typedef enum RBT_OperandSize {
 	case RBT_SIZE_LONG:
 		return value;
 	case RBT_SIZE_NONE:
-		rbt_push_error(RBT_ERR_DECODE_INVALID_OPERAND_SIZE, "Cannot truncate to None");
+		rbt_push_error(RBT_ERR_DECODE_INVALID_SIZE, "Cannot truncate value size");
 		return 0;
 	}
 
 	unreachable();
 }
 
-[[nodiscard]] inline u32 rbt_write_sized(RBT_OperandSize size, u32 data, u32 value) {
+[[nodiscard]] static inline u32 rbt_store_sized(
+	RBT_OperandSize size, u32 data, u32 value
+) {
 	switch (size) {
 	case RBT_SIZE_BYTE:
 		return (data & 0xffffff00) | (value & 0x000000ff);
@@ -35,14 +37,14 @@ typedef enum RBT_OperandSize {
 	case RBT_SIZE_LONG:
 		return value;
 	case RBT_SIZE_NONE:
-		rbt_push_error(RBT_ERR_DECODE_INVALID_OPERAND_SIZE, "Cannot write None size");
+		rbt_push_error(RBT_ERR_DECODE_INVALID_SIZE, "Cannot store without size");
 		return 0;
 	}
 
 	unreachable();
 }
 
-[[nodiscard]] inline i32 rbt_sign_extend(RBT_OperandSize from, u32 value) {
+[[nodiscard]] static inline i32 rbt_sign_extend(RBT_OperandSize from, u32 value) {
 	switch (from) {
 	case RBT_SIZE_BYTE:
 		return (i8)(value & 0xff);
@@ -51,9 +53,7 @@ typedef enum RBT_OperandSize {
 	case RBT_SIZE_LONG:
 		return value;
 	case RBT_SIZE_NONE:
-		rbt_push_error(
-			RBT_ERR_DECODE_INVALID_OPERAND_SIZE, "Cannot sign extend with size None"
-		);
+		rbt_push_error(RBT_ERR_DECODE_INVALID_SIZE, "Cannot sign extend without size");
 		return 0;
 	}
 
