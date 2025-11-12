@@ -3,6 +3,7 @@
 #include "rbt/basic_types.h"
 
 #include <stdio.h>
+#include <time.h>
 
 #define RBT_ERR_STACK_MAX	64
 #define RBT_ERR_MESSAGE_MAX 256
@@ -35,8 +36,8 @@ typedef enum RBT_ErrorCode {
 	RBT_ERR_INVALID_ARGS = 0x01,
 
 	// Decoding errors (0x10-0x1f)
-	RBT_ERR_DECODE_INVALID_OPERAND_SIZE = 0x10,
-	RBT_ERR_DECODE_INVALID_ADDRESS_MODE = 0x11,
+	RBT_ERR_DECODE_INVALID_SIZE = 0x10,
+	RBT_ERR_DECODE_INVALID_EA = 0x11,
 
 	// CPU errors (0x20-0x3f)
 
@@ -50,6 +51,16 @@ typedef enum RBT_ErrorCode {
 	RBT_ERR_SYS_IO = 0xf1,
 } RBT_ErrorCode;
 
+typedef struct RBT_ErrorEntry {
+	RBT_ErrorSeverity severity;
+	RBT_ErrorCode code;
+	const char *func;
+	const char *file;
+	u32 line;
+	time_t timestamp;
+	char msg[RBT_ERR_MESSAGE_MAX];
+} RBT_ErrorEntry;
+
 void rbt_err_push(
 	RBT_ErrorSeverity severity,
 	RBT_ErrorCode code,
@@ -62,3 +73,4 @@ void rbt_err_push(
 void rbt_err_flush(void);
 
 void rbt_set_err_stream(FILE *stream);
+const RBT_ErrorEntry *rbt_query_last_error(void);

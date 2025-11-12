@@ -4,24 +4,23 @@
 #include "rbt/helpers.h"
 
 #include <assert.h>
+#include <string.h>
 
 bool rbt_indexext_from_word(u16 ext, RBT_IndexExtension *ix) {
 	assert(ix);
 
 	// Brief Extension Word
-	//  F  | E D C |  B  |  A 9  | 8 | 7 6 5 4 3 2 1 0
-	// A/D |  REG  | W/L | SCALE | 0 |  DISPLACEMENT
+	//  F  | E D C |  B  | A 9 8 | 7 6 5 4 3 2 1 0
+	// A/D |  REG  | W/L | SCALE |  DISPLACEMENT
 
 	ix->scale = (ext >> 8) & 0x03;
 	if (ix->scale) {
-		rbt_push_error(
-			RBT_ERR_DECODE_INVALID_ADDRESS_MODE, "Extesion word's scale bit is set"
-		);
+		rbt_push_error(RBT_ERR_DECODE_INVALID_EA, "Extension word's scale bit is set");
 		return false;
 	}
 
-	ix->is_addr = ext & (1 >> 15);
-	ix->is_long = ext & (1 >> 11);
+	ix->is_addr = (ext >> 15) & 0x01;
+	ix->is_long = (ext >> 11) & 0x01;
 	ix->xreg = (ext >> 12) & 0x07;
 	ix->displacement = rbt_sign_extend(RBT_SIZE_BYTE, ext & 0xff);
 
@@ -42,4 +41,133 @@ u16 rbt_indexext_to_word(const RBT_IndexExtension *ix) {
 	word |= ix->displacement & 0xff;
 
 	return word;
+}
+
+bool rbt_decode_effective_address(
+	u8 mode,
+	u8 reg,
+	RBT_OperandSize size,
+	RBT_MemoryBus *bus,
+	u32 pc,
+	RBT_EffectiveAddress *ea
+) {
+	assert(bus);
+	assert(ea);
+
+	memset(ea, 0, sizeof(RBT_EffectiveAddress));
+	ea->size = size;
+	ea->start_pc = pc;
+
+	mode &= 0x07;
+	reg &= 0x07;
+
+	switch (mode) {
+	case 0b000: // Dn
+		ea->mode = RBT_DIRECT_DATA;
+		ea->dreg = reg;
+		break;
+	case 0b001: // An
+		ea->mode = RBT_DIRECT_ADDR;
+		ea->areg = reg;
+		break;
+	case 0b010: // (An)
+		ea->mode = RBT_INDIRECT;
+		ea->indirect = reg;
+		break;
+	case 0b011: // (An)+
+		ea->mode = RBT_INDIRECT_POSTINC;
+		ea->indirect = reg;
+		break;
+	case 0b100: // -(An)
+		ea->mode = RBT_INDIRECT_PREDEC;
+		ea->indirect = reg;
+		break;
+	case 0b101: { // (d16, An)
+		u16 disp = rbt_bus_read_word(bus, pc);
+		if (bus->error_code) {
+			goto decoding_error;
+		}
+
+		ea->mode = RBT_INDIRECT_DISPLACEMENT;
+		ea->words = 1;
+		ea->indirect_disp.areg = reg;
+		ea->indirect_disp.disp = rbt_sign_extend(RBT_SIZE_WORD, disp);
+	} break;
+	case 0b110: { // (d8, An, Xn)
+		u16 ext = rbt_bus_read_word(bus, pc);
+		if (bus->error_code) {
+			goto decoding_error;
+		}
+
+		ea->mode = RBT_INDIRECT_INDEXED;
+		ea->words = 1;
+		ea->indirect_indexed.areg = reg;
+		if (!rbt_indexext_from_word(ext, &ea->indirect_indexed.ix)) {
+			goto decoding_error;
+		}
+	} break;
+	case 0b111:
+		switch (reg) {
+		case 0b000: { // (xxx).w
+			u16 abs = rbt_bus_read_word(bus, pc);
+			if (bus->error_code) {
+				goto decoding_error;
+			}
+
+			ea->mode = RBT_ABSOLUTE_SHORT;
+			ea->words = 1;
+			ea->absolute_short = rbt_sign_extend(RBT_SIZE_WORD, abs);
+		} break;
+		case 0b001: { // (xxx).l
+			u32 abs = rbt_bus_read_long(bus, pc);
+			if (bus->error_code) {
+				goto decoding_error;
+			}
+
+			ea->mode = RBT_ABSOLUTE_LONG;
+			ea->words = 2;
+			ea->absolute_long = abs;
+		} break;
+		case 0b010: { // (d16, PC)
+			u16 disp = rbt_bus_read_word(bus, pc);
+			if (bus->error_code) {
+				goto decoding_error;
+			}
+
+			ea->mode = RBT_PC_DISPLACEMENT;
+			ea->words = 1;
+			ea->pc_disp = rbt_sign_extend(RBT_SIZE_WORD, disp);
+		} break;
+		case 0b011: { // (d8, PC, Xn)
+			u16 ext = rbt_bus_read_word(bus, pc);
+			if (bus->error_code) {
+				goto decoding_error;
+			}
+
+			ea->mode = RBT_PC_INDEXED;
+			ea->words = 1;
+			if (!rbt_indexext_from_word(ext, &ea->pc_indexed)) {
+				goto decoding_error;
+			}
+		} break;
+		case 0b100: { // #imm
+			ea->mode = RBT_IMMEDIATE;
+			ea->words = size == RBT_SIZE_LONG ? 2 : 1;
+			ea->imm = rbt_bus_load(bus, size, pc);
+			if (bus->error_code) {
+				goto decoding_error;
+			}
+		} break;
+		default:
+			goto decoding_error;
+		}
+	}
+
+	return true;
+
+decoding_error:
+	rbt_push_error(
+		RBT_ERR_DECODE_INVALID_EA, "Failed to decode effective address at: 0x%06x", pc
+	);
+	return false;
 }

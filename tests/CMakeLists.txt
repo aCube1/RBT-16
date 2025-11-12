@@ -45,9 +45,9 @@ function(add_test_executable test)
 endfunction()
 
 add_test_executable(
-	effective_address
+	test_ea
 	SOURCES
-		"src/cpu/effective_address.c"
+		"src/cpu/test_ea.c"
 )
 
 add_test_executable(
