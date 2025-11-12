@@ -258,7 +258,7 @@ VDP_ADDR + 0x0012 -> VDP_VRAM_ADDR_H | W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     .  .  s  D  i  i  i  i  .  .  .  .  .  .  .  a
 
-    [0:0]   a - ADDR_HI -> VRAM address high byte (VRAM_ADDR[16])
+    [0:0]   a - ADDR_HI -> VRAM address high bit (VRAM_ADDR[16])
     [11:8]  i - INC_RATE -> Auto increment (0-15, see table below)
     [12:12] D - DECR -> 1: decrement, 0: increment
     [13:13] s - SIZE -> 1: word, 0: byte
@@ -509,6 +509,7 @@ VDP_ADDR + 0x00f6 -> VDP_ID3 | R ; 0x0a ('\n')
 
     [63:0] i - ID -> Ascii text "GBE\n"
 
+; GBE stands to: Gravitational Beam Emitter from Blame!
 
 VDP_ADDR + 0x00f8 -> VDP_REV0 | R
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
@@ -517,8 +518,8 @@ VDP_ADDR + 0x00f8 -> VDP_REV0 | R
     [7:0]  m - VER_MAJOR -> Major revision
     [15:8] N - VER_MINOR -> Minor revision
 
-VDP_ADDR + 0x00fc -> VDP_BUILD_L | R
-VDP_ADDR + 0x00fe -> VDP_BUILD_H | R
+VDP_ADDR + 0x00fa -> VDP_BUILD_L | R
+VDP_ADDR + 0x00fb -> VDP_BUILD_H | R
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     B  B  B  B  B  B  B  B  B  B  B  B  B  B  B  B
 
