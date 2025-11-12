@@ -9,7 +9,7 @@
 #include <time.h>
 
 #ifndef __FILE_NAME__
-#	define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
+#	define __FILE_NAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #endif
 
 typedef struct RBT_ErrorEntry {

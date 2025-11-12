@@ -49,3 +49,9 @@ add_test_executable(
 	SOURCES
 		"src/cpu/effective_address.c"
 )
+
+add_test_executable(
+	test_mmu
+	SOURCES
+		"src/cpu/test_mmu.c"
+)

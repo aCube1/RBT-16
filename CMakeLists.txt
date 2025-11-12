@@ -33,6 +33,7 @@ target_sources(
 	${RBT_LIBCORE}
 	PRIVATE
 		"src/cpu/effective_address.c"
+		"src/cpu/mmu.c"
 		"src/cpu/register_types.c"
 		"src/error.c"
 )

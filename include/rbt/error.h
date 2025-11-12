@@ -30,22 +30,24 @@ typedef enum RBT_ErrorSeverity {
 } RBT_ErrorSeverity;
 
 typedef enum RBT_ErrorCode {
+	// Generic errors (0x00-0x0f)
 	RBT_ERR_SUCCESS = 0,
+	RBT_ERR_INVALID_ARGS = 0x01,
 
-	// Decoding errors (0x01-0x1f)
-	RBT_ERR_DECODE_INVALID_OPERAND_SIZE = 0x01,
-	RBT_ERR_DECODE_INVALID_ADDRESS_MODE = 0x02,
+	// Decoding errors (0x10-0x1f)
+	RBT_ERR_DECODE_INVALID_OPERAND_SIZE = 0x10,
+	RBT_ERR_DECODE_INVALID_ADDRESS_MODE = 0x11,
 
 	// CPU errors (0x20-0x3f)
 
 	// Memory errors (0x40-0x5f)
-	RBT_ERR_MEM_OUT_OF_BOUNDS = 0x40,
-	RBT_ERR_MEM_MAPPING_FAILED = 0x41,
-	RBT_ERR_MEM_PROTECTION_FAULT = 0x42,
-	RBT_ERR_MEM_PAGE_FAULT = 0x43,
+	RBT_ERR_MEM_BUS_ERROR = 0x40,
+	RBT_ERR_MEM_UNALIGNED = 0x41,
+	RBT_ERR_MEM_UNMAPPED_MMIO = 0x42,
 
 	// System/Platform errors (0xf0-0xff)
 	RBT_ERR_SYS_OUT_OF_MEMORY = 0xf0,
+	RBT_ERR_SYS_IO = 0xf1,
 } RBT_ErrorCode;
 
 void rbt_err_push(

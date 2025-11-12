@@ -45,6 +45,7 @@ Commodore and IBM.<br>
 | 0xfa'0000-0xfa'ffff | 64KB  | I/O registers (Controllers, SD Card, etc...) |
 | 0xfb'0000-0xff'ffff | 320KB | Reserved / Debug I/O                         |
 
+> RAM is mirrored on disabled expansion slots. It wraps around at invalid address range
 > Memory Map is subject to changes
 
 ### Chips references
@@ -55,6 +56,7 @@ Commodore and IBM.<br>
 <!--
 NOTES:
 	(uotlaf) - CPU: Possibility to change CPU clock via software using custom wiring.
+	(YAN) - CPU: Test clock frequencies stability.
 	(aCube) - RAM: Manager memory regions for each device, and how memory will be
 interacted by the program.
 	(aCube) - ROM: Decide how much ROM will be shipped for the Kernel.
