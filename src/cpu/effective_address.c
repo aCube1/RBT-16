@@ -89,18 +89,16 @@ bool rbt_decode_effective_address(
 		}
 
 		ea->mode = RBT_INDIRECT_DISPLACEMENT;
-		ea->words = 1;
 		ea->indirect_disp.areg = reg;
 		ea->indirect_disp.disp = rbt_sign_extend(RBT_SIZE_WORD, disp);
 	} break;
-	case 0b110: { // (d8, An, Xn)
+	case 0b110: { // (d8, Xi, An)
 		u16 ext = rbt_bus_read_word(bus, pc);
 		if (bus->error_code) {
 			goto decoding_error;
 		}
 
 		ea->mode = RBT_INDIRECT_INDEXED;
-		ea->words = 1;
 		ea->indirect_indexed.areg = reg;
 		if (!rbt_indexext_from_word(ext, &ea->indirect_indexed.ix)) {
 			goto decoding_error;
@@ -115,7 +113,6 @@ bool rbt_decode_effective_address(
 			}
 
 			ea->mode = RBT_ABSOLUTE_SHORT;
-			ea->words = 1;
 			ea->absolute_short = rbt_sign_extend(RBT_SIZE_WORD, abs);
 		} break;
 		case 0b001: { // (xxx).l
@@ -125,7 +122,6 @@ bool rbt_decode_effective_address(
 			}
 
 			ea->mode = RBT_ABSOLUTE_LONG;
-			ea->words = 2;
 			ea->absolute_long = abs;
 		} break;
 		case 0b010: { // (d16, PC)
@@ -135,24 +131,21 @@ bool rbt_decode_effective_address(
 			}
 
 			ea->mode = RBT_PC_DISPLACEMENT;
-			ea->words = 1;
 			ea->pc_disp = rbt_sign_extend(RBT_SIZE_WORD, disp);
 		} break;
-		case 0b011: { // (d8, PC, Xn)
+		case 0b011: { // (d8, Xi, PC)
 			u16 ext = rbt_bus_read_word(bus, pc);
 			if (bus->error_code) {
 				goto decoding_error;
 			}
 
 			ea->mode = RBT_PC_INDEXED;
-			ea->words = 1;
 			if (!rbt_indexext_from_word(ext, &ea->pc_indexed)) {
 				goto decoding_error;
 			}
 		} break;
 		case 0b100: { // #imm
 			ea->mode = RBT_IMMEDIATE;
-			ea->words = size == RBT_SIZE_LONG ? 2 : 1;
 			ea->imm = rbt_bus_load(bus, size, pc);
 			if (bus->error_code) {
 				goto decoding_error;

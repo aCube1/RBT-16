@@ -56,7 +56,6 @@ void test_decode_absolute_short_sign_extend(void) {
 	);
 	TEST_ASSERT_EQUAL(RBT_ABSOLUTE_SHORT, ea.mode);
 	TEST_ASSERT_EQUAL_INT32((int32_t)(int16_t)0xff00, ea.absolute_short);
-	TEST_ASSERT_EQUAL_UINT8(1, ea.words);
 }
 
 void test_decode_immediate_long(void) {
@@ -70,7 +69,6 @@ void test_decode_immediate_long(void) {
 	);
 	TEST_ASSERT_EQUAL(RBT_IMMEDIATE, ea.mode);
 	TEST_ASSERT_EQUAL_UINT32(imm, ea.imm);
-	TEST_ASSERT_EQUAL_UINT8(2, ea.words);
 }
 
 void test_decode_invalid_mode(void) {

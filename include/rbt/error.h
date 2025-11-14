@@ -38,6 +38,7 @@ typedef enum RBT_ErrorCode {
 	// Decoding errors (0x10-0x1f)
 	RBT_ERR_DECODE_INVALID_SIZE = 0x10,
 	RBT_ERR_DECODE_INVALID_EA = 0x11,
+	RBT_ERR_DECODE_ILLEGAL_OPCODE = 0x12,
 
 	// CPU errors (0x20-0x3f)
 

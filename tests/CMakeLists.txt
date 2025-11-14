@@ -55,3 +55,9 @@ add_test_executable(
 	SOURCES
 		"src/cpu/test_mmu.c"
 )
+
+add_test_executable(
+	test_decode
+	SOURCES
+		"src/cpu/test_decode.c"
+)

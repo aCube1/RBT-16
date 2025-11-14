@@ -11,11 +11,11 @@ typedef enum RBT_AddressMode {
 	RBT_INDIRECT_POSTINC,	   // mode:011, reg:An  | (An)+
 	RBT_INDIRECT_PREDEC,	   // mode:100, reg:An  | -(An)
 	RBT_INDIRECT_DISPLACEMENT, // mode:101, reg:An  | (d16, An)
-	RBT_INDIRECT_INDEXED,	   // mode:110, reg:An  | (d8, Xn, An)
+	RBT_INDIRECT_INDEXED,	   // mode:110, reg:An  | (d8, Xi, An)
 	RBT_ABSOLUTE_SHORT,		   // mode:111, reg:000 | (xxx).w
 	RBT_ABSOLUTE_LONG,		   // mode:111, reg:001 | (xxx).l
 	RBT_PC_DISPLACEMENT,	   // mode:111, reg:010 | (d16, PC)
-	RBT_PC_INDEXED,			   // mode:111, reg:011 | (d8, Xn, PC)
+	RBT_PC_INDEXED,			   // mode:111, reg:011 | (d8, Xi, PC)
 	RBT_IMMEDIATE,			   // mode:111, reg:100 | #imm
 } RBT_AddressMode;
 
@@ -41,7 +41,6 @@ typedef struct RBT_EffectiveAddress {
 	RBT_AddressMode mode;
 	RBT_OperandSize size;
 	u32 start_pc;
-	u8 words;
 
 	union {
 		u8 dreg;							  // EA = Dn
