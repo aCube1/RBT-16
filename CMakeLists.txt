@@ -19,8 +19,9 @@ set_default_warnings(${RBT_LIBCORE})
 enable_tools(${RBT_LIBCORE})
 
 # Enable code sanitizers
-if(ASAN_SANITIZER_FLAGS)
+if(ENABLE_SANITIZERS)
 	target_compile_options(${RBT_LIBCORE} PRIVATE ${ASAN_SANITIZER_FLAGS})
+	target_link_options(${RBT_LIBCORE} PRIVATE ${ASAN_SANITIZER_FLAGS})
 endif()
 
 target_compile_features(

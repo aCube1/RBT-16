@@ -25,26 +25,26 @@ static u8 _ea_to_words(const RBT_EffectiveAddress *ea, u16 *words) {
 	assert(words);
 
 	switch (ea->mode) {
-	case RBT_INDIRECT_DISPLACEMENT:
+	case RBT_EA_INDIRECT_DISPLACEMENT:
 		words[0] = ea->indirect_disp.disp & 0xffff;
 		return 1;
-	case RBT_INDIRECT_INDEXED:
+	case RBT_EA_INDIRECT_INDEXED:
 		words[0] = rbt_indexext_to_word(&ea->indirect_indexed.ix);
 		return 1;
-	case RBT_ABSOLUTE_SHORT:
+	case RBT_EA_ABSOLUTE_SHORT:
 		words[0] = ea->absolute_short & 0xffff;
 		return 1;
-	case RBT_ABSOLUTE_LONG:
+	case RBT_EA_ABSOLUTE_LONG:
 		words[0] = (ea->absolute_long >> 16) & 0xffff;
 		words[1] = ea->absolute_long & 0xffff;
 		return 2;
-	case RBT_PC_DISPLACEMENT:
+	case RBT_EA_PC_DISPLACEMENT:
 		words[0] = ea->pc_disp & 0xffff;
 		return 1;
-	case RBT_PC_INDEXED:
+	case RBT_EA_PC_INDEXED:
 		words[0] = rbt_indexext_to_word(&ea->pc_indexed);
 		return 1;
-	case RBT_IMMEDIATE:
+	case RBT_EA_IMMEDIATE:
 		if (ea->size == RBT_SIZE_LONG) {
 			words[0] = (ea->imm >> 16) & 0xffff;
 			words[1] = ea->imm & 0xffff;
@@ -117,25 +117,15 @@ static i32 _decode_bit(RBT_MemoryBus *bus, u16 opcode, RBT_Instruction *instr) {
 		return STATUS_ERR;
 	}
 
-	switch (instr->dst.ea.mode) {
-	case RBT_DIRECT_ADDR:
-		rbt_push_warn("Mode 'An' isn't allowed at: 0x%06x", instr->start_pc);
-		return STATUS_ILLEGAL;
-	case RBT_PC_DISPLACEMENT:
-	case RBT_PC_INDEXED:
-		if (instr->mnemonic == RBT_OP_BTST) {
-			break; // Only BTST have PC-relative modes
-		}
+	RBT_AddressClass ea_allowed = RBT_EA_CLASS_DREG | RBT_EA_CLASS_MEM | RBT_EA_CLASS_IND
+								| RBT_EA_CLASS_ABS | RBT_EA_CLASS_DSP | RBT_EA_CLASS_IDX;
+	if (instr->mnemonic == RBT_OP_BTST) {
+		ea_allowed |= RBT_EA_CLASS_PCR;
+	}
 
-		rbt_push_warn(
-			"Modes: '(d16,PC)/(d8,Xi,PC)' are not allowed at: 0x%06x", instr->start_pc
-		);
+	if ((instr->dst.ea.class & ea_allowed) != instr->dst.ea.class) {
+		rbt_push_warn("Invalid address mode at: 0x%06x", instr->start_pc);
 		return STATUS_ILLEGAL;
-	case RBT_IMMEDIATE:
-		rbt_push_warn("Immediate destination not allowed at: 0x%06x", instr->start_pc);
-		return STATUS_ILLEGAL;
-	default:
-		break;
 	}
 
 	u8 ea_word_count = _ea_to_words(&instr->dst.ea, &instr->words[instr->word_count]);
@@ -220,28 +210,15 @@ static i32 _decode_imm(RBT_MemoryBus *bus, u16 opcode, RBT_Instruction *instr) {
 		return STATUS_ERR;
 	}
 
-	switch (instr->dst.ea.mode) {
-	case RBT_DIRECT_ADDR:
-		rbt_push_warn(
-			"Mode 'An' isn't allowed for immediate op at: 0x%06x", instr->start_pc
-		);
-		return STATUS_ILLEGAL;
-	case RBT_PC_DISPLACEMENT:
-	case RBT_PC_INDEXED:
-		if (instr->mnemonic == RBT_OP_CMPI) {
-			break; // Only CMPI have PC-relative modes
-		}
+	RBT_AddressClass ea_allowed = RBT_EA_CLASS_DREG | RBT_EA_CLASS_MEM | RBT_EA_CLASS_IND
+								| RBT_EA_CLASS_ABS | RBT_EA_CLASS_DSP | RBT_EA_CLASS_IDX;
+	if (instr->mnemonic == RBT_OP_CMPI) {
+		ea_allowed |= RBT_EA_CLASS_PCR;
+	}
 
-		rbt_push_warn(
-			"Modes: '(d16,PC)/(d8,Xi,PC)' are not allowed for immediate op at: 0x%06x",
-			instr->start_pc
-		);
+	if ((instr->dst.ea.class & ea_allowed) != instr->dst.ea.class) {
+		rbt_push_warn("Invalid address mode at: 0x%06x", instr->start_pc);
 		return STATUS_ILLEGAL;
-	case RBT_IMMEDIATE:
-		rbt_push_warn("Immediate destination not allowed at: 0x%06x", instr->start_pc);
-		return STATUS_ILLEGAL;
-	default:
-		break;
 	}
 
 	u8 ea_word_count = _ea_to_words(&instr->dst.ea, &instr->words[instr->word_count]);

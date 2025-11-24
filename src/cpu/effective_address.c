@@ -6,6 +6,34 @@
 #include <assert.h>
 #include <string.h>
 
+static RBT_AddressClass _ea_class_from_mode(RBT_AddressMode mode) {
+	switch (mode) {
+	case RBT_EA_DIRECT_DATA:
+		return RBT_EA_CLASS_DREG;
+	case RBT_EA_DIRECT_ADDR:
+		return RBT_EA_CLASS_AREG;
+	case RBT_EA_INDIRECT:
+	case RBT_EA_INDIRECT_POSTINC:
+	case RBT_EA_INDIRECT_PREDEC:
+		return RBT_EA_CLASS_MEM | RBT_EA_CLASS_IND;
+	case RBT_EA_INDIRECT_DISPLACEMENT:
+		return RBT_EA_CLASS_MEM | RBT_EA_CLASS_IND | RBT_EA_CLASS_DSP;
+	case RBT_EA_INDIRECT_INDEXED:
+		return RBT_EA_CLASS_MEM | RBT_EA_CLASS_IND | RBT_EA_CLASS_DSP | RBT_EA_CLASS_IDX;
+	case RBT_EA_ABSOLUTE_SHORT:
+	case RBT_EA_ABSOLUTE_LONG:
+		return RBT_EA_CLASS_MEM | RBT_EA_CLASS_ABS;
+	case RBT_EA_PC_DISPLACEMENT:
+		return RBT_EA_CLASS_MEM | RBT_EA_CLASS_PCR | RBT_EA_CLASS_DSP;
+	case RBT_EA_PC_INDEXED:
+		return RBT_EA_CLASS_MEM | RBT_EA_CLASS_PCR | RBT_EA_CLASS_DSP | RBT_EA_CLASS_IDX;
+	case RBT_EA_IMMEDIATE:
+		return RBT_EA_CLASS_IMM;
+	}
+
+	return 0;
+}
+
 bool rbt_indexext_from_word(u16 ext, RBT_IndexExtension *ix) {
 	assert(ix);
 
@@ -63,23 +91,23 @@ bool rbt_decode_effective_address(
 
 	switch (mode) {
 	case 0b000: // Dn
-		ea->mode = RBT_DIRECT_DATA;
+		ea->mode = RBT_EA_DIRECT_DATA;
 		ea->dreg = reg;
 		break;
 	case 0b001: // An
-		ea->mode = RBT_DIRECT_ADDR;
+		ea->mode = RBT_EA_DIRECT_ADDR;
 		ea->areg = reg;
 		break;
 	case 0b010: // (An)
-		ea->mode = RBT_INDIRECT;
+		ea->mode = RBT_EA_INDIRECT;
 		ea->indirect = reg;
 		break;
 	case 0b011: // (An)+
-		ea->mode = RBT_INDIRECT_POSTINC;
+		ea->mode = RBT_EA_INDIRECT_POSTINC;
 		ea->indirect = reg;
 		break;
 	case 0b100: // -(An)
-		ea->mode = RBT_INDIRECT_PREDEC;
+		ea->mode = RBT_EA_INDIRECT_PREDEC;
 		ea->indirect = reg;
 		break;
 	case 0b101: { // (d16, An)
@@ -88,7 +116,7 @@ bool rbt_decode_effective_address(
 			goto decoding_error;
 		}
 
-		ea->mode = RBT_INDIRECT_DISPLACEMENT;
+		ea->mode = RBT_EA_INDIRECT_DISPLACEMENT;
 		ea->indirect_disp.areg = reg;
 		ea->indirect_disp.disp = rbt_sign_extend(RBT_SIZE_WORD, disp);
 	} break;
@@ -98,7 +126,7 @@ bool rbt_decode_effective_address(
 			goto decoding_error;
 		}
 
-		ea->mode = RBT_INDIRECT_INDEXED;
+		ea->mode = RBT_EA_INDIRECT_INDEXED;
 		ea->indirect_indexed.areg = reg;
 		if (!rbt_indexext_from_word(ext, &ea->indirect_indexed.ix)) {
 			goto decoding_error;
@@ -112,7 +140,7 @@ bool rbt_decode_effective_address(
 				goto decoding_error;
 			}
 
-			ea->mode = RBT_ABSOLUTE_SHORT;
+			ea->mode = RBT_EA_ABSOLUTE_SHORT;
 			ea->absolute_short = rbt_sign_extend(RBT_SIZE_WORD, abs);
 		} break;
 		case 0b001: { // (xxx).l
@@ -121,7 +149,7 @@ bool rbt_decode_effective_address(
 				goto decoding_error;
 			}
 
-			ea->mode = RBT_ABSOLUTE_LONG;
+			ea->mode = RBT_EA_ABSOLUTE_LONG;
 			ea->absolute_long = abs;
 		} break;
 		case 0b010: { // (d16, PC)
@@ -130,7 +158,7 @@ bool rbt_decode_effective_address(
 				goto decoding_error;
 			}
 
-			ea->mode = RBT_PC_DISPLACEMENT;
+			ea->mode = RBT_EA_PC_DISPLACEMENT;
 			ea->pc_disp = rbt_sign_extend(RBT_SIZE_WORD, disp);
 		} break;
 		case 0b011: { // (d8, Xi, PC)
@@ -139,13 +167,13 @@ bool rbt_decode_effective_address(
 				goto decoding_error;
 			}
 
-			ea->mode = RBT_PC_INDEXED;
+			ea->mode = RBT_EA_PC_INDEXED;
 			if (!rbt_indexext_from_word(ext, &ea->pc_indexed)) {
 				goto decoding_error;
 			}
 		} break;
 		case 0b100: { // #imm
-			ea->mode = RBT_IMMEDIATE;
+			ea->mode = RBT_EA_IMMEDIATE;
 			ea->imm = rbt_bus_load(bus, size, pc);
 			if (bus->error_code) {
 				goto decoding_error;
@@ -156,6 +184,7 @@ bool rbt_decode_effective_address(
 		}
 	}
 
+	ea->class = _ea_class_from_mode(ea->mode);
 	return true;
 
 decoding_error:

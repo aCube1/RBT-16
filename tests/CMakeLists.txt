@@ -34,6 +34,12 @@ function(add_test_executable test)
 	endif()
 	target_sources(${test} PRIVATE ${TEST_SOURCES})
 
+	# Enable code sanitizers
+	if(ENABLE_SANITIZERS)
+		target_compile_options(${test} PRIVATE ${ASAN_SANITIZER_FLAGS})
+		target_link_options(${test} PRIVATE ${ASAN_SANITIZER_FLAGS})
+	endif()
+
 	target_link_libraries(
 		${test}
 		PRIVATE

@@ -33,9 +33,9 @@ if(ENABLE_SANITIZERS AND (CMAKE_BUILD_TYPE STREQUAL "Debug"))
 	set(_SANITIZER_FLAGS -fno-omit-frame-pointer)
 
 	if (APPLE)
-		list(APPEND ${_SANITIZER_FLAGS} -fsanitize=address,undefined)
+		list(APPEND _SANITIZER_FLAGS -fsanitize=address,undefined)
 	else()
-		list(APPEND ${_SANITIZER_FLAGS} -fsanitize=address,undefined,leak)
+		list(APPEND _SANITIZER_FLAGS -fsanitize=address,undefined,leak)
 	endif()
 
 	set(

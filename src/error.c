@@ -12,16 +12,6 @@
 #	define __FILE_NAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #endif
 
-typedef struct RBT_ErrorEntry {
-	RBT_ErrorSeverity severity;
-	RBT_ErrorCode code;
-	const char *func;
-	const char *file;
-	u32 line;
-	time_t timestamp;
-	char msg[RBT_ERR_MESSAGE_MAX];
-} RBT_ErrorEntry;
-
 typedef struct RBT_ErrorContext {
 	usize stack_top;
 	RBT_ErrorEntry stack[RBT_ERR_STACK_MAX];
@@ -119,5 +109,8 @@ void rbt_set_err_stream(FILE *stream) {
 }
 
 const RBT_ErrorEntry *rbt_query_last_error(void) {
+	if (_err_ctx.stack_top == 0)
+		return nullptr;
+
 	return &_err_ctx.stack[_err_ctx.stack_top - 1];
 }
