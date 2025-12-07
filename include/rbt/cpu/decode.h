@@ -70,7 +70,11 @@ typedef enum RBT_OpMnemonic {
 	RBT_OP_LEA,
 	RBT_OP_LINK,
 	RBT_OP_LSL, RBT_OP_LSR,
-	RBT_OP_MOVE, RBT_OP_MOVEA, RBT_OP_MOVEM, RBT_OP_MOVEP, RBT_OP_MOVEQ,
+	RBT_OP_MOVE,
+	RBT_OP_MOVE_FROM_SR, RBT_OP_MOVE_FROM_CCR,
+	RBT_OP_MOVE_TO_SR,   RBT_OP_MOVE_TO_CCR,
+	RBT_OP_MOVE_USP,
+	RBT_OP_MOVEA, RBT_OP_MOVEM, RBT_OP_MOVEP, RBT_OP_MOVEQ,
 	RBT_OP_MULS, RBT_OP_MULU,
 	RBT_OP_NBCD,
 	RBT_OP_NEG, RBT_OP_NEGX,
@@ -98,16 +102,18 @@ typedef enum RBT_OpMnemonic {
 
 typedef enum RBT_OperandType {
 	RBT_OPERAND_NONE,
-	RBT_OPERAND_EA,		 // Effective Address
-	RBT_OPERAND_DREG,	 // Dn
-	RBT_OPERAND_AREG,	 // An
-	RBT_OPERAND_IMM,	 // #imm
-	RBT_OPERAND_DISP,	 // Displacement
-	RBT_OPERAND_REGLIST, // Register list mask for MOVEM
-	RBT_OPERAND_COND,	 // Branch condition code
-	RBT_OPERAND_VECTOR,	 // TRAP vector
-	RBT_OPERAND_CCR,	 // Condition code register
-	RBT_OPERAND_SR,		 // Status register
+	RBT_OPERAND_EA,		  // Effective Address
+	RBT_OPERAND_DREG,	  // Dn
+	RBT_OPERAND_AREG,	  // An
+	RBT_OPERAND_IMM,	  // #imm
+	RBT_OPERAND_DISP,	  // Displacement
+	RBT_OPERAND_INDIRECT, // Indirect displacement (d16, An)
+	RBT_OPERAND_REGLIST,  // MOVEM register list mask
+	RBT_OPERAND_COND,	  // Branch condition code
+	RBT_OPERAND_VECTOR,	  // TRAP vector
+	RBT_OPERAND_DIR,	  // Direction
+	RBT_OPERAND_CCR,	  // Condition code register
+	RBT_OPERAND_SR,		  // Status register
 } RBT_OperandType;
 
 typedef struct RBT_Operand {
@@ -117,9 +123,11 @@ typedef struct RBT_Operand {
 		u8 reg;
 		u32 imm;
 		i32 disp;
+		RBT_IndirectDisp indirect;
 		u16 reglist;
 		RBT_OpCondition cond;
 		u8 vector;
+		bool dir; // true: Left; false: Right
 	};
 } RBT_Operand;
 

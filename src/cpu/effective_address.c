@@ -41,15 +41,15 @@ bool rbt_indexext_from_word(u16 ext, RBT_IndexExtension *ix) {
 	//  F  | E D C |  B  | A 9 8 | 7 6 5 4 3 2 1 0
 	// A/D |  REG  | W/L | SCALE |  DISPLACEMENT
 
-	ix->scale = (ext >> 8) & 0x03;
+	ix->scale = rbt_bits(ext, 10, 8);
 	if (ix->scale) {
 		rbt_push_error(RBT_ERR_DECODE_INVALID_EA, "Extension word's scale bit is set");
 		return false;
 	}
 
-	ix->is_addr = (ext >> 15) & 0x01;
-	ix->is_long = (ext >> 11) & 0x01;
-	ix->xreg = (ext >> 12) & 0x07;
+	ix->is_addr = RBT_BIT(ext, 15);
+	ix->is_long = RBT_BIT(ext, 11);
+	ix->xreg = rbt_bits(ext, 12, 14);
 	ix->displacement = rbt_sign_extend(RBT_SIZE_BYTE, ext & 0xff);
 
 	return true;
@@ -71,7 +71,7 @@ u16 rbt_indexext_to_word(const RBT_IndexExtension *ix) {
 	return word;
 }
 
-bool rbt_decode_effective_address(
+u32 rbt_decode_effective_address(
 	u8 mode,
 	u8 reg,
 	RBT_OperandSize size,
@@ -89,6 +89,7 @@ bool rbt_decode_effective_address(
 	mode &= 0x07;
 	reg &= 0x07;
 
+	u32 bytes = 0;
 	switch (mode) {
 	case 0b000: // Dn
 		ea->mode = RBT_EA_DIRECT_DATA;
@@ -115,6 +116,7 @@ bool rbt_decode_effective_address(
 		if (bus->error_code) {
 			goto decoding_error;
 		}
+		bytes = 2;
 
 		ea->mode = RBT_EA_INDIRECT_DISPLACEMENT;
 		ea->indirect_disp.areg = reg;
@@ -125,6 +127,7 @@ bool rbt_decode_effective_address(
 		if (bus->error_code) {
 			goto decoding_error;
 		}
+		bytes = 2;
 
 		ea->mode = RBT_EA_INDIRECT_INDEXED;
 		ea->indirect_indexed.areg = reg;
@@ -139,6 +142,7 @@ bool rbt_decode_effective_address(
 			if (bus->error_code) {
 				goto decoding_error;
 			}
+			bytes = 2;
 
 			ea->mode = RBT_EA_ABSOLUTE_SHORT;
 			ea->absolute_short = rbt_sign_extend(RBT_SIZE_WORD, abs);
@@ -148,6 +152,7 @@ bool rbt_decode_effective_address(
 			if (bus->error_code) {
 				goto decoding_error;
 			}
+			bytes = 4;
 
 			ea->mode = RBT_EA_ABSOLUTE_LONG;
 			ea->absolute_long = abs;
@@ -157,6 +162,7 @@ bool rbt_decode_effective_address(
 			if (bus->error_code) {
 				goto decoding_error;
 			}
+			bytes = 2;
 
 			ea->mode = RBT_EA_PC_DISPLACEMENT;
 			ea->pc_disp = rbt_sign_extend(RBT_SIZE_WORD, disp);
@@ -166,6 +172,7 @@ bool rbt_decode_effective_address(
 			if (bus->error_code) {
 				goto decoding_error;
 			}
+			bytes = 2;
 
 			ea->mode = RBT_EA_PC_INDEXED;
 			if (!rbt_indexext_from_word(ext, &ea->pc_indexed)) {
@@ -178,6 +185,8 @@ bool rbt_decode_effective_address(
 			if (bus->error_code) {
 				goto decoding_error;
 			}
+
+			bytes = size;
 		} break;
 		default:
 			goto decoding_error;
@@ -185,11 +194,11 @@ bool rbt_decode_effective_address(
 	}
 
 	ea->class = _ea_class_from_mode(ea->mode);
-	return true;
+	return ea->start_pc + bytes;
 
 decoding_error:
 	rbt_push_error(
 		RBT_ERR_DECODE_INVALID_EA, "Failed to decode effective address at: 0x%06x", pc
 	);
-	return false;
+	return UINT32_MAX;
 }

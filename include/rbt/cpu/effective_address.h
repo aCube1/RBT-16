@@ -72,7 +72,8 @@ typedef struct RBT_EffectiveAddress {
 bool rbt_indexext_from_word(u16 ext, RBT_IndexExtension *ix);
 u16 rbt_indexext_to_word(const RBT_IndexExtension *ix);
 
-bool rbt_decode_effective_address(
+// return UINT32_MAX as an error
+u32 rbt_decode_effective_address(
 	u8 mode,
 	u8 reg,
 	RBT_OperandSize size,
