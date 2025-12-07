@@ -20,30 +20,28 @@ Commodore and IBM.<br>
 
 ### IO Connectors:
 
-- 4 x Expansion slots (Custom Bus)
 - 2 x SNES controllers
 - 2 x PS/2 mouse and keyboard ports
-- 1 x I2C port
 - 1 x SD Card slot
-- 2 x MIDI DIN 5-pin (IN/OUT)
 - 1 x 3.5mm audio jack
-- 2 x RCA Jacks (Stereo)
+- 2 x RCA Jacks (Mono)
+- 4 x Expansion slots (Custom Bus)
 
 ### RAM and Memory Map
 
 - The RBT-16 is shipped with 512KB SRAM, but can expaned up to 4MB.
 - Memory is managed by a PMMU chip on board.
 
-|    Address Range    | Size  | Description                                  |
-| :-----------------: | :---: | -------------------------------------------- |
-| 0x00'0000-0x07'ffff | 512KB | Default 512KB RAM chip (Slot 0)              |
-| 0x08'0000-0x3f'ffff | 3.5MB | RAM Expansion slots (Slots 1-7)              |
-| 0x40'0000-0xef'ffff | 11MB  | Reserved (Bus Error)                         |
-| 0xf0'0000-0xf7'ffff | 512KB | System ROM (BIOS/Kernel)                     |
-| 0xf8'0000-0xf8'ffff | 64KB  | Video MMIO (VDP)                             |
-| 0xf9'0000-0xf9'ffff | 64KB  | Audio MMIO (APU)                             |
-| 0xfa'0000-0xfa'ffff | 64KB  | I/O registers (Controllers, SD Card, etc...) |
-| 0xfb'0000-0xff'ffff | 320KB | Reserved / Debug I/O                         |
+|    Address Range    | Size  | Description                            |
+| :-----------------: | :---: | -------------------------------------- |
+| 0x00'0000-0x07'ffff | 512KB | Default 512KB RAM chip (Slot 0)        |
+| 0x08'0000-0x3f'ffff | 3.5MB | RAM Expansion slots (Slots 1-7)        |
+| 0x40'0000-0xef'ffff | 11MB  | Reserved (Bus Error)                   |
+| 0xf0'0000-0xf7'ffff | 512KB | System ROM (BIOS/Kernel)               |
+| 0xf8'0000-0xf8'ffff | 64KB  | Video MMIO (VDP)                       |
+| 0xf9'0000-0xf9'ffff | 64KB  | Audio RAM                              |
+| 0xfa'0000-0xfa'ffff | 64KB  | I/O registers (Cards, SD Card, etc...) |
+| 0xfb'0000-0xff'ffff | 320KB | Reserved / Debug I/O                   |
 
 > RAM is mirrored on disabled expansion slots. It wraps around at invalid address range
 > Memory Map is subject to changes
