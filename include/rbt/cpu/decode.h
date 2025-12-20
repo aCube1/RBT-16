@@ -71,9 +71,9 @@ typedef enum RBT_OpMnemonic {
 	RBT_OP_LINK,
 	RBT_OP_LSL, RBT_OP_LSR,
 	RBT_OP_MOVE,
-	RBT_OP_MOVE_FROM_SR, RBT_OP_MOVE_FROM_CCR,
-	RBT_OP_MOVE_TO_SR,   RBT_OP_MOVE_TO_CCR,
-	RBT_OP_MOVE_USP,
+	RBT_OP_MOVE_FR_CCR, RBT_OP_MOVE_FR_SR,
+	RBT_OP_MOVE_TO_CCR, RBT_OP_MOVE_TO_SR,
+	RBT_OP_MOVE_FR_USP, RBT_OP_MOVE_TO_USP,
 	RBT_OP_MOVEA, RBT_OP_MOVEM, RBT_OP_MOVEP, RBT_OP_MOVEQ,
 	RBT_OP_MULS, RBT_OP_MULU,
 	RBT_OP_NBCD,
@@ -112,8 +112,9 @@ typedef enum RBT_OperandType {
 	RBT_OPERAND_COND,	  // Branch condition code
 	RBT_OPERAND_VECTOR,	  // TRAP vector
 	RBT_OPERAND_DIR,	  // Direction
-	RBT_OPERAND_CCR,	  // Condition code register
-	RBT_OPERAND_SR,		  // Status register
+	// Implied registers
+	RBT_OPERAND_CCR,
+	RBT_OPERAND_SR,
 } RBT_OperandType;
 
 typedef struct RBT_Operand {
