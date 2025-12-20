@@ -202,3 +202,51 @@ decoding_error:
 	);
 	return UINT32_MAX;
 }
+
+u8 rbt_encode_effective_address(const RBT_EffectiveAddress *ea, u16 *words) {
+	assert(ea);
+
+	switch (ea->mode) {
+	case RBT_EA_INDIRECT_DISPLACEMENT:
+		if (words)
+			words[0] = ea->indirect_disp.disp & 0xffff;
+		return 1;
+	case RBT_EA_INDIRECT_INDEXED:
+		if (words)
+			words[0] = rbt_indexext_to_word(&ea->indirect_indexed.ix);
+		return 1;
+	case RBT_EA_ABSOLUTE_SHORT:
+		if (words)
+			words[0] = ea->absolute_short & 0xffff;
+		return 1;
+	case RBT_EA_ABSOLUTE_LONG:
+		if (words) {
+			words[0] = (ea->absolute_long >> 16) & 0xffff;
+			words[1] = ea->absolute_long & 0xffff;
+		}
+		return 2;
+	case RBT_EA_PC_DISPLACEMENT:
+		if (words)
+			words[0] = ea->pc_disp & 0xffff;
+		return 1;
+	case RBT_EA_PC_INDEXED:
+		if (words)
+			words[0] = rbt_indexext_to_word(&ea->pc_indexed);
+		return 1;
+	case RBT_EA_IMMEDIATE:
+		if (words) {
+			if (ea->size == RBT_SIZE_LONG) {
+				words[0] = (ea->imm >> 16) & 0xffff;
+				words[1] = ea->imm & 0xffff;
+			} else {
+				words[0] = ea->imm & 0xffff;
+			}
+		}
+
+		return ea->size == RBT_SIZE_LONG ? 2 : 1;
+	default:
+		break;
+	}
+
+	return 0;
+}

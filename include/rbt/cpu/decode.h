@@ -8,22 +8,22 @@ enum {
 };
 
 typedef enum RBT_OpGroup {
-	RBT_OPGROUP_BITMOVEPIMM, // 0b0000 | Bit Manipulation/MOVEP/Immediate
-	RBT_OPGROUP_MOVEBYTE,	 // 0b0001 | MOVE.b
-	RBT_OPGROUP_MOVELONG,	 // 0b0010 | MOVE.l
-	RBT_OPGROUP_MOVEWORD,	 // 0b0011 | MOVE.w
-	RBT_OPGROUP_MISC,		 // 0b0100 | Miscellaneous
-	RBT_OPGROUP_ADDQSUBQ,	 // 0b0101 | ADDQ/SUBQ/DBcc
-	RBT_OPGROUP_BRANCH,		 // 0b0110 | Bcc/BSR/BRA
-	RBT_OPGROUP_MOVEQ,		 // 0b0111 | MOVEQ
-	RBT_OPGROUP_ORDIV,		 // 0b1000 | OR/DIV/SBCD
-	RBT_OPGROUP_SUBSUBX,	 // 0b1001 | SUB/SUBX
-	RBT_OPGROUP_RESERVED,	 // 0b1010 | Reserved/Unassigned
-	RBT_OPGROUP_CMPEOR,		 // 0b1011 | CMP/EOR
-	RBT_OPGROUP_ANDMUL,		 // 0b1100 | AND/MUL/ABCD/EXG
-	RBT_OPGROUP_ADDADDX,	 // 0b1101 | ADD/ADDX
-	RBT_OPGROUP_SHIFT,		 // 0b1110 | Shift/Rotate/Bitfield
-	RBT_OPGROUP_EXTENSION,	 // 0b1111 | Extensions
+	RBT_OPGROUP_BITMOVEPIMM, // Bit/MOVEP/Immediate
+	RBT_OPGROUP_MOVEBYTE,	 // MOVE.b
+	RBT_OPGROUP_MOVELONG,	 // MOVE.l
+	RBT_OPGROUP_MOVEWORD,	 // MOVE.w
+	RBT_OPGROUP_MISC,		 // Miscellaneous
+	RBT_OPGROUP_ADDQSUBQ,	 // ADDQ/SUBQ/DBcc
+	RBT_OPGROUP_BRANCH,		 // Bcc/BSR/BRA
+	RBT_OPGROUP_MOVEQ,		 // MOVEQ
+	RBT_OPGROUP_ORDIV,		 // OR/DIV/SBCD
+	RBT_OPGROUP_SUBSUBX,	 // SUB/SUBX
+	RBT_OPGROUP_LINEA,		 // Reserved/Unassigned
+	RBT_OPGROUP_CMPEOR,		 // CMP/EOR
+	RBT_OPGROUP_ANDMUL,		 // AND/MUL/ABCD/EXG
+	RBT_OPGROUP_ADDADDX,	 // ADD/ADDX
+	RBT_OPGROUP_SHIFT,		 // Shift/Rotate/Bitfield
+	RBT_OPGROUP_LINEF,		 // Extensions
 } RBT_OpGroup;
 
 typedef enum RBT_OpCondition {
@@ -137,9 +137,9 @@ typedef struct RBT_Instruction {
 	u32 start_pc;
 	u8 len;
 
+	RBT_Operand aux;
 	RBT_Operand src;
 	RBT_Operand dst;
-	RBT_Operand aux;
 
 	// Raw instruction words (max: opcode + 15 extension words)
 	u16 words[RBT_MAX_INSTR_WORDS];

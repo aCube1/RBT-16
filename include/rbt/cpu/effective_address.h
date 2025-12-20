@@ -81,3 +81,6 @@ u32 rbt_decode_effective_address(
 	u32 pc,
 	RBT_EffectiveAddress *ea
 );
+
+// return words count or 0 if none
+u8 rbt_encode_effective_address(const RBT_EffectiveAddress *ea, u16 *words);
