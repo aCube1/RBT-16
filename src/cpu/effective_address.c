@@ -7,29 +7,32 @@
 #include <string.h>
 
 static RBT_AddressClass _ea_class_from_mode(RBT_AddressMode mode) {
+	// clang-format off
 	switch (mode) {
 	case RBT_EA_DIRECT_DATA:
 		return RBT_EA_CLASS_DREG;
 	case RBT_EA_DIRECT_ADDR:
 		return RBT_EA_CLASS_AREG;
 	case RBT_EA_INDIRECT:
+		return RBT_EA_CLASS_IND;
 	case RBT_EA_INDIRECT_POSTINC:
 	case RBT_EA_INDIRECT_PREDEC:
-		return RBT_EA_CLASS_MEM | RBT_EA_CLASS_IND;
+		return RBT_EA_CLASS_IND | RBT_EA_CLASS_REL;
 	case RBT_EA_INDIRECT_DISPLACEMENT:
-		return RBT_EA_CLASS_MEM | RBT_EA_CLASS_IND | RBT_EA_CLASS_DSP;
+		return RBT_EA_CLASS_IND | RBT_EA_CLASS_DSP;
 	case RBT_EA_INDIRECT_INDEXED:
-		return RBT_EA_CLASS_MEM | RBT_EA_CLASS_IND | RBT_EA_CLASS_DSP | RBT_EA_CLASS_IDX;
+		return  RBT_EA_CLASS_IND | RBT_EA_CLASS_DSP | RBT_EA_CLASS_IDX;
 	case RBT_EA_ABSOLUTE_SHORT:
 	case RBT_EA_ABSOLUTE_LONG:
-		return RBT_EA_CLASS_MEM | RBT_EA_CLASS_ABS;
+		return  RBT_EA_CLASS_ABS;
 	case RBT_EA_PC_DISPLACEMENT:
-		return RBT_EA_CLASS_MEM | RBT_EA_CLASS_PCR | RBT_EA_CLASS_DSP;
+		return  RBT_EA_CLASS_PCR | RBT_EA_CLASS_DSP;
 	case RBT_EA_PC_INDEXED:
-		return RBT_EA_CLASS_MEM | RBT_EA_CLASS_PCR | RBT_EA_CLASS_DSP | RBT_EA_CLASS_IDX;
+		return  RBT_EA_CLASS_PCR | RBT_EA_CLASS_DSP | RBT_EA_CLASS_IDX;
 	case RBT_EA_IMMEDIATE:
 		return RBT_EA_CLASS_IMM;
 	}
+	// clang-format on
 
 	return 0;
 }
@@ -188,8 +191,7 @@ u32 rbt_decode_effective_address(
 
 			bytes = size;
 		} break;
-		default:
-			goto decoding_error;
+		default: goto decoding_error;
 		}
 	}
 
@@ -244,8 +246,7 @@ u8 rbt_encode_effective_address(const RBT_EffectiveAddress *ea, u16 *words) {
 		}
 
 		return ea->size == RBT_SIZE_LONG ? 2 : 1;
-	default:
-		break;
+	default: break;
 	}
 
 	return 0;

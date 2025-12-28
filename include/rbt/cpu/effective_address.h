@@ -27,8 +27,8 @@ typedef enum RBT_AddressClass {
 	RBT_EA_CLASS_ABS = 1 << 4,	// (xxx).w / (xxx).l
 	RBT_EA_CLASS_PCR = 1 << 5,	// (d16, PC) / (d8, Xi, PC)
 	RBT_EA_CLASS_DSP = 1 << 6,	// (d16, An/PC) / (d8, Xi, An/PC)
-	RBT_EA_CLASS_MEM = 1 << 7,	// All, except REG and IMM
-	RBT_EA_CLASS_IMM = 1 << 8,	// #imm
+	RBT_EA_CLASS_IMM = 1 << 7,	// #imm
+	RBT_EA_CLASS_REL = 1 << 8,	// (An)+ / -(An)
 } RBT_AddressClass;
 
 typedef struct RBT_IndexExtension {

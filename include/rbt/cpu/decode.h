@@ -97,6 +97,9 @@ typedef enum RBT_OpMnemonic {
 
 	// M68010+
 	RBT_OP_BKPT, RBT_OP_MOVEC, RBT_OP_MOVES, RBT_OP_RTD,
+
+	// Unimplemeted lines
+	RBT_OP_LINEA, RBT_OP_LINEF,
 } RBT_OpMnemonic;
 // clang-format on
 
@@ -105,12 +108,9 @@ typedef enum RBT_OperandType {
 	RBT_OPERAND_EA,		  // Effective Address
 	RBT_OPERAND_DREG,	  // Dn
 	RBT_OPERAND_AREG,	  // An
-	RBT_OPERAND_IMM,	  // #imm
+	RBT_OPERAND_IMM,	  // Generic immediate data: #imm, reglist...
 	RBT_OPERAND_DISP,	  // Displacement
 	RBT_OPERAND_INDIRECT, // Indirect displacement (d16, An)
-	RBT_OPERAND_REGLIST,  // MOVEM register list mask
-	RBT_OPERAND_COND,	  // Branch condition code
-	RBT_OPERAND_VECTOR,	  // TRAP vector
 	RBT_OPERAND_DIR,	  // Direction
 	// Implied registers
 	RBT_OPERAND_CCR,
@@ -125,10 +125,7 @@ typedef struct RBT_Operand {
 		u32 imm;
 		i32 disp;
 		RBT_IndirectDisp indirect;
-		u16 reglist;
-		RBT_OpCondition cond;
-		u8 vector;
-		bool dir; // true: Left; false: Right
+		bool dir;
 	};
 } RBT_Operand;
 
@@ -147,4 +144,4 @@ typedef struct RBT_Instruction {
 	u8 word_count;
 } RBT_Instruction;
 
-bool rbt_decode_instruction(RBT_MemoryBus *bus, u32 pc, RBT_Instruction *instr);
+RBT_ErrorCode rbt_decode_instruction(RBT_MemoryBus *bus, u32 pc, RBT_Instruction *instr);
