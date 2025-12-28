@@ -380,8 +380,269 @@ static i32 _decode_move_reg(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		ea_invalid |= RBT_EA_CLASS_PCR | RBT_EA_CLASS_IMM;
 	}
 
-		);
+	if ((instr->aux.ea.mode & ea_invalid) != 0u) {
+		rbt_push_warn("MOVE <> SR/CCR: Illegal address mode at: 0x%06x", instr->start_pc);
+		return RBT_ERR_DECODE_ILLEGAL_EA;
 	}
+
+	return RBT_ERR_SUCCESS;
+}
+
+static i32 _decode_negx_clr_not(RBT_Instruction *instr, RBT_MemoryBus *bus) {
+	u16 opcode = instr->words[0];
+	u32 curr_pc = instr->start_pc + 2;
+
+	// NEGX: 0100 0000 SS MMMRRR [BWL]
+	// NEG:  0100 0100 SS MMMRRR [BWL]
+	// CLR:  0100 0010 SS MMMRRR [BWL]
+	// NOT:  0100 0110 SS MMMRRR [BWL]
+	u8 subgroup = _OP_SUBGROUP(opcode);
+	u8 size = _OP_SIZE(opcode);
+	u8 ea_mode = _OP_EA_MODE(opcode);
+	u8 ea_reg = _OP_EA_REG(opcode);
+
+	switch (subgroup) {
+	case 0b0000: instr->mnemonic = RBT_OP_NEGX; break;
+	case 0b0100: instr->mnemonic = RBT_OP_NEG; break;
+	case 0b0010: instr->mnemonic = RBT_OP_CLR; break;
+	case 0b0110: instr->mnemonic = RBT_OP_NOT; break;
+	default:
+		rbt_push_warn("MISC: Unknown opcode encoding at: %06x", instr->start_pc);
+		return RBT_ERR_DECODE_ILLEGAL;
+	}
+
+	instr->size = _decode_size(size);
+	enquatn instr->dst.type = RBT_OPERAND_EA;
+	curr_pc = rbt_decode_effective_address(
+		ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->dst.ea
+	);
+	if (curr_pc == UINT32_MAX) {
+		return RBT_ERR_DECODE_INVALID_EA;
+	}
+
+	// EA invalid: An, PC-relative, #imm
+	u16 ea_invalid = RBT_EA_DIRECT_ADDR | RBT_EA_IMMEDIATE | RBT_EA_GROUP_PCR;
+	if ((instr->dst.ea.mode & ea_invalid) != 0u) {
+		rbt_push_warn("MISC: Illegal address mode at: 0x%06x", instr->start_pc);
+		return RBT_ERR_DECODE_ILLEGAL_EA;
+	}
+
+	return RBT_ERR_SUCCESS;
+}
+
+static i32 _decode_ext_nbcd_swap_pea(RBT_Instruction *instr, RBT_MemoryBus *bus) {
+	u16 opcode = instr->words[0];
+	u32 curr_pc = instr->start_pc + 2;
+
+	// EXT:  0100 100 ooo 000DDD [.WL]
+	// NBCD: 0100 100 000 MMMRRR [B..]
+	// SWAP: 0100 100 001 000RRR [.W.]
+	// PEA:  0100 100 001 MMMRRR [..L]
+	u8 op = rbt_bits(opcode, 8, 6);
+	u8 ea_mode = _OP_EA_MODE(opcode);
+	u8 ea_reg = _OP_EA_REG(opcode);
+
+	if (RBT_BIT(op, 1)) {
+		instr->mnemonic = RBT_OP_EXT;
+		instr->size = RBT_BIT(opcode, 6) ? RBT_SIZE_WORD : RBT_SIZE_LONG;
+
+		instr->aux.type = RBT_OPERAND_DREG;
+		instr->aux.reg = ea_reg;
+
+		return RBT_ERR_SUCCESS;
+	}
+
+	if (op != 0b000 && op != 0b001) {
+		rbt_push_warn("MISC: Unknown opcode encoding at: %06x", instr->start_pc);
+		return RBT_ERR_DECODE_ILLEGAL;
+	}
+
+	if (op == 0b000) {
+		instr->mnemonic = RBT_OP_NBCD;
+		instr->size = RBT_SIZE_BYTE;
+
+		instr->dst.type = RBT_OPERAND_EA;
+		curr_pc = rbt_decode_effective_address(
+			ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->dst.ea
+		);
+		if (curr_pc == UINT32_MAX) {
+			return RBT_ERR_DECODE_INVALID_EA;
+		}
+
+		// EA invalid: An, #imm, PC-relative
+		u16 ea_invalid = RBT_EA_DIRECT_ADDR | RBT_EA_IMMEDIATE | RBT_EA_GROUP_PCR;
+		if ((instr->dst.ea.mode & ea_invalid) != 0u) {
+			rbt_push_warn(
+				"MISC - NBCD: Illegal address mode at: 0x%06x", instr->start_pc
+			);
+			return RBT_ERR_DECODE_ILLEGAL_EA;
+		}
+	}
+
+	if (op == 0b001) {
+		if (ea_mode == 0b000) {
+			instr->mnemonic = RBT_OP_SWAP;
+			instr->size = RBT_SIZE_WORD;
+
+			instr->dst.type = RBT_OPERAND_DREG;
+			instr->dst.reg = ea_reg;
+			return RBT_ERR_SUCCESS;
+		}
+
+		instr->mnemonic = RBT_OP_PEA;
+		instr->size = RBT_SIZE_LONG;
+
+		instr->src.type = RBT_OPERAND_EA;
+		curr_pc = rbt_decode_effective_address(
+			ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->src.ea
+		);
+		if (curr_pc == UINT32_MAX) {
+			return RBT_ERR_DECODE_INVALID_EA;
+		}
+
+		// EA invalid: Dn, An, #imm, PC-relative, (An)+, -(An)
+		u16 ea_invalid = RBT_EA_DIRECT_DATA | RBT_EA_DIRECT_ADDR | RBT_EA_GROUP_PCR
+					   | RBT_EA_GROUP_REL;
+
+		if ((instr->src.ea.mode & ea_invalid) != 0u) {
+			rbt_push_warn("MISC - PEA: Illegal address mode at: 0x%06x", instr->start_pc);
+			return RBT_ERR_DECODE_ILLEGAL_EA;
+		}
+	}
+
+	return RBT_ERR_SUCCESS;
+}
+
+static i32 _decode_misc(RBT_Instruction *instr, RBT_MemoryBus *bus) {
+	u16 opcode = instr->words[0];
+	u32 curr_pc = instr->start_pc + 2;
+
+	// JMP:   0100 1110 11 MMMRRR [...]
+	// JSR:   0100 1110 10 MMMRRR [...]
+	if (RBT_BIT(opcode, 7)) {
+		u8 ea_mode = _OP_EA_MODE(opcode);
+		u8 ea_reg = _OP_EA_REG(opcode);
+
+		instr->mnemonic = RBT_BIT(opcode, 6) ? RBT_OP_JMP : RBT_OP_JSR;
+		instr->size = RBT_SIZE_NONE;
+
+		instr->dst.type = RBT_OPERAND_EA;
+		curr_pc = rbt_decode_effective_address(
+			ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->dst.ea
+		);
+		if (curr_pc == UINT32_MAX) {
+			return RBT_ERR_DECODE_INVALID_EA;
+		}
+
+		// EA invalid: Dn, An, #imm, (An)+, -(An)
+		u16 ea_invalid = RBT_EA_DIRECT_DATA | RBT_EA_DIRECT_ADDR | RBT_EA_IMMEDIATE
+					   | RBT_EA_GROUP_REL;
+		if ((instr->dst.ea.mode & ea_invalid) != 0u) {
+			rbt_push_warn(
+				"MISC - JMP/JSR: Illegal address mode at: 0x%06x", instr->start_pc
+			);
+			return RBT_ERR_DECODE_ILLEGAL_EA;
+		}
+
+		return RBT_ERR_SUCCESS;
+	}
+
+	// TRAP:  0100 1110 0100 VVVV [...]
+	if (rbt_bits(opcode, 7, 4) == 0b0100) {
+		instr->mnemonic = RBT_OP_TRAP;
+		instr->size = RBT_SIZE_NONE;
+
+		instr->aux.type = RBT_OPERAND_IMM;
+		instr->aux.imm = rbt_bits(opcode, 3, 0);
+		return RBT_ERR_SUCCESS;
+	}
+
+	// UNLK:  0100 1110 0101 1RRR [...]
+	// LINK:  0100 1110 0101 0RRR [.W.]
+	//        Offset
+	if (rbt_bits(opcode, 7, 4) == 0b0101) {
+		instr->mnemonic = RBT_BIT(opcode, 3) ? RBT_OP_UNLK : RBT_OP_LINK;
+		if (instr->mnemonic == RBT_OP_LINK)
+			instr->size = RBT_SIZE_WORD;
+
+		instr->aux.type = RBT_OPERAND_AREG;
+		instr->aux.reg = rbt_bits(opcode, 2, 0);
+
+		return RBT_ERR_SUCCESS;
+	}
+
+	// MOVE to USP: 0100 1110 0110 0RRR [..L]
+	// MOVE fr USP: 0100 1110 0110 1RRR [..L]
+	if (rbt_bits(opcode, 11, 4) == 0xe6) {
+		instr->mnemonic = RBT_BIT(opcode, 3) ? RBT_OP_MOVE_FR_USP : RBT_OP_MOVE_TO_USP;
+		instr->size = RBT_SIZE_LONG;
+
+		instr->aux.type = RBT_OPERAND_AREG;
+		instr->aux.reg = rbt_bits(opcode, 2, 0);
+
+		return RBT_ERR_SUCCESS;
+	}
+
+	// MOVEC: 0100 1110 0111 101d [..L] (M68010+)
+	//        ARRR CTRL_REGISTER
+	if (rbt_bits(opcode, 7, 1) == 0x3d) {
+		u16 data = rbt_bus_read_word(bus, curr_pc);
+		if (bus->error_code) {
+			return bus->error_code;
+		}
+
+		instr->mnemonic = RBT_OP_MOVEC;
+		instr->size = RBT_SIZE_LONG;
+
+		instr->aux.type = RBT_OPERAND_DIR;
+		instr->aux.dir = RBT_BIT(opcode, 0);
+
+		instr->src.type = RBT_OPERAND_IMM;
+		instr->src.imm = data;
+		return RBT_ERR_SUCCESS;
+	}
+
+	// RESET: 0100 1110 0111 0000 [...]
+	// NOP:   0100 1110 0111 0001 [...]
+	// STOP:  0100 1110 0111 0010 [...]
+	//        Immediate
+	// RTE:   0100 1110 0111 0011 [...]
+	// RTD:   0100 1110 0111 0100 [...] (M68010+)
+	//        Offset
+	// RTS:   0100 1110 0111 0101 [...]
+	// TRAPV: 0100 1110 0111 0110 [...]
+	// RTR:   0100 1110 0111 0111 [...]
+	switch (rbt_bits(opcode, 3, 0)) {
+	case 0b000: instr->mnemonic = RBT_OP_RESET; break;
+	case 0b001: instr->mnemonic = RBT_OP_NOP; break;
+	case 0b010: instr->mnemonic = RBT_OP_STOP; break;
+	case 0b011: instr->mnemonic = RBT_OP_RTE; break;
+	case 0b100: instr->mnemonic = RBT_OP_RTD; break;
+	case 0b101: instr->mnemonic = RBT_OP_RTS; break;
+	case 0b110: instr->mnemonic = RBT_OP_TRAPV; break;
+	case 0b111: instr->mnemonic = RBT_OP_RTR; break;
+	default:	unreachable();
+	}
+
+	if (instr->mnemonic == RBT_OP_STOP) {
+		instr->aux.type = RBT_OPERAND_IMM;
+		instr->aux.imm = rbt_bus_read_word(bus, curr_pc);
+		if (bus->error_code) {
+			return bus->error_code;
+		}
+	}
+
+	if (instr->mnemonic == RBT_OP_RTD) {
+		u16 disp = rbt_bus_read_word(bus, curr_pc);
+		if (bus->error_code) {
+			return bus->error_code;
+		}
+
+		instr->aux.type = RBT_OPERAND_DISP;
+		instr->aux.disp = rbt_sign_extend(RBT_SIZE_WORD, disp);
+	}
+
+	return RBT_ERR_SUCCESS;
 }
 
 RBT_ErrorCode rbt_decode_instruction(RBT_MemoryBus *bus, u32 pc, RBT_Instruction *instr) {
@@ -437,6 +698,191 @@ RBT_ErrorCode rbt_decode_instruction(RBT_MemoryBus *bus, u32 pc, RBT_Instruction
 	case RBT_OPGROUP_MOVELONG:
 	case RBT_OPGROUP_MOVEWORD: {
 		status = _decode_move_movea(instr, bus);
+	} break;
+	case RBT_OPGROUP_MISC: {
+		// MOVE fr SR:  0100 000 011 MMMRRR [.W.]
+		// MOVE fr CCR: 0100 001 011 MMMRRR [.W.]
+		// MOVE to CCR: 0100 010 011 MMMRRR [.W.]
+		// MOVE to SR:  0100 011 011 MMMRRR [.W.]
+		if (rbt_bits(opcode, 8, 6) == 0b011 || rbt_bits(opcode, 11, 4) == 0xe6) {
+			status = _decode_move_reg(instr, bus);
+			break;
+		}
+
+		u8 subgroup = _OP_SUBGROUP(opcode);
+		if (subgroup == 0 || subgroup == 2 || subgroup == 4 || subgroup == 6) {
+			// We can check here, since An is an invalid EA mode in next opcodes
+			if (_OP_EA_MODE(opcode) == 0b001) {
+				// BKPT: 0100 100 001 001NNN [...] (M68010+)
+				instr->mnemonic = RBT_OP_BKPT;
+				instr->size = RBT_SIZE_NONE;
+				instr->aux.type = RBT_OPERAND_IMM;
+				instr->aux.imm = rbt_bits(opcode, 2, 0);
+				break;
+			}
+
+			// NEGX/CLR/NEG/NOT: 0100 TTT0 SS MMMRRR [BWL]
+			status = _decode_negx_clr_not(instr, bus);
+			break;
+		}
+
+		// EXT:  0100 100 ooo 000DDD [.WL]
+		// NBCD: 0100 100 000 MMMRRR [B..]
+		// SWAP: 0100 100 001 000RRR [.W.]
+		// PEA:  0100 100 001 MMMRRR [..L]
+		if (rbt_bits(opcode, 11, 9) == 0b100) {
+			status = _decode_ext_nbcd_swap_pea(instr, bus);
+			break;
+		}
+
+		// ILLEGAL: 0100 1010 1111 1100 [...]
+		// TAS:     0100 1010 11 MMMRRR [B..]
+		// TST:     0100 1010 SS MMMRRR [BWL]
+		if (_OP_SUBGROUP(opcode) == 0b1010) {
+			if (rbt_bits(opcode, 7, 0) == 0xfc) {
+				instr->mnemonic = RBT_OP_ILLEGAL; // >:3c
+				instr->size = RBT_SIZE_NONE;
+				break;
+			}
+
+			u8 size = _OP_SIZE(opcode);
+			u8 ea_mode = _OP_EA_MODE(opcode);
+			u8 ea_reg = _OP_EA_REG(opcode);
+			if (size == 0b11) {
+				instr->mnemonic = RBT_OP_TAS;
+				instr->size = RBT_SIZE_BYTE;
+			} else {
+				instr->mnemonic = RBT_OP_TST;
+				instr->size = _decode_size(size);
+			}
+
+			instr->dst.type = RBT_OPERAND_EA;
+			u32 new_pc = rbt_decode_effective_address(
+				ea_mode, ea_reg, instr->size, bus, instr->start_pc + 2, &instr->dst.ea
+			);
+			if (new_pc == UINT32_MAX) {
+				status = RBT_ERR_DECODE_INVALID_EA;
+				break;
+			}
+
+			// EA invalid: Dn, An, #imm, PC-relative(only TST)
+			u16 ea_invalid = RBT_EA_DIRECT_DATA | RBT_EA_DIRECT_ADDR | RBT_EA_IMMEDIATE;
+			if (instr->mnemonic == RBT_OP_TAS)
+				ea_invalid |= RBT_EA_GROUP_PCR;
+
+			if ((instr->dst.ea.mode & ea_invalid) != 0u) {
+				rbt_push_warn(
+					"MISC - TAS/TST: Illegal address mode at: 0x%06x", instr->start_pc
+				);
+				status = RBT_ERR_DECODE_ILLEGAL_EA;
+			}
+
+			break;
+		}
+
+		// TRAP:     0100 1110 0100 VVVV [...]
+		// UNLK:     0100 1110 0101 1RRR [...]
+		// LINK:     0100 1110 0101 0RRR [.W.]
+		//           Offset
+		// MOVE USP: 0100 1110 0110 dRRR [..L]
+		// RESET:    0100 1110 0111 0000 [...]
+		// NOP:      0100 1110 0111 0001 [...]
+		// STOP:     0100 1110 0111 0010 [...]
+		//           Immediate
+		// RTE:      0100 1110 0111 0011 [...]
+		// RTD:      0100 1110 0111 0100 [...] (M68010+)
+		//           Offset
+		// RTS:      0100 1110 0111 0101 [...]
+		// TRAPV:    0100 1110 0111 0110 [...]
+		// RTR:      0100 1110 0111 0111 [...]
+		// MOVEC:    0100 1110 0111 101d [..L] (M68010+)
+		//           ARRR CTRL_REGISTER
+		// JSR:      0100 1110 10 MMMRRR [...]
+		// JMP:      0100 1110 11 MMMRRR [...]
+		if (_OP_SUBGROUP(opcode) == 0b1110) {
+			status = _decode_misc(instr, bus);
+			break;
+		}
+
+		// LEA:   0100 AAA 111 MMMRRR [..L]
+		// CHK:   0100 DDD 110 MMMRRR [.W.]
+		if (RBT_BIT(opcode, 8)) {
+			if (_OP_SIZE(opcode) != 0b11 && _OP_SIZE(opcode) != 0b10) {
+				rbt_push_warn(
+					"MISC - LEA/CHK: Illegal encoding at: %06x", instr->start_pc
+				);
+				status = RBT_ERR_DECODE_ILLEGAL;
+				break;
+			}
+
+			u32 curr_pc = instr->start_pc + 2;
+			u8 ea_mode = _OP_EA_MODE(opcode);
+			u8 ea_reg = _OP_EA_REG(opcode);
+
+			instr->mnemonic = RBT_BIT(opcode, 6) ? RBT_OP_LEA : RBT_OP_CHK;
+			if (instr->mnemonic == RBT_OP_LEA)
+				instr->size = RBT_SIZE_LONG;
+			else
+				instr->size = RBT_SIZE_WORD;
+
+			instr->src.type = RBT_OPERAND_EA;
+			curr_pc = rbt_decode_effective_address(
+				ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->src.ea
+			);
+			if (curr_pc == UINT32_MAX) {
+				status = RBT_ERR_DECODE_INVALID_EA;
+				break;
+			}
+
+			// EA invalid: An, [Dn, (An)+, -(An), #imm](Only LEA)
+			u16 ea_invalid = RBT_EA_DIRECT_ADDR;
+			if (instr->mnemonic == RBT_OP_LEA)
+				ea_invalid |= RBT_EA_DIRECT_DATA | RBT_EA_IMMEDIATE | RBT_EA_GROUP_REL;
+
+			if ((instr->src.ea.mode & ea_invalid) != 0u) {
+				rbt_push_warn(
+					"MISC - LEA/CHK: Illegal address mode at: 0x%06x", instr->start_pc
+				);
+				status = RBT_ERR_DECODE_ILLEGAL_EA;
+			}
+
+			break;
+		}
+
+		// MOVEM: 0100 1d00 1s MMMRRR [.WL]
+		//        Register List Mask
+		u32 curr_pc = instr->start_pc + 2;
+		u8 ea_mode = _OP_EA_MODE(opcode);
+		u8 ea_reg = _OP_EA_REG(opcode);
+
+		instr->mnemonic = RBT_OP_MOVEM;
+		instr->size = RBT_BIT(opcode, 6) ? RBT_SIZE_LONG : RBT_SIZE_WORD;
+
+		instr->aux.type = RBT_OPERAND_IMM;
+		instr->aux.imm = rbt_bus_read_word(bus, curr_pc);
+		if (bus->error_code) {
+			status = bus->error_code;
+			break;
+		}
+		curr_pc += 2; // Skip auxiliar extension word
+
+		instr->src.type = RBT_OPERAND_EA;
+		curr_pc = rbt_decode_effective_address(
+			ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->src.ea
+		);
+		if (curr_pc == UINT32_MAX) {
+			status = RBT_ERR_DECODE_INVALID_EA;
+			break;
+		}
+
+		// EA invalid: Dn, An, (An)+, PC-relative, #imm
+		u16 ea_invalid = RBT_EA_DIRECT_DATA | RBT_EA_DIRECT_ADDR | RBT_EA_INDIRECT_POSTINC
+					   | RBT_EA_IMMEDIATE | RBT_EA_GROUP_PCR;
+		if ((instr->src.ea.mode & ea_invalid) != 0u) {
+			rbt_push_warn(
+				"MISC - LEA/CHK: Illegal address mode at: 0x%06x", instr->start_pc
+			);
+		}
 	} break;
 	case RBT_OPGROUP_ADDQSUBQ: break;
 	case RBT_OPGROUP_BRANCH:   break;
