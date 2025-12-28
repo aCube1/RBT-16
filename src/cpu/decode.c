@@ -1,5 +1,7 @@
 #include "rbt/cpu/decode.h"
 
+#include "rbt/cpu/effective_address.h"
+
 #include <assert.h>
 #include <string.h>
 
@@ -104,11 +106,11 @@ static RBT_ErrorCode _decode_bit(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	}
 
 	// EA invalid: An | PC-relative(if not BTST)
-	RBT_AddressClass invalid_ea = RBT_EA_CLASS_AREG;
+	u16 invalid_ea = RBT_EA_DIRECT_ADDR;
 	if (instr->mnemonic != RBT_OP_BTST)
-		invalid_ea |= RBT_EA_CLASS_PCR;
+		invalid_ea |= RBT_EA_GROUP_PCR;
 
-	if ((instr->dst.ea.class & invalid_ea) != 0u) {
+	if ((instr->dst.ea.mode & invalid_ea) != 0u) {
 		rbt_push_warn("BIT: Illegal address mode at: 0x%06x", instr->start_pc);
 		return RBT_ERR_DECODE_ILLEGAL_EA;
 	}
@@ -179,12 +181,12 @@ static i32 _decode_imm(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		return RBT_ERR_DECODE_INVALID_EA;
 	}
 
-	// EA invalid: An and PC-relative(if not CMPI)
-	RBT_AddressClass ea_invalid = RBT_EA_CLASS_AREG | RBT_EA_CLASS_IMM;
+	// EA invalid: An, #imm, PC-relative(if not CMPI)
+	u16 ea_invalid = RBT_EA_DIRECT_ADDR | RBT_EA_IMMEDIATE;
 	if (instr->mnemonic != RBT_OP_CMPI)
-		ea_invalid |= RBT_EA_CLASS_PCR;
+		ea_invalid |= RBT_EA_GROUP_PCR;
 
-	if ((instr->dst.ea.class & ea_invalid) != 0u) {
+	if ((instr->dst.ea.mode & ea_invalid) != 0u) {
 		rbt_push_warn("IMM: Illegal address mode at: 0x%06x", instr->start_pc);
 		return RBT_ERR_DECODE_ILLEGAL_EA;
 	}
@@ -204,7 +206,7 @@ static i32 _decode_moves_movep(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		// MOVEP: 0000 DDD1 OO 001RRR [.WL]
 		//        OFFSET
 		if (ea_mode != 0b001) {
-			rbt_push_warn("MOVEP: Invalid enconding at: 0x%06x", instr->start_pc);
+			rbt_push_warn("MOVEP: Invalid encoding at: 0x%06x", instr->start_pc);
 			return RBT_ERR_DECODE_ILLEGAL;
 		}
 		instr->mnemonic = RBT_OP_MOVEP;
@@ -236,7 +238,7 @@ static i32 _decode_moves_movep(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		// MOVES: 0000 1110 SS MMMRRR [BWL] (M68010+)
 		//        ARRR d000 0000 0000
 		if (rbt_bits(opcode, 11, 9) != 0b111) {
-			rbt_push_warn("MOVES: Invalid enconding at: 0x%06x", instr->start_pc);
+			rbt_push_warn("MOVES: Invalid encoding at: 0x%06x", instr->start_pc);
 			return RBT_ERR_DECODE_ILLEGAL;
 		}
 		instr->size = _OP_SIZE(opcode);
@@ -257,10 +259,10 @@ static i32 _decode_moves_movep(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 			return RBT_ERR_DECODE_INVALID_EA;
 		}
 
-		// EA invalid: Dn, An, PC-relative and Immediate
-		RBT_AddressClass ea_invalid = RBT_EA_CLASS_DREG | RBT_EA_CLASS_AREG
-									| RBT_EA_CLASS_PCR | RBT_EA_CLASS_IMM;
-		if ((instr->dst.ea.class & ea_invalid) != 0u) {
+		// EA invalid: Dn, An, #imm, PC-relative
+		u16 ea_invalid = RBT_EA_DIRECT_DATA | RBT_EA_DIRECT_ADDR | RBT_EA_IMMEDIATE
+					   | RBT_EA_GROUP_PCR;
+		if ((instr->dst.ea.mode & ea_invalid) != 0u) {
 			rbt_push_warn("MOVES: Illegal address mode at: 0x%06x", instr->start_pc);
 			return RBT_ERR_DECODE_ILLEGAL_EA;
 		}
@@ -311,7 +313,7 @@ static i32 _decode_move_movea(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 	if (instr->mnemonic == RBT_OP_MOVE) {
 		// EA invalid: #imm, PC-relative
-		if (instr->dst.ea.class & (RBT_EA_CLASS_IMM | RBT_EA_CLASS_PCR)) {
+		if (instr->dst.ea.mode & (RBT_EA_IMMEDIATE | RBT_EA_GROUP_PCR)) {
 			rbt_push_warn(
 				"MOVE: An and PC-relative modes are not allowed, at: 0x%06x",
 				instr->start_pc
@@ -345,7 +347,7 @@ static i32 _decode_move_reg(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	// MOVE to SR:  0100 011 011 MMMRRR [.W.]
 	if (rbt_bits(opcode, 8, 6) != 0b011) {
 		rbt_push_warn(
-			"MOVE <> SR/CCR: Invalid register enconding at: 0x%06x", instr->start_pc
+			"MOVE <> SR/CCR: Invalid register encoding at: 0x%06x", instr->start_pc
 		);
 		return RBT_ERR_DECODE_ILLEGAL;
 	}
@@ -372,13 +374,12 @@ static i32 _decode_move_reg(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		return RBT_ERR_DECODE_INVALID_EA;
 	}
 
-	// EA invalid: An
-	RBT_AddressClass ea_invalid = RBT_EA_CLASS_AREG;
+	// EA invalid: An, [#imm, PC-relative](if from CCR/SR)
+	u16 ea_invalid = RBT_EA_DIRECT_ADDR;
 	if (instr->mnemonic == RBT_OP_MOVE_FR_CCR || instr->mnemonic == RBT_OP_MOVE_FR_SR) {
 		ea_invalid |= RBT_EA_CLASS_PCR | RBT_EA_CLASS_IMM;
 	}
 
-	if ((instr->dst.ea.class & ea_invalid) != 0u) {
 		);
 	}
 }

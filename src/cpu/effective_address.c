@@ -6,37 +6,6 @@
 #include <assert.h>
 #include <string.h>
 
-static RBT_AddressClass _ea_class_from_mode(RBT_AddressMode mode) {
-	// clang-format off
-	switch (mode) {
-	case RBT_EA_DIRECT_DATA:
-		return RBT_EA_CLASS_DREG;
-	case RBT_EA_DIRECT_ADDR:
-		return RBT_EA_CLASS_AREG;
-	case RBT_EA_INDIRECT:
-		return RBT_EA_CLASS_IND;
-	case RBT_EA_INDIRECT_POSTINC:
-	case RBT_EA_INDIRECT_PREDEC:
-		return RBT_EA_CLASS_IND | RBT_EA_CLASS_REL;
-	case RBT_EA_INDIRECT_DISPLACEMENT:
-		return RBT_EA_CLASS_IND | RBT_EA_CLASS_DSP;
-	case RBT_EA_INDIRECT_INDEXED:
-		return  RBT_EA_CLASS_IND | RBT_EA_CLASS_DSP | RBT_EA_CLASS_IDX;
-	case RBT_EA_ABSOLUTE_SHORT:
-	case RBT_EA_ABSOLUTE_LONG:
-		return  RBT_EA_CLASS_ABS;
-	case RBT_EA_PC_DISPLACEMENT:
-		return  RBT_EA_CLASS_PCR | RBT_EA_CLASS_DSP;
-	case RBT_EA_PC_INDEXED:
-		return  RBT_EA_CLASS_PCR | RBT_EA_CLASS_DSP | RBT_EA_CLASS_IDX;
-	case RBT_EA_IMMEDIATE:
-		return RBT_EA_CLASS_IMM;
-	}
-	// clang-format on
-
-	return 0;
-}
-
 bool rbt_indexext_from_word(u16 ext, RBT_IndexExtension *ix) {
 	assert(ix);
 
@@ -195,7 +164,6 @@ u32 rbt_decode_effective_address(
 		}
 	}
 
-	ea->class = _ea_class_from_mode(ea->mode);
 	return ea->start_pc + bytes;
 
 decoding_error:
