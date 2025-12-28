@@ -377,7 +377,7 @@ static i32 _decode_move_reg(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	// EA invalid: An, [#imm, PC-relative](if from CCR/SR)
 	u16 ea_invalid = RBT_EA_DIRECT_ADDR;
 	if (instr->mnemonic == RBT_OP_MOVE_FR_CCR || instr->mnemonic == RBT_OP_MOVE_FR_SR) {
-		ea_invalid |= RBT_EA_CLASS_PCR | RBT_EA_CLASS_IMM;
+		ea_invalid |= RBT_EA_IMMEDIATE | RBT_EA_GROUP_PCR;
 	}
 
 	if ((instr->aux.ea.mode & ea_invalid) != 0u) {
@@ -412,7 +412,7 @@ static i32 _decode_negx_clr_not(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	}
 
 	instr->size = _decode_size(size);
-	enquatn instr->dst.type = RBT_OPERAND_EA;
+	instr->dst.type = RBT_OPERAND_EA;
 	curr_pc = rbt_decode_effective_address(
 		ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->dst.ea
 	);
@@ -595,7 +595,7 @@ static i32 _decode_misc(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		instr->size = RBT_SIZE_LONG;
 
 		instr->aux.type = RBT_OPERAND_DIR;
-		instr->aux.dir = RBT_BIT(opcode, 0);
+		instr->aux.dir = RBT_BIT(opcode, 0); // 0: Rc->Rn; 1: Rc<-Rn
 
 		instr->src.type = RBT_OPERAND_IMM;
 		instr->src.imm = data;
@@ -858,8 +858,11 @@ RBT_ErrorCode rbt_decode_instruction(RBT_MemoryBus *bus, u32 pc, RBT_Instruction
 		instr->mnemonic = RBT_OP_MOVEM;
 		instr->size = RBT_BIT(opcode, 6) ? RBT_SIZE_LONG : RBT_SIZE_WORD;
 
-		instr->aux.type = RBT_OPERAND_IMM;
-		instr->aux.imm = rbt_bus_read_word(bus, curr_pc);
+		instr->aux.type = RBT_OPERAND_DIR;
+		instr->aux.dir = RBT_BIT(opcode, 10) == 1u; // 0: reg->mem; 1: reg<-mem
+
+		instr->src.type = RBT_OPERAND_IMM;
+		instr->src.imm = rbt_bus_read_word(bus, curr_pc);
 		if (bus->error_code) {
 			status = bus->error_code;
 			break;
