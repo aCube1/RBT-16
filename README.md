@@ -24,13 +24,12 @@ Commodore and IBM.<br>
 - 2 x PS/2 mouse and keyboard ports
 - 1 x SD Card slot
 - 1 x 3.5mm audio jack
-- 2 x RCA Jacks (Mono)
+- 2 x RCA Jacks
 - 4 x Expansion slots (Custom Bus)
 
 ### RAM and Memory Map
 
 - The RBT-16 is shipped with 512KB SRAM, but can expaned up to 4MB.
-- Memory is managed by a PMMU chip on board.
 
 |    Address Range    | Size  | Description                            |
 | :-----------------: | :---: | -------------------------------------- |
