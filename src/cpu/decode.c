@@ -219,8 +219,8 @@ static i32 _decode_moves_movep(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		// OP-MODE:
 		//	100: word, mem->reg
 		//	101: long, mem->reg
-		//	110: word, mem<-reg
-		//	111: long, mem<-reg
+		//	110: word, reg->mem
+		//	111: long, reg->mem
 		u8 op = rbt_bits(opcode, 7, 6);
 		instr->size = RBT_BIT(op, 0);
 		instr->aux.type = RBT_OPERAND_DIR;
@@ -595,7 +595,7 @@ static i32 _decode_misc(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		instr->size = RBT_SIZE_LONG;
 
 		instr->aux.type = RBT_OPERAND_DIR;
-		instr->aux.dir = RBT_BIT(opcode, 0); // 0: Rc->Rn; 1: Rc<-Rn
+		instr->aux.dir = RBT_BIT(opcode, 0); // 0: Rc->Rn; 1: Rn->Rc
 
 		instr->src.type = RBT_OPERAND_IMM;
 		instr->src.imm = data;
@@ -650,7 +650,8 @@ RBT_ErrorCode rbt_decode_instruction(RBT_MemoryBus *bus, u32 pc, RBT_Instruction
 	assert(instr);
 
 	memset(instr, 0, sizeof(RBT_Instruction));
-	instr->start_pc = pc& 0xff'ffff; instr->word_count = 1;
+	instr->start_pc = pc & 0xff'ffff;
+	instr->word_count = 1;
 	instr->words[0] = rbt_bus_read_word(bus, instr->start_pc);
 	if (bus->error_code) {
 		rbt_push_error(RBT_ERR_MEM_BUS_ERROR, "Failed to fetch instruction word");
@@ -859,7 +860,7 @@ RBT_ErrorCode rbt_decode_instruction(RBT_MemoryBus *bus, u32 pc, RBT_Instruction
 		instr->size = RBT_BIT(opcode, 6) ? RBT_SIZE_LONG : RBT_SIZE_WORD;
 
 		instr->aux.type = RBT_OPERAND_DIR;
-		instr->aux.dir = RBT_BIT(opcode, 10) == 1u; // 0: reg->mem; 1: reg<-mem
+		instr->aux.dir = RBT_BIT(opcode, 10) == 1u; // 0: reg->mem; 1: mem->reg
 
 		instr->src.type = RBT_OPERAND_IMM;
 		instr->src.imm = rbt_bus_read_word(bus, curr_pc);
@@ -878,9 +879,15 @@ RBT_ErrorCode rbt_decode_instruction(RBT_MemoryBus *bus, u32 pc, RBT_Instruction
 			break;
 		}
 
-		// EA invalid: Dn, An, (An)+, PC-relative, #imm
-		u16 ea_invalid = RBT_EA_DIRECT_DATA | RBT_EA_DIRECT_ADDR | RBT_EA_INDIRECT_POSTINC
-					   | RBT_EA_IMMEDIATE | RBT_EA_GROUP_PCR;
+		// If reg->mem: EA invalid: Dn, An, (An)+, PC-relative, #imm
+		// If mem->reg: EA invalid: Dn, An, -(An), #imm
+		u16 ea_invalid = RBT_EA_DIRECT_DATA | RBT_EA_DIRECT_ADDR | RBT_EA_IMMEDIATE;
+		if (!instr->aux.dir) {
+			ea_invalid |= RBT_EA_INDIRECT_POSTINC | RBT_EA_GROUP_PCR;
+		} else {
+			ea_invalid |= RBT_EA_INDIRECT_PREDEC;
+		}
+
 		if ((instr->src.ea.mode & ea_invalid) != 0u) {
 			rbt_push_warn(
 				"MISC - LEA/CHK: Illegal address mode at: 0x%06x", instr->start_pc
