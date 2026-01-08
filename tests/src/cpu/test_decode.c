@@ -19,7 +19,7 @@ void tearDown(void) {
 void test_decode_static_btst(void) {
 	// BTST #5, (A0)
 	u16 words[] = {
-		0x0810, // 0000 100 0 00 010 000
+		0x0810, // 0000 1000 00 010 000
 		0x0005,
 	};
 
@@ -27,7 +27,7 @@ void test_decode_static_btst(void) {
 	rbt_bus_write_word(bus, pc + 2, words[1]);
 
 	RBT_Instruction instr;
-	TEST_ASSERT_TRUE(rbt_decode_instruction(bus, pc, &instr));
+	TEST_ASSERT_EQUAL(RBT_ERR_SUCCESS, rbt_decode_instruction(bus, pc, &instr));
 
 	TEST_ASSERT_EQUAL(RBT_OP_BTST, instr.mnemonic);
 	TEST_ASSERT_EQUAL(RBT_SIZE_BYTE, instr.size);
@@ -56,7 +56,7 @@ void test_decode_dynamic_bchg(void) {
 	rbt_bus_write_word(bus, pc + 2, words[1]);
 
 	RBT_Instruction instr;
-	TEST_ASSERT_TRUE(rbt_decode_instruction(bus, pc, &instr));
+	TEST_ASSERT_EQUAL(RBT_ERR_SUCCESS, rbt_decode_instruction(bus, pc, &instr));
 
 	TEST_ASSERT_EQUAL(RBT_OP_BCHG, instr.mnemonic);
 	TEST_ASSERT_EQUAL(RBT_SIZE_BYTE, instr.size);
@@ -88,7 +88,7 @@ void test_decode_static_bset(void) {
 	rbt_bus_write_word(bus, pc + 4, words[2]);
 
 	RBT_Instruction instr;
-	TEST_ASSERT_TRUE(rbt_decode_instruction(bus, pc, &instr));
+	TEST_ASSERT_EQUAL(RBT_ERR_SUCCESS, rbt_decode_instruction(bus, pc, &instr));
 
 	TEST_ASSERT_EQUAL(RBT_OP_BSET, instr.mnemonic);
 	TEST_ASSERT_EQUAL(RBT_SIZE_BYTE, instr.size);
@@ -117,15 +117,15 @@ void test_decode_illegal_ori(void) {
 	rbt_bus_write_word(bus, pc + 2, words[1]);
 
 	RBT_Instruction instr;
-	TEST_ASSERT_TRUE(rbt_decode_instruction(bus, pc, &instr));
+	TEST_ASSERT_EQUAL(RBT_ERR_DECODE_ILLEGAL_EA, rbt_decode_instruction(bus, pc, &instr));
 
-	TEST_ASSERT_EQUAL(RBT_OP_ILLEGAL, instr.mnemonic);
-	TEST_ASSERT_EQUAL(RBT_SIZE_NONE, instr.size);
+	TEST_ASSERT_EQUAL(RBT_OP_ORI, instr.mnemonic);
+	TEST_ASSERT_EQUAL(RBT_SIZE_BYTE, instr.size);
 
-	TEST_ASSERT_EQUAL(RBT_OPERAND_NONE, instr.src.type);
-	TEST_ASSERT_EQUAL(RBT_OPERAND_NONE, instr.dst.type);
+	TEST_ASSERT_EQUAL(RBT_OPERAND_IMM, instr.src.type);
+	TEST_ASSERT_EQUAL(RBT_OPERAND_EA, instr.dst.type);
 
-	TEST_ASSERT_EQUAL(1, instr.word_count);
+	TEST_ASSERT_EQUAL(2, instr.word_count);
 	TEST_ASSERT_EQUAL_HEX16_ARRAY(words, instr.words, 1);
 
 	pc += 4;
@@ -144,7 +144,7 @@ void test_decode_andi_w(void) {
 	rbt_bus_write_word(bus, pc + 4, words[2]);
 
 	RBT_Instruction instr;
-	TEST_ASSERT_TRUE(rbt_decode_instruction(bus, pc, &instr));
+	TEST_ASSERT_EQUAL(RBT_ERR_SUCCESS, rbt_decode_instruction(bus, pc, &instr));
 
 	TEST_ASSERT_EQUAL(RBT_OP_ANDI, instr.mnemonic);
 	TEST_ASSERT_EQUAL(RBT_SIZE_WORD, instr.size);

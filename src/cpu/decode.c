@@ -12,8 +12,8 @@
 #define _OP_SIZE(word) (rbt_bits((word), 7, 6))
 #define _OP_COND(word) (rbt_bits((word), 11, 8))
 
-#define _OP_EA_MODE(word) (rbt_bits((word), 0, 2))
-#define _OP_EA_REG(word)  (rbt_bits((word), 5, 3))
+#define _OP_EA_MODE(word) (rbt_bits((word), 5, 3))
+#define _OP_EA_REG(word)  (rbt_bits((word), 2, 0))
 
 #define _OP_MOVE_SRC_MODE(word) _OP_EA_MODE(word)
 #define _OP_MOVE_SRC_REG(word)	_OP_EA_REG(word)
@@ -80,7 +80,7 @@ static RBT_ErrorCode _decode_bit(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	case 0b11: instr->mnemonic = RBT_OP_BSET; break;
 	}
 
-	// Register operands are 32-bits, and memory operands are 8-bits
+	// Dn operand is 32-bits, and memory operands are 8-bits
 	instr->size = (ea_mode == 0b000) ? RBT_SIZE_LONG : RBT_SIZE_BYTE;
 
 	// Is dynamic?
@@ -664,7 +664,6 @@ RBT_ErrorCode rbt_decode_instruction(RBT_MemoryBus *bus, u32 pc, RBT_Instruction
 	RBT_OpGroup group = _OP_GROUP(opcode);
 	switch (group) {
 	case RBT_OPGROUP_BITMOVEPIMM: {
-		u16 opcode = instr->words[0];
 		u8 subgroup = _OP_SUBGROUP(opcode);
 
 		if (subgroup == 0x0e) {
