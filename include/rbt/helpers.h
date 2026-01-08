@@ -14,7 +14,7 @@ typedef enum RBT_OperandSize {
 	RBT_SIZE_NONE = 0,
 } RBT_OperandSize;
 
-[[nodiscard]] static inline u32 rbt_bits(u32 v, u8 hi, u8 lo) {
+[[nodiscard]] static inline u32 rbt_bits(u32 v, i32 hi, i32 lo) {
 	assert((hi >= lo) && "rbt_bits: High bit cannot be lower than low bit!");
 
 	u32 width = (hi - lo) + 1; // find how many bits we gonna use

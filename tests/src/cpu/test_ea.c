@@ -51,8 +51,8 @@ void test_decode_absolute_short_sign_extend(void) {
 	rbt_bus_write_word(bus, pc, word);
 
 	RBT_EffectiveAddress ea = { 0 };
-	TEST_ASSERT_TRUE(
-		rbt_decode_effective_address(0b111, 0b000, RBT_SIZE_WORD, bus, pc, &ea)
+	TEST_ASSERT_EQUAL(
+		pc + 2, rbt_decode_effective_address(0b111, 0b000, RBT_SIZE_WORD, bus, pc, &ea)
 	);
 	TEST_ASSERT_EQUAL(RBT_EA_ABSOLUTE_SHORT, ea.mode);
 	TEST_ASSERT_EQUAL_INT32((int32_t)(int16_t)0xff00, ea.absolute_short);
@@ -64,8 +64,8 @@ void test_decode_immediate_long(void) {
 	rbt_bus_write_long(bus, pc, imm);
 
 	RBT_EffectiveAddress ea = { 0 };
-	TEST_ASSERT_TRUE(
-		rbt_decode_effective_address(0b111, 0b100, RBT_SIZE_LONG, bus, pc, &ea)
+	TEST_ASSERT_EQUAL(
+		pc + 4, rbt_decode_effective_address(0b111, 0b100, RBT_SIZE_LONG, bus, pc, &ea)
 	);
 	TEST_ASSERT_EQUAL(RBT_EA_IMMEDIATE, ea.mode);
 	TEST_ASSERT_EQUAL_UINT32(imm, ea.imm);
@@ -73,8 +73,8 @@ void test_decode_immediate_long(void) {
 
 void test_decode_invalid_mode(void) {
 	RBT_EffectiveAddress ea = { 0 };
-	TEST_ASSERT_FALSE(
-		rbt_decode_effective_address(0b111, 0b111, RBT_SIZE_WORD, bus, 0, &ea)
+	TEST_ASSERT_EQUAL(
+		UINT32_MAX, rbt_decode_effective_address(0b111, 0b111, RBT_SIZE_WORD, bus, 0, &ea)
 	);
 	TEST_ASSERT_EQUAL(RBT_ERR_DECODE_INVALID_EA, rbt_query_last_error()->code);
 }

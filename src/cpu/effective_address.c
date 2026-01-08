@@ -21,7 +21,7 @@ bool rbt_indexext_from_word(u16 ext, RBT_IndexExtension *ix) {
 
 	ix->is_addr = RBT_BIT(ext, 15);
 	ix->is_long = RBT_BIT(ext, 11);
-	ix->xreg = rbt_bits(ext, 12, 14);
+	ix->xreg = rbt_bits(ext, 14, 12);
 	ix->displacement = rbt_sign_extend(RBT_SIZE_BYTE, ext & 0xff);
 
 	return true;
