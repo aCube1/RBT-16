@@ -17,7 +17,7 @@ RBT_MemoryBus *rbt_create_bus(u8 ram_slots) {
 	RBT_MemoryBus *bus = malloc(sizeof(RBT_MemoryBus));
 	if (!bus) {
 		rbt_push_fatal(RBT_ERR_SYS_OUT_OF_MEMORY, "Failed to allocate RBT_MemoryBus");
-		return nullptr;
+		goto error;
 	}
 	memset(bus, 0, sizeof(RBT_MemoryBus));
 
@@ -25,17 +25,26 @@ RBT_MemoryBus *rbt_create_bus(u8 ram_slots) {
 	bus->ram = malloc(bus->ram_size);
 	if (!bus->ram) {
 		rbt_push_fatal(RBT_ERR_SYS_OUT_OF_MEMORY, "Failed to allocate RAM");
-		rbt_destroy_bus(bus);
-		return nullptr;
+		goto error;
 	}
 
-	bus->rom_size = 0;
-	bus->rom = nullptr;
+	bus->rom = malloc(RBT_MMU_ROM_SIZE * sizeof(u8));
+	if (!bus->rom) {
+		rbt_push_fatal(RBT_ERR_SYS_OUT_OF_MEMORY, "Failed to allocate ROM memory area");
+		goto error;
+	}
+	memset(bus->rom, 0, RBT_MMU_ROM_SIZE * sizeof(u8));
 
 	bus->error_code = RBT_ERR_SUCCESS;
 	bus->last_error_addr = 0;
 
 	return bus;
+
+error:
+	if (bus)
+		rbt_destroy_bus(bus);
+
+	return nullptr;
 }
 
 void rbt_destroy_bus(RBT_MemoryBus *bus) {
@@ -60,7 +69,26 @@ void rbt_bus_reset(RBT_MemoryBus *bus) {
 	memset(bus->ram, 0, bus->ram_size);
 }
 
-bool rbt_bus_load_rom(RBT_MemoryBus *bus, const char *filename) {
+bool rbt_bus_init(RBT_MemoryBus *bus, usize size, const u8 *rom) {
+	assert(bus);
+
+	if (size == 0 || !rom) {
+		return false;
+	}
+
+	if (size > RBT_MMU_ROM_SIZE) {
+		rbt_push_warn("ROM truncated: size %zu exceeds max %u", size, RBT_MMU_ROM_SIZE);
+		size = RBT_MMU_ROM_SIZE;
+	}
+	memcpy(bus->rom, rom, size);
+
+	return true;
+}
+
+bool rbt_bus_init_from_file(RBT_MemoryBus *bus, const char *filename) {
+	assert(bus && bus->rom);
+	assert(filename);
+
 	FILE *file = fopen(filename, "rb");
 	if (!file) {
 		rbt_push_error(RBT_ERR_SYS_IO, "Failed to open ROM file at: %s", filename);
@@ -80,7 +108,8 @@ bool rbt_bus_load_rom(RBT_MemoryBus *bus, const char *filename) {
 		u8 *tmpbuf = realloc(rom, size + bytes_read);
 		if (!tmpbuf) {
 			rbt_push_fatal(RBT_ERR_SYS_OUT_OF_MEMORY, "Failed to allocate ROM buffer");
-			goto file_error;
+			fclose(file);
+			return false;
 		}
 
 		rom = tmpbuf;
@@ -90,32 +119,12 @@ bool rbt_bus_load_rom(RBT_MemoryBus *bus, const char *filename) {
 
 	if (ferror(file)) {
 		rbt_push_fatal(RBT_ERR_SYS_IO, "Unable to read ROM file: %s", filename);
-		goto file_error;
+		fclose(file);
+		return false;
 	}
+
 	fclose(file);
-
-	if (bus->rom) {
-		free(bus->rom);
-	}
-
-	bus->rom = rom;
-	bus->rom_size = size;
-
-	if (bus->rom_size > RBT_MMU_ROM_SIZE) {
-		rbt_push_warn(
-			"ROM truncated: size %zu exceeds max %u", bus->rom_size, RBT_MMU_ROM_SIZE
-		);
-		bus->rom_size = RBT_MMU_ROM_SIZE;
-	}
-
-	return true;
-
-file_error:
-	fclose(file);
-
-	if (rom)
-		free(rom);
-	return false;
+	return rbt_bus_init(bus, size, rom);
 }
 
 static inline bool _is_address_in_range(u32 addr, u32 start, u32 size) {
@@ -134,10 +143,9 @@ u8 rbt_bus_read_byte(RBT_MemoryBus *bus, u32 addr) {
 	}
 
 	// ROM region. Memory out of ROM size is read as zeroes
-	if (bus->rom && bus->rom_size
-		&& _is_address_in_range(addr, RBT_MMU_ROM_ADDR, RBT_MMU_ROM_SIZE)) {
+	if (bus->rom && _is_address_in_range(addr, RBT_MMU_ROM_ADDR, RBT_MMU_ROM_SIZE)) {
 		u32 offset = addr - RBT_MMU_ROM_ADDR;
-		return offset < bus->rom_size ? bus->rom[offset] : 0;
+		return bus->rom[offset];
 	}
 
 	// VDP MMIO device
@@ -209,14 +217,14 @@ u16 rbt_bus_read_word(RBT_MemoryBus *bus, u32 addr) {
 	}
 
 	// ROM region (Memory out of ROM size is read as zeroes)
-	if (bus->rom && bus->rom_size
-		&& _is_address_in_range(addr, RBT_MMU_ROM_ADDR, RBT_MMU_ROM_SIZE)) {
+	if (bus->rom && _is_address_in_range(addr, RBT_MMU_ROM_ADDR, RBT_MMU_ROM_SIZE)) {
 		u32 offset = addr - RBT_MMU_ROM_ADDR;
-		if (offset + 1 < bus->rom_size) {
-			return (bus->rom[offset] << 8) | bus->rom[offset + 1];
+		u16 word = bus->rom[offset] << 8;
+		if (offset + 1 < RBT_MMU_ROM_SIZE) {
+			word |= bus->rom[offset + 1];
 		}
 
-		return 0;
+		return word;
 	}
 
 	// VDP MMIO device
@@ -446,10 +454,8 @@ u32 rbt_bus_load(RBT_MemoryBus *bus, RBT_OperandSize size, u32 addr) {
 		u16 word = rbt_bus_read_word(bus, addr);
 		return size == RBT_SIZE_BYTE ? (word & 0xff) : word;
 	}
-	case RBT_SIZE_LONG:
-		return rbt_bus_read_long(bus, addr);
-	default:
-		return 0;
+	case RBT_SIZE_LONG: return rbt_bus_read_long(bus, addr);
+	default:			return 0;
 	}
 }
 

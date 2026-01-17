@@ -54,8 +54,8 @@ void test_load_empty_rom(void) {
 	TEST_ASSERT_NOT_NULL(tmp);
 	fclose(tmp);
 
-	TEST_ASSERT_TRUE(rbt_bus_load_rom(bus, "empty.rom"));
-	TEST_ASSERT_EQUAL_UINT(0, bus->rom_size);
+	TEST_ASSERT_FALSE(rbt_bus_init_from_file(bus, "empty.rom"));
+	TEST_ASSERT_NOT_NULL(bus->rom);
 
 	remove("empty.rom");
 	rbt_destroy_bus(bus);

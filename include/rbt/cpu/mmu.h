@@ -39,7 +39,6 @@ typedef struct RBT_MemoryBus {
 	usize ram_size;
 
 	u8 *rom; // 0xf0'0000-0xf7'ffff (512KB)
-	usize rom_size;
 
 	RBT_MMIODevice vdp;
 	RBT_MMIODevice apu;
@@ -53,7 +52,8 @@ RBT_MemoryBus *rbt_create_bus(u8 ram_slots);
 void rbt_destroy_bus(RBT_MemoryBus *bus);
 
 void rbt_bus_reset(RBT_MemoryBus *bus);
-bool rbt_bus_load_rom(RBT_MemoryBus *bus, const char *filename);
+bool rbt_bus_init(RBT_MemoryBus *bus, usize size, const u8 *rom);
+bool rbt_bus_init_from_file(RBT_MemoryBus *bus, const char *filename);
 
 u8 rbt_bus_read_byte(RBT_MemoryBus *bus, u32 addr);
 u16 rbt_bus_read_word(RBT_MemoryBus *bus, u32 addr);

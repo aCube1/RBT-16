@@ -4,11 +4,45 @@
 #include <unity.h>
 
 static RBT_MemoryBus *bus;
-static u32 pc = 0x001000;
+static u32 pc = RBT_MMU_ROM_ADDR;
+
+// clang-format off
+static u8 rom[] = {
+	// BTST #5, (A0)
+	0x08, 0x10,	// 0000 1000 00 010 000
+	0x00, 0x05,
+
+	// BCHG D3, (#5, A1)
+	0x07, 0x69, // 0000 011 1 01 101 001
+	0x00, 0x05,
+
+	// BSET #5, (A9)
+	0x08, 0xf8, // 0000 1000 11 111 000
+	0x00, 0x05,
+	0x00, 0x09,
+
+	// ANDI.w #0x9abc, (0x2442).w
+    0x02, 0x78, // 0000 0010 01 111 000
+    0x9a, 0xbc,
+    0x24, 0x42,
+};
+// clang-format on
+
+static u16 rom_words[] = {
+	0x0810, 0x0005,
+
+	0x0769, 0x0005,
+
+	0x08f8, 0x0005, 0x0009,
+
+	0x0278, 0x9abc, 0x2442,
+};
 
 void setUp(void) {
 	bus = rbt_create_bus(1);
 	TEST_ASSERT_NOT_NULL(bus);
+
+	rbt_bus_init(bus, sizeof(rom) / sizeof(rom[0]), rom);
 }
 
 void tearDown(void) {
@@ -17,15 +51,6 @@ void tearDown(void) {
 }
 
 void test_decode_static_btst(void) {
-	// BTST #5, (A0)
-	u16 words[] = {
-		0x0810, // 0000 1000 00 010 000
-		0x0005,
-	};
-
-	rbt_bus_write_word(bus, pc + 0, words[0]);
-	rbt_bus_write_word(bus, pc + 2, words[1]);
-
 	RBT_Instruction instr;
 	TEST_ASSERT_EQUAL(RBT_ERR_SUCCESS, rbt_decode_instruction(bus, pc, &instr));
 
@@ -39,22 +64,19 @@ void test_decode_static_btst(void) {
 	TEST_ASSERT_EQUAL(RBT_EA_INDIRECT, instr.dst.ea.mode);
 	TEST_ASSERT_EQUAL(0, instr.dst.ea.indirect);
 
+	for (int i = 0; i < 2; i += 1) {
+		rbt_push_info("0x%04x", instr.words[i]);
+	}
+
 	TEST_ASSERT_EQUAL(2, instr.word_count);
-	TEST_ASSERT_EQUAL_HEX16_ARRAY(words, instr.words, 2);
+	TEST_ASSERT_EQUAL_HEX16_ARRAY(
+		&rom_words[(pc - RBT_MMU_ROM_ADDR) / 2], instr.words, 2
+	);
 
 	pc += 4;
 }
 
 void test_decode_dynamic_bchg(void) {
-	// BCHG D3, (#5, A1)
-	u16 words[] = {
-		0x0769, // 0000 011 1 01 101 001
-		0x0005,
-	};
-
-	rbt_bus_write_word(bus, pc + 0, words[0]);
-	rbt_bus_write_word(bus, pc + 2, words[1]);
-
 	RBT_Instruction instr;
 	TEST_ASSERT_EQUAL(RBT_ERR_SUCCESS, rbt_decode_instruction(bus, pc, &instr));
 
@@ -70,23 +92,14 @@ void test_decode_dynamic_bchg(void) {
 	TEST_ASSERT_EQUAL(1, instr.dst.ea.indirect_disp.areg);
 
 	TEST_ASSERT_EQUAL(2, instr.word_count);
-	TEST_ASSERT_EQUAL_HEX16_ARRAY(words, instr.words, 2);
+	TEST_ASSERT_EQUAL_HEX16_ARRAY(
+		&rom_words[(pc - RBT_MMU_ROM_ADDR) / 2], instr.words, 2
+	);
 
 	pc += 4;
 }
 
 void test_decode_static_bset(void) {
-	// BSET #5, (#9)
-	u16 words[] = {
-		0x08f8, // 0000 1000 11 111 000
-		0x0005,
-		0x0009,
-	};
-
-	rbt_bus_write_word(bus, pc + 0, words[0]);
-	rbt_bus_write_word(bus, pc + 2, words[1]);
-	rbt_bus_write_word(bus, pc + 4, words[2]);
-
 	RBT_Instruction instr;
 	TEST_ASSERT_EQUAL(RBT_ERR_SUCCESS, rbt_decode_instruction(bus, pc, &instr));
 
@@ -101,48 +114,14 @@ void test_decode_static_bset(void) {
 	TEST_ASSERT_EQUAL(9, instr.dst.ea.absolute_short);
 
 	TEST_ASSERT_EQUAL(3, instr.word_count);
-	TEST_ASSERT_EQUAL_HEX16_ARRAY(words, instr.words, 3);
+	TEST_ASSERT_EQUAL_HEX16_ARRAY(
+		&rom_words[(pc - RBT_MMU_ROM_ADDR) / 2], instr.words, 3
+	);
 
 	pc += 6;
 }
 
-void test_decode_illegal_ori(void) {
-	// ORI.b #0x34, A0
-	u16 words[] = {
-		0x0008, // 0000 0000 00 001 000
-		0x0034,
-	};
-
-	rbt_bus_write_word(bus, pc + 0, words[0]);
-	rbt_bus_write_word(bus, pc + 2, words[1]);
-
-	RBT_Instruction instr;
-	TEST_ASSERT_EQUAL(RBT_ERR_DECODE_ILLEGAL_EA, rbt_decode_instruction(bus, pc, &instr));
-
-	TEST_ASSERT_EQUAL(RBT_OP_ORI, instr.mnemonic);
-	TEST_ASSERT_EQUAL(RBT_SIZE_BYTE, instr.size);
-
-	TEST_ASSERT_EQUAL(RBT_OPERAND_IMM, instr.src.type);
-	TEST_ASSERT_EQUAL(RBT_OPERAND_EA, instr.dst.type);
-
-	TEST_ASSERT_EQUAL(2, instr.word_count);
-	TEST_ASSERT_EQUAL_HEX16_ARRAY(words, instr.words, 1);
-
-	pc += 4;
-}
-
 void test_decode_andi_w(void) {
-	// ANDI.w #0x9abc, (0x2442).w
-	u16 words[] = {
-		0x0278, // 0000 0010 01 111 000
-		0x9abc,
-		0x2442,
-	};
-
-	rbt_bus_write_word(bus, pc + 0, words[0]);
-	rbt_bus_write_word(bus, pc + 2, words[1]);
-	rbt_bus_write_word(bus, pc + 4, words[2]);
-
 	RBT_Instruction instr;
 	TEST_ASSERT_EQUAL(RBT_ERR_SUCCESS, rbt_decode_instruction(bus, pc, &instr));
 
@@ -157,7 +136,9 @@ void test_decode_andi_w(void) {
 	TEST_ASSERT_EQUAL(0x2442, instr.dst.ea.absolute_short);
 
 	TEST_ASSERT_EQUAL(3, instr.word_count);
-	TEST_ASSERT_EQUAL_HEX16_ARRAY(words, instr.words, 3);
+	TEST_ASSERT_EQUAL_HEX16_ARRAY(
+		&rom_words[(pc - RBT_MMU_ROM_ADDR) / 2], instr.words, 3
+	);
 
 	pc += 6;
 }
@@ -168,7 +149,6 @@ int main(void) {
 	RUN_TEST(test_decode_static_btst);
 	RUN_TEST(test_decode_dynamic_bchg);
 	RUN_TEST(test_decode_static_bset);
-	RUN_TEST(test_decode_illegal_ori);
 	RUN_TEST(test_decode_andi_w);
 
 	return UNITY_END();

@@ -42,7 +42,7 @@ Commodore and IBM.<br>
 | 0xfa'0000-0xfa'ffff | 64KB  | I/O registers (Cards, SD Card, etc...) |
 | 0xfb'0000-0xff'ffff | 320KB | Reserved / Debug I/O                   |
 
-> RAM is mirrored on disabled expansion slots. It wraps around at invalid address range
+> RAM is mirrored on disabled expansion slots. It wraps around at invalid address range.
 > Memory Map is subject to changes
 
 ### Chips references
