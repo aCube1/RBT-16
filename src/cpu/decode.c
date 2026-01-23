@@ -110,7 +110,7 @@ static RBT_ErrorCode _decode_bit(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	}
 
 	// Is dynamic?
-	// Dn operand is 32-bits, and memory operands are 8-bits
+	// Dn operand is long-size, and memory operands are byte-size
 	if (RBT_BIT(opcode, 8)) {
 		instr->size = RBT_SIZE_LONG;
 		instr->src.type = RBT_OPERAND_DREG;
@@ -143,7 +143,9 @@ static RBT_ErrorCode _decode_bit(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		invalid_ea |= RBT_EA_GROUP_PCR;
 
 	if ((instr->dst.ea.mode & invalid_ea) != 0u) {
-		rbt_push_warn("BIT: Illegal address mode at: 0x%06x", instr->start_pc);
+		rbt_push_warn(
+			"BIT: Dest EA(An|PC-relative) isn't allowed, at: 0x%06x", instr->start_pc
+		);
 		return RBT_ERR_DECODE_ILLEGAL_EA;
 	}
 	return RBT_ERR_SUCCESS;
@@ -222,7 +224,9 @@ static i32 _decode_imm(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		ea_invalid |= RBT_EA_GROUP_PCR;
 
 	if ((instr->dst.ea.mode & ea_invalid) != 0u) {
-		rbt_push_warn("IMM: Illegal address mode at: 0x%06x", instr->start_pc);
+		rbt_push_warn(
+			"IMM: Dest EA(An|#imm|PC-relative) isn't allowed, at: 0x%06x", instr->start_pc
+		);
 		return RBT_ERR_DECODE_ILLEGAL_EA;
 	}
 
@@ -329,7 +333,10 @@ static i32 _decode_moves_movep(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		u16 ea_invalid = RBT_EA_DIRECT_DATA | RBT_EA_DIRECT_ADDR | RBT_EA_IMMEDIATE
 					   | RBT_EA_GROUP_PCR;
 		if ((target_ea->mode & ea_invalid) != 0u) {
-			rbt_push_warn("MOVES: Illegal address mode at: 0x%06x", instr->start_pc);
+			rbt_push_warn(
+				"MOVES: Target EA(Dn|An|#imm|PC-relative) isn't allowed, at: 0x%06x",
+				instr->start_pc
+			);
 			return RBT_ERR_DECODE_ILLEGAL_EA;
 		}
 	}
@@ -361,6 +368,11 @@ static i32 _decode_move_movea(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		return RBT_ERR_DECODE_ILLEGAL;
 	}
 
+	if (instr->mnemonic == RBT_OP_MOVEA && instr->size == RBT_SIZE_BYTE) {
+		rbt_push_warn("MOVEA: Cannot be byte-sized, at: 0x%06x", instr->start_pc);
+		return RBT_ERR_DECODE_ILLEGAL_EA;
+	}
+
 	instr->src.type = RBT_OPERAND_EA;
 	instr->src.size = instr->size;
 	curr_pc = rbt_decode_effective_address(
@@ -380,25 +392,21 @@ static i32 _decode_move_movea(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	}
 
 	if (instr->mnemonic == RBT_OP_MOVE) {
-		// EA invalid: #imm, PC-relative
-		if (instr->dst.ea.mode & (RBT_EA_IMMEDIATE | RBT_EA_GROUP_PCR)) {
+		// EA invalid: An, #imm, PC-relative
+		u16 ea_invalid = RBT_EA_DIRECT_ADDR | RBT_EA_IMMEDIATE | RBT_EA_GROUP_PCR;
+		if ((instr->dst.ea.mode & ea_invalid) != 0u) {
 			rbt_push_warn(
-				"MOVE: An and PC-relative modes are not allowed, at: 0x%06x",
+				"MOVE: Source EA(An|#imm|PC-relative) isn't allowed, at: 0x%06x",
 				instr->start_pc
 			);
 			return RBT_ERR_DECODE_ILLEGAL_EA;
 		}
 	}
 
-	if (instr->mnemonic == RBT_OP_MOVEA && instr->size == RBT_SIZE_BYTE) {
-		rbt_push_warn("MOVEA: Cannot be byte-sized, at: 0x%06x", instr->start_pc);
-		return RBT_ERR_DECODE_ILLEGAL_EA;
-	}
-
 	// An is Word/Long only
 	if (instr->src.ea.mode == RBT_EA_DIRECT_ADDR && instr->size == RBT_SIZE_BYTE) {
 		rbt_push_warn(
-			"MOVE/MOVEA: Source EA cannot be byte-sized, at: 0x%06x", instr->start_pc
+			"MOVE/MOVEA: Source EA(An) cannot be byte-sized, at: 0x%06x", instr->start_pc
 		);
 		return RBT_ERR_DECODE_ILLEGAL_EA;
 	}
@@ -467,7 +475,10 @@ static i32 _decode_move_reg(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	}
 
 	if ((ea->mode & ea_invalid) != 0u) {
-		rbt_push_warn("MOVE <> SR/CCR: Illegal address mode at: 0x%06x", instr->start_pc);
+		rbt_push_warn(
+			"MOVE <> SR/CCR: Target EA(An|#imm|PC-relative) isn't allowed , at: 0x%06x",
+			instr->start_pc
+		);
 		return RBT_ERR_DECODE_ILLEGAL_EA;
 	}
 
@@ -510,7 +521,10 @@ static i32 _decode_negx_clr_not(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	// EA invalid: An, PC-relative, #imm
 	u16 ea_invalid = RBT_EA_DIRECT_ADDR | RBT_EA_IMMEDIATE | RBT_EA_GROUP_PCR;
 	if ((instr->dst.ea.mode & ea_invalid) != 0u) {
-		rbt_push_warn("MISC: Illegal address mode at: 0x%06x", instr->start_pc);
+		rbt_push_warn(
+			"MISC: Dest EA(An|#imm|PC-relative) isn't allowed, at: 0x%06x",
+			instr->start_pc
+		);
 		return RBT_ERR_DECODE_ILLEGAL_EA;
 	}
 
@@ -561,7 +575,8 @@ static i32 _decode_ext_nbcd_swap_pea(RBT_Instruction *instr, RBT_MemoryBus *bus)
 		u16 ea_invalid = RBT_EA_DIRECT_ADDR | RBT_EA_IMMEDIATE | RBT_EA_GROUP_PCR;
 		if ((instr->dst.ea.mode & ea_invalid) != 0u) {
 			rbt_push_warn(
-				"MISC - NBCD: Illegal address mode at: 0x%06x", instr->start_pc
+				"NBCD: Dest EA(An|#imm|PC-relative) isn't allowed, at: 0x%06x",
+				instr->start_pc
 			);
 			return RBT_ERR_DECODE_ILLEGAL_EA;
 		}
@@ -594,7 +609,11 @@ static i32 _decode_ext_nbcd_swap_pea(RBT_Instruction *instr, RBT_MemoryBus *bus)
 					   | RBT_EA_GROUP_REL;
 
 		if ((instr->src.ea.mode & ea_invalid) != 0u) {
-			rbt_push_warn("MISC - PEA: Illegal address mode at: 0x%06x", instr->start_pc);
+			rbt_push_warn(
+				"PEA: Dest EA(Dn|An|(An)+|-(An)|#imm|PC-relative) isn't allowed, at: "
+				"0x%06x",
+				instr->start_pc
+			);
 			return RBT_ERR_DECODE_ILLEGAL_EA;
 		}
 	}
@@ -629,7 +648,8 @@ static i32 _decode_misc(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 					   | RBT_EA_GROUP_REL;
 		if ((instr->dst.ea.mode & ea_invalid) != 0u) {
 			rbt_push_warn(
-				"MISC - JMP/JSR: Illegal address mode at: 0x%06x", instr->start_pc
+				"JMP/JSR: Dest EA(Dn|An|#imm|(An)+|-(An)) isn't allowed, at: 0x%06x",
+				instr->start_pc
 			);
 			return RBT_ERR_DECODE_ILLEGAL_EA;
 		}
@@ -813,10 +833,10 @@ RBT_ErrorCode rbt_decode_instruction(RBT_MemoryBus *bus, u32 pc, RBT_Instruction
 		}
 
 		u8 subgroup = _OP_SUBGROUP(opcode);
-		if (subgroup == 0 || subgroup == 2 || subgroup == 4 || subgroup == 6) {
+		if (!RBT_BIT(subgroup, 8)) {
 			// We can check here, since An is an invalid EA mode in next opcodes
 			if (_OP_EA_MODE(opcode) == 0b001) {
-				// BKPT: 0100 100 001 001NNN [...] (M68010+)
+				// BKPT: 0100 1000 01 001NNN [...] (M68010+)
 				instr->mnemonic = RBT_OP_BKPT;
 				instr->size = RBT_SIZE_NONE;
 				instr->aux.type = RBT_OPERAND_IMM;
@@ -877,7 +897,8 @@ RBT_ErrorCode rbt_decode_instruction(RBT_MemoryBus *bus, u32 pc, RBT_Instruction
 
 			if ((instr->dst.ea.mode & ea_invalid) != 0u) {
 				rbt_push_warn(
-					"MISC - TAS/TST: Illegal address mode at: 0x%06x", instr->start_pc
+					"TAS/TST: Dest EA(Dn|An|#imm|PC-relative) isn't allowed, at: 0x%06x",
+					instr->start_pc
 				);
 				status = RBT_ERR_DECODE_ILLEGAL_EA;
 			}
@@ -913,9 +934,7 @@ RBT_ErrorCode rbt_decode_instruction(RBT_MemoryBus *bus, u32 pc, RBT_Instruction
 		// CHK:   0100 DDD 110 MMMRRR [.W.]
 		if (RBT_BIT(opcode, 8)) {
 			if (_OP_SIZE(opcode) != 0b11 && _OP_SIZE(opcode) != 0b10) {
-				rbt_push_warn(
-					"MISC - LEA/CHK: Illegal encoding at: %06x", instr->start_pc
-				);
+				rbt_push_warn("LEA/CHK: Illegal encoding at: %06x", instr->start_pc);
 				status = RBT_ERR_DECODE_ILLEGAL;
 				break;
 			}
@@ -947,7 +966,9 @@ RBT_ErrorCode rbt_decode_instruction(RBT_MemoryBus *bus, u32 pc, RBT_Instruction
 
 			if ((instr->src.ea.mode & ea_invalid) != 0u) {
 				rbt_push_warn(
-					"MISC - LEA/CHK: Illegal address mode at: 0x%06x", instr->start_pc
+					"LEA/CHK: Dest EA(An|Dn|(An)+|-(An)|#imm) isn't allowed , at: "
+					"0x%06x",
+					instr->start_pc
 				);
 				status = RBT_ERR_DECODE_ILLEGAL_EA;
 			}
@@ -997,7 +1018,9 @@ RBT_ErrorCode rbt_decode_instruction(RBT_MemoryBus *bus, u32 pc, RBT_Instruction
 
 		if ((instr->src.ea.mode & ea_invalid) != 0u) {
 			rbt_push_warn(
-				"MISC - LEA/CHK: Illegal address mode at: 0x%06x", instr->start_pc
+				"LEA/CHK: Source EA(Dn|An|(An)+|PC-relative|#imm) isn't allowed, at: "
+				"0x%06x",
+				instr->start_pc
 			);
 		}
 	} break;
