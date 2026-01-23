@@ -1,0 +1,23 @@
+{
+	"processors": ["mc68010"],
+	"vasm": {
+		"provideDiagnostics": true,
+		"binPath": "vasmm68k_oldstyle",
+		"args": ["-m68010", "-no-fpu", "-elfregs"]
+	},
+	"format": {
+		"labelColon": "on",
+		"operandSpace": "on",
+		"quotes": "single",
+		"align": {
+			"mnemonic": 4,
+			"operands": 16,
+			"comment": 48,
+			"operator": 0,
+			"value": 0,
+			"indentStyle": "space",
+			"tabSize": 4,
+			"autoExtend": "line"
+		}
+	}
+}

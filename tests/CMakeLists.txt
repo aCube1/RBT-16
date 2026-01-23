@@ -29,8 +29,8 @@ function(add_test_executable test)
 
 	target_compile_features(${test} PRIVATE c_std_23)
 
-	if(INCLUDE_DIRS)
-		target_include_directories(${test} PRIVATE ${INCLUDE_DIRS})
+	if(TEST_INCLUDE_DIRS)
+		target_include_directories(${test} PRIVATE ${TEST_INCLUDE_DIRS})
 	endif()
 	target_sources(${test} PRIVATE ${TEST_SOURCES})
 
@@ -66,4 +66,12 @@ add_test_executable(
 	test_decode
 	SOURCES
 		"src/cpu/test_decode.c"
+)
+
+add_test_executable(
+	test_opcodes
+	SOURCES
+		"src/cpu/test_opcodes.c"
+	INCLUDE_DIRS
+		"src/"
 )
