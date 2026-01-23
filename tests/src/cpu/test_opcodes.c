@@ -135,7 +135,6 @@ void test_opcodes(void) {
 	while (true) {
 		RBT_Instruction instr;
 		RBT_ErrorCode err = rbt_decode_instruction(_bus, pc, &instr);
-		TEST_ASSERT_EQUAL(RBT_ERR_SUCCESS, err);
 
 		if ((pc - RBT_MMU_ROM_ADDR) >= opcodes_data_size)
 			break;
@@ -170,6 +169,8 @@ void test_opcodes(void) {
 		len += _stringfy_operand(&instr.dst, &out[len]);
 
 		fprintf(stdout, "%s\n", out);
+
+		TEST_ASSERT_EQUAL(RBT_ERR_SUCCESS, err);
 	}
 }
 

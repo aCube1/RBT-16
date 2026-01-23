@@ -157,7 +157,7 @@ u32 rbt_decode_effective_address(
 				goto decoding_error;
 			}
 
-			bytes = size;
+			bytes = (size == RBT_SIZE_LONG) ? 4 : 2;
 		} break;
 		default: goto decoding_error;
 		}
