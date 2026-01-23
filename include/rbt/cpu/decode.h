@@ -70,10 +70,7 @@ typedef enum RBT_OpMnemonic {
 	RBT_OP_LEA,
 	RBT_OP_LINK,
 	RBT_OP_LSL, RBT_OP_LSR,
-	RBT_OP_MOVE,
-	RBT_OP_MOVE_FR_CCR, RBT_OP_MOVE_FR_SR, RBT_OP_MOVE_FR_USP,
-	RBT_OP_MOVE_TO_CCR, RBT_OP_MOVE_TO_SR, RBT_OP_MOVE_TO_USP,
-	RBT_OP_MOVEA, RBT_OP_MOVEM, RBT_OP_MOVEP, RBT_OP_MOVEQ,
+	RBT_OP_MOVE, RBT_OP_MOVEA, RBT_OP_MOVEM, RBT_OP_MOVEP, RBT_OP_MOVEQ,
 	RBT_OP_MULS, RBT_OP_MULU,
 	RBT_OP_NBCD,
 	RBT_OP_NEG, RBT_OP_NEGX,
@@ -104,33 +101,35 @@ typedef enum RBT_OpMnemonic {
 
 typedef enum RBT_OperandType {
 	RBT_OPERAND_NONE,
-	RBT_OPERAND_EA,		  // Effective Address
-	RBT_OPERAND_DREG,	  // Dn
-	RBT_OPERAND_AREG,	  // An
-	RBT_OPERAND_IMM,	  // Generic immediate data: #imm, reglist...
-	RBT_OPERAND_DISP,	  // Displacement
-	RBT_OPERAND_INDIRECT, // Indirect displacement (d16, An)
-	RBT_OPERAND_DIR,	  // Direction
+	RBT_OPERAND_EA,		 // Effective Address
+	RBT_OPERAND_DREG,	 // Dn
+	RBT_OPERAND_AREG,	 // An
+	RBT_OPERAND_IMM,	 // Generic immediate data: #imm, reglist...
+	RBT_OPERAND_DISP,	 // Displacement
+	RBT_OPERAND_INDDISP, // Indirect displacement (d16, An)
+	RBT_OPERAND_DIR,	 // Direction
 	// Implied registers
 	RBT_OPERAND_CCR,
 	RBT_OPERAND_SR,
+	RBT_OPERAND_USP,
 } RBT_OperandType;
 
 typedef struct RBT_Operand {
 	RBT_OperandType type;
+	RBT_OperandSize size; // Specific size of operation: Eg. BTST <#imm,Dn>, Dn is Long
 	union {
 		RBT_EffectiveAddress ea;
 		u8 reg;
 		u32 imm;
 		i32 disp;
-		RBT_IndirectDisp indirect;
+		RBT_IndirectDisp inddisp;
 		bool dir;
 	};
 } RBT_Operand;
 
 typedef struct RBT_Instruction {
 	RBT_OpMnemonic mnemonic;
-	RBT_OperandSize size;
+	RBT_OperandSize size; // General size of instruction
 	u32 start_pc;
 	u8 len;
 
