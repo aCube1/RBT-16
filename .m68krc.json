@@ -13,11 +13,7 @@
 			"mnemonic": 4,
 			"operands": 16,
 			"comment": 48,
-			"operator": 0,
-			"value": 0,
-			"indentStyle": "space",
-			"tabSize": 4,
-			"autoExtend": "line"
+			"tabSize": 4
 		}
 	}
 }

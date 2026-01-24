@@ -5,8 +5,9 @@
 #include <unity.h>
 
 enum {
-	_PC_COLUMN = 0,
-	_INSTRUCTION_COLUMN = 40,
+	_ALIGN_PC = 0,
+	_ALIGN_MNEMONIC = _ALIGN_PC + 4,
+	_ALIGN_OPERATORS = _ALIGN_PC + 16,
 };
 
 static RBT_MemoryBus *_bus;
@@ -116,7 +117,7 @@ static i32 _stringfy_operand(const RBT_Operand *operand, char *out) {
 	case RBT_OPERAND_EA:   return _stringfy_effective_address(&operand->ea, out);
 	case RBT_OPERAND_DREG: return sprintf(out, "%%d%u", operand->reg);
 	case RBT_OPERAND_AREG: return sprintf(out, "%%a%u", operand->reg);
-	case RBT_OPERAND_IMM:  return sprintf(out, "0x%x", operand->imm);
+	case RBT_OPERAND_IMM:  return sprintf(out, "#0x%x", operand->imm);
 	case RBT_OPERAND_DISP: return sprintf(out, "%i", operand->disp);
 	case RBT_OPERAND_INDDISP:
 		return sprintf(out, "(%i, %%a%u)", operand->inddisp.disp, operand->inddisp.areg);
@@ -129,7 +130,16 @@ static i32 _stringfy_operand(const RBT_Operand *operand, char *out) {
 	unreachable();
 }
 
-void test_opcodes(void) {
+static i32 _align_text(i32 len, i32 alignment, char *out) {
+	while (len < alignment) {
+		out[len] = ' ';
+		len += 1;
+	}
+
+	return len;
+}
+
+static void test_opcodes(void) {
 	u32 pc = RBT_MMU_ROM_ADDR;
 
 	while (true) {
@@ -150,22 +160,23 @@ void test_opcodes(void) {
 		else if (instr.size == RBT_SIZE_LONG)
 			size = ".l";
 
-		i32 len = _PC_COLUMN;
-		len += sprintf(&out[len], "%06x: ", instr.start_pc);
-		for (i32 i = 0; i < instr.word_count; i += 1) {
-			len += sprintf(&out[len], "%04x ", instr.words[i]);
+		i32 len = _ALIGN_PC;
+		if (len != 0) {
+			len = _align_text(len, _ALIGN_PC, out);
+			len += sprintf(&out[len], "%06x: ", instr.start_pc);
+
+			for (i32 i = 0; i < instr.word_count; i += 1) {
+				len += sprintf(&out[len], "%04x ", instr.words[i]);
+			}
 		}
 
-		// Align instruction
-		while (len < _INSTRUCTION_COLUMN) {
-			out[len] = ' ';
-			len += 1;
-		}
-
+		len = _align_text(len, _ALIGN_MNEMONIC, out);
 		len += sprintf(&out[len], "%s%s ", _mnemonics[instr.mnemonic], size);
 
+		len = _align_text(len, _ALIGN_OPERATORS, out);
 		len += _stringfy_operand(&instr.src, &out[len]);
-		len += sprintf(&out[len], ", ");
+		if (instr.src.type != RBT_OPERAND_NONE && instr.dst.type != RBT_OPERAND_NONE)
+			len += sprintf(&out[len], ", ");
 		len += _stringfy_operand(&instr.dst, &out[len]);
 
 		fprintf(stdout, "%s\n", out);

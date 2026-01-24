@@ -675,9 +675,9 @@ static i32 _decode_ext_nbcd_swap_bkpt_pea(RBT_Instruction *instr, RBT_MemoryBus 
 		if (ea_mode == 0b001) {
 			instr->mnemonic = RBT_OP_BKPT;
 			instr->size = RBT_SIZE_NONE;
-			instr->aux.type = RBT_OPERAND_IMM;
-			instr->aux.size = RBT_SIZE_BYTE;
-			instr->aux.imm = rbt_bits(opcode, 2, 0);
+			instr->src.type = RBT_OPERAND_IMM;
+			instr->src.size = RBT_SIZE_BYTE;
+			instr->src.imm = rbt_bits(opcode, 2, 0);
 			return RBT_ERR_SUCCESS;
 		}
 
