@@ -14,15 +14,17 @@ Commodore and IBM.<br>
 
 - CPU: Motorola 68010 at ~8/12MHz
 - RAM: Shipped with 512KB of Static RAM. Eight SRAM slots of 512KB, up to 4MB max RAM
-- ROM: 512KB EEPROM; BIOS/Kernel
+- ROM: 512KB Flash; BIOS/Kernel
 
 > CPU can be boosted by software up to 12MHz
+
+> ROM can be rewritten and replaced
 
 ### IO Connectors:
 
 - 2 x SNES controllers
 - 2 x PS/2 mouse and keyboard ports
-- 1 x SD Card slot
+- 1 x microMicro SD Card slot
 - 1 x 3.5mm audio jack
 - 1 x RCA Jack
 - 4 x Expansion slots (Custom Bus)
@@ -31,16 +33,16 @@ Commodore and IBM.<br>
 
 - The RBT-16 is shipped with 512KB SRAM, but can be expanded up to 4MB.
 
-|    Address Range    | Size  | Description                            |
-| :-----------------: | :---: | -------------------------------------- |
-| 0x00'0000-0x07'ffff | 512KB | Default 512KB RAM chip (Slot 0)        |
-| 0x08'0000-0x3f'ffff | 3.5MB | RAM Expansion slots (Slots 1-7)        |
-| 0x40'0000-0xef'ffff | 11MB  | Reserved (Bus Error)                   |
-| 0xf0'0000-0xf7'ffff | 512KB | System ROM (BIOS/Kernel)               |
-| 0xf8'0000-0xf8'ffff | 64KB  | Video MMIO (VDP)                       |
-| 0xf9'0000-0xf9'ffff | 64KB  | Audio MMIO RAM                         |
-| 0xfa'0000-0xfa'ffff | 64KB  | I/O registers (Cards, SD Card, etc...) |
-| 0xfb'0000-0xff'ffff | 320KB | Reserved / Debug I/O                   |
+|    Address Range    | Size  | Description                          |
+| :-----------------: | :---: | ------------------------------------ |
+| 0x00'0000-0x07'ffff | 512KB | Default 512KB RAM chip (Slot 0)      |
+| 0x08'0000-0x3f'ffff | 3.5MB | RAM Expansion slots (Slots 1-7)      |
+| 0x40'0000-0xef'ffff | 11MB  | Reserved (Bus Error)                 |
+| 0xf0'0000-0xf7'ffff | 512KB | System ROM (BIOS/Kernel)             |
+| 0xf8'0000-0xf8'ffff | 64KB  | Video MMIO (VDP)                     |
+| 0xf9'0000-0xf9'ffff | 64KB  | Audio MMIO RAM                       |
+| 0xfa'0000-0xfa'ffff | 64KB  | I/O registers (microSD Card, etc...) |
+| 0xfb'0000-0xff'ffff | 320KB | Reserved / Debug I/O                 |
 
 > RAM is mirrored on disabled expansion slots. It wraps around at invalid address range.
 > Memory Map is subject to changes
@@ -54,9 +56,6 @@ Commodore and IBM.<br>
 NOTES:
 	(uotlaf) - CPU: Possibility to change CPU clock via software using custom wiring.
 	(YAN) - CPU: Test clock frequencies stability.
-	(aCube) - RAM: Manage memory regions for each device, and how memory will be
-accessed/used by the program.
-	(aCube) - ROM: Decide how much ROM will be shipped for the Kernel.
-	(aCube) - ROM: Will it be replaceable? I think users must be able to update the
-Kernel with a custom one, or update the shipped version to a new version.
+	(aCube) - ROM: Should the ROM be updated from the microSD card? It will require
+a read-only bootloader section.
 -->
