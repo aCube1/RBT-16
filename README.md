@@ -22,12 +22,12 @@ Commodore and IBM.<br>
 
 ### IO Connectors:
 
-- 2 x SNES controllers
-- 2 x PS/2 mouse and keyboard ports
-- 1 x microMicro SD Card slot
-- 1 x 3.5mm audio jack
+- 2 x SNES Controllers
+- 2 x PS/2 Mouse and Keyboard Ports
+- 1 x microSD Card Slot
+- 1 x 3.5mm Audio Jack
 - 1 x RCA Jack
-- 4 x Expansion slots (Custom Bus)
+- 4 x Card Edge Connectors/Expansion Slots (Parallel Bus)
 
 ### RAM and Memory Map
 
