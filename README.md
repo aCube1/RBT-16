@@ -37,17 +37,18 @@ Commodore and IBM.<br>
 | :-----------------: | :---: | --------------------------------------- |
 | 0x00'0000-0x07'ffff | 512KB | Default 512KB RAM chip (Slot 0)         |
 | 0x08'0000-0x3f'ffff | 3.5MB | RAM Expansion slots (Slots 1-7)         |
-| 0x40'0000-0xef'ffff | 11MB  | Reserved (Bus Error)                    |
+| 0x40'0000-0x7f'ffff |  4MB  | Mirrors 0x00'0000 to 0x3f'0000          |
+| 0x80'0000-0x80'ffff | 64KB  | Expansion Card 0                        |
+| 0x81'0000-0x81'ffff | 64KB  | Expansion Card 1                        |
+| 0x82'0000-0x82'ffff | 64KB  | Expansion Card 2                        |
+| 0x83'0000-0x83'ffff | 64KB  | Expansion Card 3                        |
+| 0x84'0000-0xef'ffff | 6MB~  | Mirrors 0x80'0000 to 0x83'ffff          |
 | 0xf0'0000-0xf7'ffff | 512KB | System ROM (BIOS/Kernel)                |
 | 0xf8'0000-0xf8'ffff | 64KB  | Video MMIO (VDP)                        |
 | 0xf9'0000-0xf9'ffff | 64KB  | Audio MMIO RAM                          |
 | 0xfa'0000-0xfa'7fff | 32KB  | I/O registers (Controllers, PS/2, GPIO) |
 | 0xfa'8000-0xfa'ffff | 32KB  | SD Card interface                       |
-| 0xfb'0000-0xfb'ffff | 64KB  | Expansion Card 0                        |
-| 0xfc'0000-0xfc'ffff | 64KB  | Expansion Card 1                        |
-| 0xfd'0000-0xfd'ffff | 64KB  | Expansion Card 2                        |
-| 0xfe'0000-0xfe'ffff | 64KB  | Expansion Card 3                        |
-| 0xff'0000-0xff'ffff | 64KB  | Reserved / Debug I/O                    |
+| 0xfb'0000-0xff'ffff | 320KB | Reserved / Debug IO (Does nothing)      |
 
 > RAM is mirrored on disabled expansion slots. It wraps around at invalid address range.
 > Memory Map is subject to changes
