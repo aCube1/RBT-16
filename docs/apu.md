@@ -1,13 +1,12 @@
 # Audio: codename - Cibo
 
-- Output: 3.5mm mono jack + 2 RCA mono
+- Output: 3.5mm mono jack + 1 RCA mono
 - Chip: YM3812 (OPL2) + DAC
 - Coprocessor: Z80
-- RAM: 64KB; Shared with main RAM
+- RAM: 64KB; Accessible by the CPU
 
 ---
 
-> APU_ADDR: 0xf9:0000
 ## Audio program
 
 - Audio program is stored in the Audio RAM
@@ -18,6 +17,8 @@
     4.  Reset APU and restart execution
 
 ---
+
+> APU_ADDR: 0xf9'0000
 
 ---
 
