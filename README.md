@@ -27,22 +27,27 @@ Commodore and IBM.<br>
 - 1 x microSD Card Slot
 - 1 x 3.5mm Audio Jack
 - 1 x RCA Jack
-- 4 x Card Edge Connectors/Expansion Slots (Parallel Bus)
+- 4 x Card Edge Connectors/Expansion Card (Parallel Bus)
 
 ### RAM and Memory Map
 
 - The RBT-16 is shipped with 512KB SRAM, but can be expanded up to 4MB.
 
-|    Address Range    | Size  | Description                          |
-| :-----------------: | :---: | ------------------------------------ |
-| 0x00'0000-0x07'ffff | 512KB | Default 512KB RAM chip (Slot 0)      |
-| 0x08'0000-0x3f'ffff | 3.5MB | RAM Expansion slots (Slots 1-7)      |
-| 0x40'0000-0xef'ffff | 11MB  | Reserved (Bus Error)                 |
-| 0xf0'0000-0xf7'ffff | 512KB | System ROM (BIOS/Kernel)             |
-| 0xf8'0000-0xf8'ffff | 64KB  | Video MMIO (VDP)                     |
-| 0xf9'0000-0xf9'ffff | 64KB  | Audio MMIO RAM                       |
-| 0xfa'0000-0xfa'ffff | 64KB  | I/O registers (microSD Card, etc...) |
-| 0xfb'0000-0xff'ffff | 320KB | Reserved / Debug I/O                 |
+|    Address Range    | Size  | Description                             |
+| :-----------------: | :---: | --------------------------------------- |
+| 0x00'0000-0x07'ffff | 512KB | Default 512KB RAM chip (Slot 0)         |
+| 0x08'0000-0x3f'ffff | 3.5MB | RAM Expansion slots (Slots 1-7)         |
+| 0x40'0000-0xef'ffff | 11MB  | Reserved (Bus Error)                    |
+| 0xf0'0000-0xf7'ffff | 512KB | System ROM (BIOS/Kernel)                |
+| 0xf8'0000-0xf8'ffff | 64KB  | Video MMIO (VDP)                        |
+| 0xf9'0000-0xf9'ffff | 64KB  | Audio MMIO RAM                          |
+| 0xfa'0000-0xfa'7fff | 32KB  | I/O registers (Controllers, PS/2, GPIO) |
+| 0xfa'8000-0xfa'ffff | 32KB  | SD Card interface                       |
+| 0xfb'0000-0xfb'ffff | 64KB  | Expansion Card 0                        |
+| 0xfc'0000-0xfc'ffff | 64KB  | Expansion Card 1                        |
+| 0xfd'0000-0xfd'ffff | 64KB  | Expansion Card 2                        |
+| 0xfe'0000-0xfe'ffff | 64KB  | Expansion Card 3                        |
+| 0xff'0000-0xff'ffff | 64KB  | Reserved / Debug I/O                    |
 
 > RAM is mirrored on disabled expansion slots. It wraps around at invalid address range.
 > Memory Map is subject to changes
