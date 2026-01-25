@@ -42,7 +42,7 @@ Commodore and IBM.<br>
 | 0xf8'0000-0xf8'ffff | 64KB  | Video MMIO (VDP)                           |
 | 0xf9'0000-0xf9'ffff | 64KB  | Audio MMIO RAM                             |
 | 0xfa'0000-0xfa'7fff | 32KB  | I/O registers (Controllers, PS/2, GPIO)    |
-| 0xfa'8000-0xfa'ffff | 32KB  | SD Card interface                          |
+| 0xfa'8000-0xfa'ffff | 32KB  | SD Card MMIO                               |
 | 0xfb'0000-0xfb'ffff | 64KB  | Reserved / Debug IO (Does nothing, /DTACK) |
 | 0xfc'0000-0xfc'ffff | 64KB  | Expansion Card 0                           |
 | 0xfd'0000-0xfd'ffff | 64KB  | Expansion Card 1                           |
@@ -66,7 +66,24 @@ custom wiring.
 	(YAN) - CPU: Test clock frequencies stability.
 	(aCube) - ROM: Should the ROM be updated from the microSD card? It will
 require a read-only bootloader section.
-	(aCube) - RAM: Mirroring is more expensive? ICs demultiplexers are cheap
-today, a 74HC138 should do. Accessing a reserved memory region should trigger
+	(aCube) - RAM: Mirroring is more expensive? ICs decoders are cheap today,
+a 74HC138 should do. Accessing a reserved memory region should trigger
 the /BERR exception.
+	(aCube) - SD Card: SPI controller should reside inside the VDP. This
+simplify implementation.
+
+REFS:
+	CPU: MC68010P12
+	APU: Z84C0020PEG
+	FPGA: Tang Nano 9K
+	SRAM:
+		- AS6C4008-55PCN -> 512Kx8 = 512KB
+		- AS6C1008-55PCN -> 128Kx8 = 128K
+		- A625308AM -> 32Kx8 = 64K
+		- WS62256 -> 32Kx8 = 64K
+	ROM: SST39SF040 -> Flash 512KB
+	ICs:
+		- 74HC138 -> Decoder
+	PINs:
+		- 2x32 Card Edge Connectors
 -->
