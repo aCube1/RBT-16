@@ -186,7 +186,7 @@ Word 0:
 - Maximum of 32 unique entries
 - Size per matrix: 16-bits x 4 -> 64-bits = 8 bytes
 
-![](https://latex.codecogs.com/svg.image?%7B%5Ccolor%7BGray%7D%5Cbegin%7Bbmatrix%7DX_%7Bscreen%7D%5C%5CY_%7Bscreen%7D%5C%5C%5Cend%7Bbmatrix%7D=%5Cbegin%7Bbmatrix%7Da&b%5C%5Cc&d%5C%5C%5Cend%7Bbmatrix%7D%5Cbegin%7Bbmatrix%7Dx%5C%5Cy%5C%5C%5Cend%7Bbmatrix%7D-%5Cbegin%7Bbmatrix%7DO_X%5C%5CO_Y%5C%5C%5Cend%7Bbmatrix%7D%7D "Affine Formula")
+![](https://latex.codecogs.com/svg.image?%7B%5Ccolor%7BGray%7D%5Cbegin%7Bbmatrix%7DX_%7Bscreen%7D%5C%5CY_%7Bscreen%7D%5C%5C%5Cend%7Bbmatrix%7D%3D%5Cbegin%7Bbmatrix%7Da%26b%5C%5Cc%26d%5C%5C%5Cend%7Bbmatrix%7D%5Cbegin%7Bbmatrix%7Dx%20-%20O_X%5C%5Cy%20-O_Y%5C%5C%5Cend%7Bbmatrix%7D%7D%0A "Affine Formula")
 
 | Field | Notes                |
 | :---: | -------------------- |
@@ -227,6 +227,8 @@ VDP_ADDR + 0x0002 -> VDP_STATUS | R
     [10:10] h - HBLANK -> H-Blank active
     [11:11] v - VBLANK -> V-Blank active
 
+; Current scanline stops at 0x1ff through lines 512-524
+
 VDP_ADDR + 0x0004 -> VDP_SCANLINE_CMP | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     .  .  .  .  .  .  .  L  L  L  L  L  L  L  L  L
@@ -256,12 +258,11 @@ VDP_ADDR + 0x0010 -> VDP_VRAM_ADDR_L | W
 
 VDP_ADDR + 0x0012 -> VDP_VRAM_ADDR_H | W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
-    .  .  s  D  i  i  i  i  .  .  .  .  .  .  .  a
+    .  .  .  .  .  .  s  D  .  .  .  .  i  i  i  i
 
-    [0:0]   a - ADDR_HI -> VRAM address high bit (VRAM_ADDR[16])
-    [11:8]  i - INC_RATE -> Auto increment (0-15, see table below)
-    [12:12] D - DECR -> 1: decrement, 0: increment
-    [13:13] s - SIZE -> 1: word, 0: byte
+    [3:0] i - INC_RATE -> Auto increment (0-15, see table below)
+    [8:8] D - DECR -> 1: decrement, 0: increment
+    [9:9] s - SIZE -> 1: word, 0: byte
 
 ; auto-increment
 ; 0 -> 0     8 -> 128
@@ -335,7 +336,7 @@ VDP_ADDR + 0x0036 -> BG3_CTRL | R/W
     E  S  S  M  M  M  M  M  M  M  M  M  M  M  M  M
 
     [12:0]  M - MAP_BASE -> Metatile map base address (256-byte aligned)
-    [14:13] S - METASIZE -> Metatile size (00: 2x2, 01: 4x4, 10: 8x8)
+    [14:13] S - METASIZE -> Metatile size (00: 2x2, 01: 4x4, 10: 8x8, 11: 16x16)
     [15:15] E - ENABLE -> Layer enable
 
 ; VRAM_ADDR[16:8] = MAP_BASE
@@ -356,13 +357,17 @@ VDP_ADDR + 0x004e -> BG3_SCROLL_Y | R/W
 ;==========================
 ; Affine transform control
 ;==========================
-VDP_ADDR + 0x0050 -> BG0_AFFINE | R/W
-VDP_ADDR + 0x0052 -> BG1_AFFINE | R/W
+VDP_ADDR + 0x0050 -> ABG0_CTRL | R/W
+VDP_ADDR + 0x0052 -> ABG1_CTRL | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
-    a  .  .  .  .  .  .  .  .  .  .  A  A  A  A  A
+    a  .  .  .  .  .  b  b  .  .  .  A  A  A  A  A
 
     [4:0]   A - AFFINE_IDX -> Index of the affine matrix (0-31)
+	[9:8]   b - BG_SELECT -> Select background (00: BG0, 01: BG1, 10: BG2, 11: BG3)
     [15:15] a - AFFINE_E -> Affine enable
+
+; Note: If same BG is selected in both ABG0_CTRL and ABG1_CTRL
+; with both enabled, the background is disabled entirely
 
 ;=====================
 ; Bitmap mode control
@@ -418,6 +423,8 @@ VDP_ADDR + 0x0088 -> BLT_SIZE | W
 
     [7:0]  w - WIDTH -> Blit width in bytes (1-256)
     [15:8] h - HEIGHT -> Blit height in rows (1-256)
+
+; Size is computed as: (W + 1) x (H + 1)
 
 VDP_ADDR + 0x008a -> BLT_CTRL | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
@@ -480,9 +487,10 @@ VDP_ADDR + 0x0096 -> FX_TEX_BASE | R/W
 
 VDP_ADDR + 0x0098 -> FX_TEX_SIZE | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
-    .  .  .  .  .  .  .  .  .  .  S  S  S  S  S  S
+    .  .  .  .  .  .  .  .  .  .  S  S  S  s  s  s
 
-    [5:0] S - TEX_SIZE -> Texture size (8-256, see table below)
+    [2:0] s - TEX_ASPECT -> Texture aspect-ratio (000: Square, 001: Wide, 010: Tall)
+    [5:3] S - TEX_SIZE -> Texture size (8-256, see table below)
 
 ; Texture sizes
 ; Square             Wide               Tall
@@ -500,16 +508,16 @@ VDP_ADDR + 0x0098 -> FX_TEX_SIZE | R/W
 ;=========================
 ; Version and Identifiers
 ;=========================
-VDP_ADDR + 0x00f0 -> VDP_ID0 | R ; 0x47 ('G')
-VDP_ADDR + 0x00f2 -> VDP_ID1 | R ; 0x42 ('B')
-VDP_ADDR + 0x00f4 -> VDP_ID2 | R ; 0x45 ('E')
-VDP_ADDR + 0x00f6 -> VDP_ID3 | R ; 0x0a ('\n')
+VDP_ADDR + 0x00f0 -> VDP_ID0 | R ; 0x0047 ('G')
+VDP_ADDR + 0x00f2 -> VDP_ID1 | R ; 0x0042 ('B')
+VDP_ADDR + 0x00f4 -> VDP_ID2 | R ; 0x0045 ('E')
+VDP_ADDR + 0x00f6 -> VDP_ID3 | R ; 0x000a ('\n')
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
-    i  i  i  i  i  i  i  i  i  i  i  i  i  i  i  i
+    0  0  0  0  0  0  0  0  i  i  i  i  i  i  i  i
 
     [63:0] i - ID -> Ascii text "GBE\n"
 
-; GBE stands to: Gravitational Beam Emitter from Blame!
+; GBE stands for: Gravitational Beam Emitter from Blame!
 
 VDP_ADDR + 0x00f8 -> VDP_REV0 | R
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
@@ -519,7 +527,7 @@ VDP_ADDR + 0x00f8 -> VDP_REV0 | R
     [15:8] N - VER_MINOR -> Minor revision
 
 VDP_ADDR + 0x00fa -> VDP_BUILD_L | R
-VDP_ADDR + 0x00fb -> VDP_BUILD_H | R
+VDP_ADDR + 0x00fc -> VDP_BUILD_H | R
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     B  B  B  B  B  B  B  B  B  B  B  B  B  B  B  B
 

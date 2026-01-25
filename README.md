@@ -24,7 +24,7 @@ Commodore and IBM.<br>
 - 2 x PS/2 mouse and keyboard ports
 - 1 x SD Card slot
 - 1 x 3.5mm audio jack
-- 2 x RCA Jacks
+- 1 x RCA Jack
 - 4 x Expansion slots (Custom Bus)
 
 ### RAM and Memory Map
