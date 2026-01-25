@@ -6,7 +6,7 @@
 - VRAM: Dedicated 128KB. (Not accessible directly by the main CPU)
 - Interrupts: H-Blank and V-Blank, with line counting
 - Blitter: Fast memory operations and FX drawing.
-    - Copy/Move chunks of data from: RAM->VRAM, VRAM->VRAM, RAM->AUDIO
+    - Copy/Move chunks of data from: RAM->VRAM, VRAM->VRAM
     - Primitive drawing: Lines, Triangles, Quads and Polygons
     - Polygons can have flat color or a texture
 
@@ -70,7 +70,7 @@ Word 3:
     a  .  .  .  .  .  .  .  .  .  .  A  A  A  A  A
 
    [4:0]   A - affine matrix index
-   [15:15] a - affine enabled
+   [15:15] a - affine enable
 ```
 
 | Field         |   Bits   | Description                                      |
@@ -78,7 +78,7 @@ Word 3:
 | X Position    | 10 bits  | 0-1023 horizontal; allows off-screen positioning |
 | Y Position    | 10 bits  | 0-1023 vertical                                  |
 | Tile Index    | 10 bits  | Index of the first tile; Up to 1024 tiles        |
-| Palete Index  |  3 bits  | Selects one of 8 palettes in VRAM                |
+| Palette Index |  3 bits  | Selects one of 8 palettes in VRAM                |
 | Size          | 2+2 bits | Selects sprite's width/height; HHxWW             |
 | Flip H/V      | 1+1 bits | On bit set, flips sprite horizontally/vertically |
 | Priority      |  2 bits  | Sprite Z-index relative to background layers     |
@@ -153,7 +153,7 @@ Word 0:
 | Field         |   Bits   | Description                                    |
 | ------------- | :------: | ---------------------------------------------- |
 | Tile Index    | 10 bits  | Index of the tile; Up to 1024 tiles            |
-| Palette Index |  3 bits  | Selects on of 8 palettes in VRAM               |
+| Palette Index |  3 bits  | Selects one of 8 palettes in VRAM              |
 | Flip H/V      | 1+1 bits | On bit set, flips tile horizontally/vertically |
 
 > Tile attribute object size: 1 word -> 2 bytes
@@ -202,7 +202,7 @@ Word 0:
 
 ## VDP MMIO Registers
 
-> VDP_ADDR: 0xf8:0000
+> VDP_ADDR: 0xf8'0000
 
 ```asm
 ;=========================
@@ -233,7 +233,7 @@ VDP_ADDR + 0x0004 -> VDP_SCANLINE_CMP | R/W
 
     [8:0] L - LINE - Line-compare value (0-511)
 
-; Triggers interrupt when current scanline matches
+; Triggers an interrupt when the current scanline matches
 
 VDP_ADDR + 0x0006 -> VDP_BACKDROP | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
@@ -241,9 +241,9 @@ VDP_ADDR + 0x0006 -> VDP_BACKDROP | R/W
 
     [3:0]  b - BLUE -> Blue component (0-15)
     [7:4]  g - GREEN -> Green component (0-15)
-    [11:8] r - RED -> Reg component (0-15)
+    [11:8] r - RED -> Red component (0-15)
 
-; Backdrop color displayed where no layers are visible
+; Backdrop color is displayed where no layers are visible
 
 ;=============
 ; VRAM access
@@ -435,7 +435,7 @@ VDP_ADDR + 0x008c -> BLT_STATUS | R
     [12:12] I - IRQ -> Blitter IRQ pending
     [13:13] E - ERR -> Illegal parameter
     [14:14] B - BUSY -> Blitter operation running
-    [15:15] D - DONE -> Completed sucessfully
+    [15:15] D - DONE -> Completed successfully
 
 VDP_ADDR + 0x008e -> BLT_PATTERN | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0

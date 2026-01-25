@@ -4,7 +4,7 @@
 
 &nbsp;&nbsp;&nbsp;&nbsp;The RBT-16 is a micro-computer designed to be an Atari STe and Amiga 500
 successor, not limited by their technology and history, but by what we have
-and know today. The RBT-16 is a middle-term between 3 worlds: Atari,
+and know today. The RBT-16 is a middle ground between 3 worlds: Atari,
 Commodore and IBM.<br>
 &nbsp;&nbsp;&nbsp;&nbsp;Our design goal is to have something fun and interesting to play and use.
 
@@ -29,7 +29,7 @@ Commodore and IBM.<br>
 
 ### RAM and Memory Map
 
-- The RBT-16 is shipped with 512KB SRAM, but can expaned up to 4MB.
+- The RBT-16 is shipped with 512KB SRAM, but can be expanded up to 4MB.
 
 |    Address Range    | Size  | Description                            |
 | :-----------------: | :---: | -------------------------------------- |
@@ -38,7 +38,7 @@ Commodore and IBM.<br>
 | 0x40'0000-0xef'ffff | 11MB  | Reserved (Bus Error)                   |
 | 0xf0'0000-0xf7'ffff | 512KB | System ROM (BIOS/Kernel)               |
 | 0xf8'0000-0xf8'ffff | 64KB  | Video MMIO (VDP)                       |
-| 0xf9'0000-0xf9'ffff | 64KB  | Audio RAM                              |
+| 0xf9'0000-0xf9'ffff | 64KB  | Audio MMIO RAM                         |
 | 0xfa'0000-0xfa'ffff | 64KB  | I/O registers (Cards, SD Card, etc...) |
 | 0xfb'0000-0xff'ffff | 320KB | Reserved / Debug I/O                   |
 
@@ -54,9 +54,9 @@ Commodore and IBM.<br>
 NOTES:
 	(uotlaf) - CPU: Possibility to change CPU clock via software using custom wiring.
 	(YAN) - CPU: Test clock frequencies stability.
-	(aCube) - RAM: Manager memory regions for each device, and how memory will be
-interacted by the program.
+	(aCube) - RAM: Manage memory regions for each device, and how memory will be
+accessed/used by the program.
 	(aCube) - ROM: Decide how much ROM will be shipped for the Kernel.
-	(aCube) - ROM: Will it replaceable? I think users must be able to update the
+	(aCube) - ROM: Will it be replaceable? I think users must be able to update the
 Kernel with a custom one, or update the shipped version to a new version.
 -->

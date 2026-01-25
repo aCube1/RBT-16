@@ -8,6 +8,16 @@
 ---
 
 > APU_ADDR: 0xf9:0000
+## Audio program
+
+- Audio program is stored in the Audio RAM
+- APU program loading and execution steps:
+    1.  Stop APU execution
+    2.  Reset MMIO registers
+    3.  Write program into the Audio RAM
+    4.  Reset APU and restart execution
+
+---
 
 ---
 
