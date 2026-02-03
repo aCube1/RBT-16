@@ -45,7 +45,7 @@ typedef enum RBT_ErrorCode {
 	// Memory errors (0x40-0x5f)
 	RBT_ERR_MEM_BUS_ERROR = 0x40,
 	RBT_ERR_MEM_UNALIGNED = 0x41,
-	RBT_ERR_MEM_UNMAPPED_MMIO = 0x42,
+	RBT_ERR_MEM_UNMAPPED = 0x42,
 
 	// System/Platform errors (0xf0-0xff)
 	RBT_ERR_SYS_OUT_OF_MEMORY = 0xf0,

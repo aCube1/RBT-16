@@ -5,6 +5,48 @@
 #include <stdlib.h>
 #include <string.h>
 
+static inline bool _is_address_in_range(u32 addr, u32 start, u32 size) {
+	return addr >= start && addr < start + size;
+}
+
+static RBT_MMIODevice *_get_mmio_handler(RBT_MemoryBus *bus, u32 addr, u32 *offset) {
+	assert(bus);
+	assert(offset);
+
+	// VDP (Video Processor Unit)
+	if (_is_address_in_range(addr, RBT_MMU_VDP_ADDR, RBT_MMU_VDP_SIZE)) {
+		*offset = addr - RBT_MMU_VDP_ADDR;
+		return &bus->vdp;
+	}
+
+	// APU (Audio Processor Unit)
+	if (_is_address_in_range(addr, RBT_MMU_APU_ADDR, RBT_MMU_APU_SIZE)) {
+		*offset = addr - RBT_MMU_APU_ADDR;
+		return &bus->apu;
+	}
+
+	// IO
+	if (_is_address_in_range(addr, RBT_MMU_IO_ADDR, RBT_MMU_IO_SIZE)) {
+		*offset = addr - RBT_MMU_IO_ADDR;
+		return &bus->io;
+	}
+
+	// SDC (SD Card)
+	if (_is_address_in_range(addr, RBT_MMU_SDC_ADDR, RBT_MMU_SDC_SIZE)) {
+		*offset = addr - RBT_MMU_SDC_ADDR;
+		return &bus->sdc;
+	}
+
+	// EXT (Extension Cards)
+	if (_is_address_in_range(addr, RBT_MMU_EXT0_ADDR, RBT_MMU_EXT_SIZE * 4)) {
+		i32 slot = (addr - RBT_MMU_EXT0_ADDR) >> 16;
+		*offset = addr & 0xffff;
+		return &bus->ext[slot];
+	}
+
+	return nullptr;
+}
+
 RBT_MemoryBus *rbt_create_bus(u8 ram_slots) {
 	if (ram_slots == 0 || ram_slots > RBT_MMU_SLOTS_COUNT) {
 		rbt_push_error(
@@ -127,11 +169,7 @@ bool rbt_bus_init_from_file(RBT_MemoryBus *bus, const char *filename) {
 	return rbt_bus_init(bus, size, rom);
 }
 
-static inline bool _is_address_in_range(u32 addr, u32 start, u32 size) {
-	return addr >= start && addr < start + size;
-}
-
-u8 rbt_bus_read_byte(RBT_MemoryBus *bus, u32 addr) {
+u64 rbt_bus_read_byte(RBT_MemoryBus *bus, u32 addr) {
 	assert(bus);
 	bus->error_code = RBT_ERR_SUCCESS;
 
@@ -142,60 +180,33 @@ u8 rbt_bus_read_byte(RBT_MemoryBus *bus, u32 addr) {
 		return bus->ram[addr % bus->ram_size];
 	}
 
-	// ROM region. Memory out of ROM size is read as zeroes
+	// ROM region
 	if (bus->rom && _is_address_in_range(addr, RBT_MMU_ROM_ADDR, RBT_MMU_ROM_SIZE)) {
 		u32 offset = addr - RBT_MMU_ROM_ADDR;
 		return bus->rom[offset];
 	}
 
-	// VDP MMIO device
-	if (_is_address_in_range(addr, RBT_MMU_VDP_ADDR, RBT_MMU_VDP_SIZE)) {
-		u8 byte;
-		u32 offset = addr - RBT_MMU_VDP_ADDR;
-		if (bus->vdp.read_byte && bus->vdp.read_byte(bus->vdp.device, offset, &byte)) {
-			return byte;
-		}
-
-		rbt_push_error(RBT_ERR_MEM_UNMAPPED_MMIO, "VDP isn't mapped at: 0x%06x", addr);
-		goto error_unmapped;
+	u32 offset;
+	RBT_MMIODevice *mmio = _get_mmio_handler(bus, addr, &offset);
+	if (!mmio || !mmio->read_byte) {
+		rbt_push_error(RBT_ERR_MEM_UNMAPPED, "Memory isn't mapped at: 0x%06x", addr);
+		bus->error_code = RBT_ERR_MEM_UNMAPPED;
+		bus->last_error_addr = addr;
+		return UINT64_MAX;
 	}
 
-	// APU MMIO device
-	if (_is_address_in_range(addr, RBT_MMU_APU_ADDR, RBT_MMU_APU_SIZE)) {
-		u8 byte;
-		u32 offset = addr - RBT_MMU_APU_ADDR;
-		if (bus->apu.read_byte && bus->apu.read_byte(bus->apu.device, offset, &byte)) {
-			return byte;
-		}
-
-		rbt_push_error(RBT_ERR_MEM_UNMAPPED_MMIO, "APU isn't mapped at: 0x%06x", addr);
-		goto error_unmapped;
+	u8 byte;
+	if (mmio->read_byte(mmio, offset, &byte)) {
+		return byte;
 	}
 
-	// IO MMIO
-	if (_is_address_in_range(addr, RBT_MMU_IO_ADDR, RBT_MMU_IO_SIZE)) {
-		u8 byte;
-		u32 offset = addr - RBT_MMU_IO_ADDR;
-		if (bus->io.read_byte && bus->io.read_byte(bus->io.device, offset, &byte)) {
-			return byte;
-		}
-
-		rbt_push_error(RBT_ERR_MEM_UNMAPPED_MMIO, "I/O isn't mapped at: 0x%06x", addr);
-		goto error_unmapped;
-	}
-
-	rbt_push_error(RBT_ERR_MEM_BUS_ERROR, "Bus error at: 0x%06x", addr);
+	rbt_push_error(RBT_ERR_MEM_BUS_ERROR, "Bus fault at: 0x%06x", addr);
 	bus->error_code = RBT_ERR_MEM_BUS_ERROR;
 	bus->last_error_addr = addr;
-	return UINT8_MAX;
-
-error_unmapped:
-	bus->error_code = RBT_ERR_MEM_UNMAPPED_MMIO;
-	bus->last_error_addr = addr;
-	return UINT8_MAX;
+	return UINT64_MAX;
 }
 
-u16 rbt_bus_read_word(RBT_MemoryBus *bus, u32 addr) {
+u64 rbt_bus_read_word(RBT_MemoryBus *bus, u32 addr) {
 	assert(bus);
 	bus->error_code = RBT_ERR_SUCCESS;
 
@@ -206,7 +217,7 @@ u16 rbt_bus_read_word(RBT_MemoryBus *bus, u32 addr) {
 		rbt_push_error(RBT_ERR_MEM_UNALIGNED, "Unaligned memory access at: 0x%06x", addr);
 		bus->error_code = RBT_ERR_MEM_UNALIGNED;
 		bus->last_error_addr = addr;
-		return UINT16_MAX;
+		return UINT64_MAX;
 	}
 
 	// RAM region (Wrap around on unused ram slots)
@@ -216,7 +227,7 @@ u16 rbt_bus_read_word(RBT_MemoryBus *bus, u32 addr) {
 		return (bus->ram[offset] << 8) | bus->ram[next];
 	}
 
-	// ROM region (Memory out of ROM size is read as zeroes)
+	// ROM region
 	if (bus->rom && _is_address_in_range(addr, RBT_MMU_ROM_ADDR, RBT_MMU_ROM_SIZE)) {
 		u32 offset = addr - RBT_MMU_ROM_ADDR;
 		u16 word = bus->rom[offset] << 8;
@@ -227,54 +238,27 @@ u16 rbt_bus_read_word(RBT_MemoryBus *bus, u32 addr) {
 		return word;
 	}
 
-	// VDP MMIO device
-	if (_is_address_in_range(addr, RBT_MMU_VDP_ADDR, RBT_MMU_VDP_SIZE)) {
-		u16 word;
-		u32 offset = addr - RBT_MMU_VDP_ADDR;
-		if (bus->vdp.read_word && bus->vdp.read_word(bus->vdp.device, offset, &word)) {
-			return word;
-		}
-
-		rbt_push_error(RBT_ERR_MEM_UNMAPPED_MMIO, "VDP isn't mapped at: 0x%06x", addr);
-		goto error_unmapped;
+	u32 offset;
+	RBT_MMIODevice *mmio = _get_mmio_handler(bus, addr, &offset);
+	if (!mmio || !mmio->read_word) {
+		rbt_push_error(RBT_ERR_MEM_UNMAPPED, "Memory isn't mapped at: 0x%06x", addr);
+		bus->error_code = RBT_ERR_MEM_UNMAPPED;
+		bus->last_error_addr = addr;
+		return UINT64_MAX;
 	}
 
-	// APU MMIO device
-	if (_is_address_in_range(addr, RBT_MMU_APU_ADDR, RBT_MMU_APU_SIZE)) {
-		u16 word;
-		u32 offset = addr - RBT_MMU_APU_ADDR;
-		if (bus->apu.read_word && bus->apu.read_word(bus->apu.device, offset, &word)) {
-			return word;
-		}
-
-		rbt_push_error(RBT_ERR_MEM_UNMAPPED_MMIO, "APU isn't mapped at: 0x%06x", addr);
-		goto error_unmapped;
+	u16 word;
+	if (mmio->read_word(mmio, offset, &word)) {
+		return word;
 	}
 
-	// IO MMIO
-	if (_is_address_in_range(addr, RBT_MMU_IO_ADDR, RBT_MMU_IO_SIZE)) {
-		u16 word;
-		u32 offset = addr - RBT_MMU_IO_ADDR;
-		if (bus->io.read_word && bus->io.read_word(bus->io.device, offset, &word)) {
-			return word;
-		}
-
-		rbt_push_error(RBT_ERR_MEM_UNMAPPED_MMIO, "I/O isn't mapped at: 0x%06x", addr);
-		goto error_unmapped;
-	}
-
-	rbt_push_error(RBT_ERR_MEM_BUS_ERROR, "Bus error at: 0x%06x", addr);
+	rbt_push_error(RBT_ERR_MEM_BUS_ERROR, "Bus fault at: 0x%06x", addr);
 	bus->error_code = RBT_ERR_MEM_BUS_ERROR;
 	bus->last_error_addr = addr;
-	return UINT16_MAX;
-
-error_unmapped:
-	bus->error_code = RBT_ERR_MEM_UNMAPPED_MMIO;
-	bus->last_error_addr = addr;
-	return UINT16_MAX;
+	return UINT64_MAX;
 }
 
-u32 rbt_bus_read_long(RBT_MemoryBus *bus, u32 addr) {
+u64 rbt_bus_read_long(RBT_MemoryBus *bus, u32 addr) {
 	assert(bus);
 
 	// The M68000/MC68008/MC68010 do not support unaligned access
@@ -282,15 +266,15 @@ u32 rbt_bus_read_long(RBT_MemoryBus *bus, u32 addr) {
 		rbt_push_error(RBT_ERR_MEM_UNALIGNED, "Unaligned memory access at: 0x%06x", addr);
 		bus->error_code = RBT_ERR_MEM_UNALIGNED;
 		bus->last_error_addr = addr;
-		return UINT32_MAX;
+		return UINT64_MAX;
 	}
 
 	u16 high_word = rbt_bus_read_word(bus, addr);
 	if (bus->error_code)
-		return UINT32_MAX;
+		return UINT64_MAX;
 	u16 low_word = rbt_bus_read_word(bus, addr + 2);
 	if (bus->error_code)
-		return UINT32_MAX;
+		return UINT64_MAX;
 
 	return ((u32)high_word << 16) | low_word;
 }
@@ -301,59 +285,32 @@ void rbt_bus_write_byte(RBT_MemoryBus *bus, u32 addr, u8 byte) {
 
 	addr &= 0xffffff;
 
-	// RAM region (Wrap around on unused ram slots)
+	// RAM region (Wrap around at unused ram slots)
 	if (bus->ram && addr < RBT_MMU_RAM_SIZE) {
 		bus->ram[addr % bus->ram_size] = byte;
 		return;
 	}
 
-	// ROM region (Memory out of ROM size is read as zeroes)
+	// ROM region
 	if (_is_address_in_range(addr, RBT_MMU_ROM_ADDR, RBT_MMU_ROM_SIZE)) {
 		rbt_push_warn("Attempted write to ROM at: 0x%06x", addr);
 		return;
 	}
 
-	// VDP MMIO device
-	if (_is_address_in_range(addr, RBT_MMU_VDP_ADDR, RBT_MMU_VDP_SIZE)) {
-		u32 offset = addr - RBT_MMU_VDP_ADDR;
-		if (bus->vdp.write_byte && bus->vdp.write_byte(bus->vdp.device, offset, byte)) {
-			return;
-		}
-
-		rbt_push_error(RBT_ERR_MEM_UNMAPPED_MMIO, "VDP isn't mapped at: 0x%06x", addr);
-		goto error_unmapped;
+	u32 offset;
+	RBT_MMIODevice *mmio = _get_mmio_handler(bus, addr, &offset);
+	if (!mmio || !mmio->read_byte) {
+		rbt_push_error(RBT_ERR_MEM_UNMAPPED, "Memory isn't mapped at: 0x%06x", addr);
+		bus->error_code = RBT_ERR_MEM_UNMAPPED;
+		bus->last_error_addr = addr;
+		return;
 	}
 
-	// APU MMIO device
-	if (_is_address_in_range(addr, RBT_MMU_APU_ADDR, RBT_MMU_APU_SIZE)) {
-		u32 offset = addr - RBT_MMU_APU_ADDR;
-		if (bus->apu.write_byte && bus->apu.write_byte(bus->apu.device, offset, byte)) {
-			return;
-		}
-
-		rbt_push_error(RBT_ERR_MEM_UNMAPPED_MMIO, "APU isn't mapped at: 0x%06x", addr);
-		goto error_unmapped;
+	if (!mmio->write_byte(mmio, offset, byte)) {
+		rbt_push_error(RBT_ERR_MEM_BUS_ERROR, "Bus fault at: 0x%06x", addr);
+		bus->error_code = RBT_ERR_MEM_BUS_ERROR;
+		bus->last_error_addr = addr;
 	}
-
-	// IO MMIO
-	if (_is_address_in_range(addr, RBT_MMU_IO_ADDR, RBT_MMU_IO_SIZE)) {
-		u32 offset = addr - RBT_MMU_IO_ADDR;
-		if (bus->io.write_byte && bus->io.write_byte(bus->io.device, offset, byte)) {
-			return;
-		}
-
-		rbt_push_error(RBT_ERR_MEM_UNMAPPED_MMIO, "I/O isn't mapped at: 0x%06x", addr);
-		goto error_unmapped;
-	}
-
-	rbt_push_error(RBT_ERR_MEM_BUS_ERROR, "Bus error at: 0x%06x", addr);
-	bus->error_code = RBT_ERR_MEM_BUS_ERROR;
-	bus->last_error_addr = addr;
-	return;
-
-error_unmapped:
-	bus->error_code = RBT_ERR_MEM_UNMAPPED_MMIO;
-	bus->last_error_addr = addr;
 }
 
 void rbt_bus_write_word(RBT_MemoryBus *bus, u32 addr, u16 word) {
@@ -362,7 +319,7 @@ void rbt_bus_write_word(RBT_MemoryBus *bus, u32 addr, u16 word) {
 
 	addr &= 0xffffff;
 
-	// The M68000/MC68008/MC68010 do not support unaligned access
+	// The M68000/MC68008/MC68010 doesn't support unaligned access
 	if (addr & 1) {
 		rbt_push_error(RBT_ERR_MEM_UNALIGNED, "Unaligned memory access at: 0x%06x", addr);
 		bus->error_code = RBT_ERR_MEM_UNALIGNED;
@@ -379,53 +336,26 @@ void rbt_bus_write_word(RBT_MemoryBus *bus, u32 addr, u16 word) {
 		return;
 	}
 
-	// ROM region (Memory out of ROM size is read as zeroes)
+	// ROM region
 	if (_is_address_in_range(addr, RBT_MMU_ROM_ADDR, RBT_MMU_ROM_SIZE)) {
 		rbt_push_warn("Attempted write to ROM at: 0x%06x", addr);
 		return;
 	}
 
-	// VDP MMIO device
-	if (_is_address_in_range(addr, RBT_MMU_VDP_ADDR, RBT_MMU_VDP_SIZE)) {
-		u32 offset = addr - RBT_MMU_VDP_ADDR;
-		if (bus->vdp.write_word && bus->vdp.write_word(bus->vdp.device, offset, word)) {
-			return;
-		}
-
-		rbt_push_error(RBT_ERR_MEM_UNMAPPED_MMIO, "VDP isn't mapped at: 0x%06x", addr);
-		goto error_unmapped;
+	u32 offset;
+	RBT_MMIODevice *mmio = _get_mmio_handler(bus, addr, &offset);
+	if (!mmio || !mmio->read_byte) {
+		rbt_push_error(RBT_ERR_MEM_UNMAPPED, "Memory isn't mapped at: 0x%06x", addr);
+		bus->error_code = RBT_ERR_MEM_UNMAPPED;
+		bus->last_error_addr = addr;
+		return;
 	}
 
-	// APU MMIO device
-	if (_is_address_in_range(addr, RBT_MMU_APU_ADDR, RBT_MMU_APU_SIZE)) {
-		u32 offset = addr - RBT_MMU_APU_ADDR;
-		if (bus->apu.write_word && bus->apu.write_word(bus->apu.device, offset, word)) {
-			return;
-		}
-
-		rbt_push_error(RBT_ERR_MEM_UNMAPPED_MMIO, "APU isn't mapped at: 0x%06x", addr);
-		goto error_unmapped;
+	if (!mmio->write_byte(mmio, offset, word)) {
+		rbt_push_error(RBT_ERR_MEM_BUS_ERROR, "Bus fault at: 0x%06x", addr);
+		bus->error_code = RBT_ERR_MEM_BUS_ERROR;
+		bus->last_error_addr = addr;
 	}
-
-	// IO MMIO
-	if (_is_address_in_range(addr, RBT_MMU_IO_ADDR, RBT_MMU_IO_SIZE)) {
-		u32 offset = addr - RBT_MMU_IO_ADDR;
-		if (bus->io.write_word && bus->io.write_word(bus->io.device, offset, word)) {
-			return;
-		}
-
-		rbt_push_error(RBT_ERR_MEM_UNMAPPED_MMIO, "I/O isn't mapped at: 0x%06x", addr);
-		goto error_unmapped;
-	}
-
-	rbt_push_error(RBT_ERR_MEM_BUS_ERROR, "Bus error at: 0x%06x", addr);
-	bus->error_code = RBT_ERR_MEM_BUS_ERROR;
-	bus->last_error_addr = addr;
-	return;
-
-error_unmapped:
-	bus->error_code = RBT_ERR_MEM_UNMAPPED_MMIO;
-	bus->last_error_addr = addr;
 }
 
 void rbt_bus_write_long(RBT_MemoryBus *bus, u32 addr, u32 long_) {
@@ -454,8 +384,10 @@ u32 rbt_bus_load(RBT_MemoryBus *bus, RBT_OperandSize size, u32 addr) {
 		u16 word = rbt_bus_read_word(bus, addr);
 		return size == RBT_SIZE_BYTE ? (word & 0xff) : word;
 	}
-	case RBT_SIZE_LONG: return rbt_bus_read_long(bus, addr);
-	default:			return 0;
+	case RBT_SIZE_LONG: //
+		return rbt_bus_read_long(bus, addr);
+	default: //
+		return 0;
 	}
 }
 

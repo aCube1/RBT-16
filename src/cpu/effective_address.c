@@ -13,8 +13,7 @@ bool rbt_indexext_from_word(u16 ext, RBT_IndexExtension *ix) {
 	//  F  | E D C |  B  | A 9 8 | 7 6 5 4 3 2 1 0
 	// A/D |  REG  | W/L | SCALE |  DISPLACEMENT
 
-	ix->scale = rbt_bits(ext, 10, 8);
-	if (ix->scale) {
+	if (rbt_bits(ext, 10, 8) != 0) {
 		rbt_push_error(RBT_ERR_DECODE_INVALID_EA, "Extension word's scale bit is set");
 		return false;
 	}

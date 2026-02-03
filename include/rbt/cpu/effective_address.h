@@ -32,7 +32,7 @@ typedef struct RBT_IndexExtension {
 	bool is_addr;
 	bool is_long;
 	u8 xreg;
-	u8 scale; // M68020+; Must always be 0 on M68000/MC68008/MC68010
+	// u8 scale; // M68020+; Must always be 0 on M68000/MC68008/MC68010
 	i32 displacement;
 } RBT_IndexExtension;
 

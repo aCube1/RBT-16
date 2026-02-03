@@ -120,7 +120,7 @@ static RBT_ErrorCode _decode_bit(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		instr->size = RBT_SIZE_BYTE;
 		instr->src.type = RBT_OPERAND_IMM;
 		instr->src.size = instr->size;
-		instr->src.imm = rbt_bus_read_word(bus, curr_pc) & 0xff;
+		instr->src.imm = ((u32)rbt_bus_read_word(bus, curr_pc)) & 0xff;
 		if (bus->error_code) {
 			return bus->error_code;
 		}
