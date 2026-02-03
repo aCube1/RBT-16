@@ -5,16 +5,16 @@
 #include <unity.h>
 
 enum {
-	_ALIGN_PC = 0,
-	_ALIGN_MNEMONIC = _ALIGN_PC + 4,
-	_ALIGN_OPERATORS = _ALIGN_PC + 16,
+	_ALIGN_PC = 2,
+	_ALIGN_MNEMONIC = _ALIGN_PC + 40,
+	_ALIGN_OPERATORS = _ALIGN_PC + 48,
 };
 
 static RBT_MemoryBus *_bus;
 
 // clang-format off
 static const char *_mnemonics[] = {
-	"abcd", "add", "adda", "addi", "addx",
+	"abcd", "add", "adda", "addi", "addq","addx",
 	"and", "andi",
 	"asl", "asr",
 	"b",
@@ -61,6 +61,14 @@ static const char *_mnemonics[] = {
 
 	"linea", "linef",
 };
+
+static const char *_conditions[] = {
+	"f", "t", "hi", "ls",
+	"cc", "cs", "ne", "eq",
+	"vc", "vs", "pl", "mi",
+	"ge", "lt", "gt", "le",
+};
+
 // clang-format on
 
 static i32 _stringfy_effective_address(const RBT_EffectiveAddress *ea, char *out) {
@@ -160,8 +168,8 @@ static void test_opcodes(void) {
 		else if (instr.size == RBT_SIZE_LONG)
 			size = ".l";
 
-		i32 len = _ALIGN_PC;
-		if (len != 0) {
+		i32 len = 0;
+		if (len != _ALIGN_PC) {
 			len = _align_text(len, _ALIGN_PC, out);
 			len += sprintf(&out[len], "%06x: ", instr.start_pc);
 
@@ -171,7 +179,16 @@ static void test_opcodes(void) {
 		}
 
 		len = _align_text(len, _ALIGN_MNEMONIC, out);
-		len += sprintf(&out[len], "%s%s ", _mnemonics[instr.mnemonic], size);
+
+		if (instr.mnemonic == RBT_OP_Scc || instr.mnemonic == RBT_OP_DBcc
+			|| instr.mnemonic == RBT_OP_Bcc) {
+			u8 cond = instr.aux.imm;
+			len += sprintf(
+				&out[len], "%s%s ", _mnemonics[instr.mnemonic], _conditions[cond]
+			);
+		} else {
+			len += sprintf(&out[len], "%s%s ", _mnemonics[instr.mnemonic], size);
+		}
 
 		len = _align_text(len, _ALIGN_OPERATORS, out);
 		len += _stringfy_operand(&instr.src, &out[len]);

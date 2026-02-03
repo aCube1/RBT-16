@@ -48,7 +48,7 @@ typedef enum RBT_OpCondition {
 // clang-format off
 typedef enum RBT_OpMnemonic {
 	RBT_OP_ABCD,
-	RBT_OP_ADD, RBT_OP_ADDA, RBT_OP_ADDI, RBT_OP_ADDX,
+	RBT_OP_ADD, RBT_OP_ADDA, RBT_OP_ADDI, RBT_OP_ADDQ, RBT_OP_ADDX,
 	RBT_OP_AND, RBT_OP_ANDI,
 	RBT_OP_ASL, RBT_OP_ASR,
 	RBT_OP_Bcc,

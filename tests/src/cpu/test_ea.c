@@ -33,7 +33,7 @@ void test_indexext_from_word_sign_and_fields(void) {
 
 void test_indexext_to_word_roundtrip(void) {
 	RBT_IndexExtension ix = {
-		.is_addr = true, .is_long = true, .xreg = 3, .scale = 0, .displacement = -5
+		.is_addr = true, .is_long = true, .xreg = 3, .displacement = -5
 	};
 	u16 word = rbt_indexext_to_word(&ix);
 
