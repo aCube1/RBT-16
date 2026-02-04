@@ -649,7 +649,7 @@
 	negx.b		(%a2)+
 	negx.b		-(%a2)
 	negx.b		0x7fff(%a2)
-	negx.b		0x7f(%a2,%d4)
+	negx.b		0x7f(%a2,%d4.w)
 	negx.b		(0xffffffff).w
 	negx.b		(0xffffffff).l
 	negx.w		%d4
@@ -657,7 +657,7 @@
 	negx.w		(%a2)+
 	negx.w		-(%a2)
 	negx.w		0x7fff(%a2)
-	negx.w		0x7f(%a2,%d4)
+	negx.w		0x7f(%a2,%d4.w)
 	negx.w		(0xffffffff).w
 	negx.w		(0xffffffff).l
 	negx.l		%d4
@@ -665,7 +665,7 @@
 	negx.l		(%a2)+
 	negx.l		-(%a2)
 	negx.l		0x7fff(%a2)
-	negx.l		0x7f(%a2,%d4)
+	negx.l		0x7f(%a2,%d4.w)
 	negx.l		(0xffffffff).w
 	negx.l		(0xffffffff).l
 
@@ -674,7 +674,7 @@
 	clr.b		(%a2)+
 	clr.b		-(%a2)
 	clr.b		0x7fff(%a2)
-	clr.b		0x7f(%a2,%d4)
+	clr.b		0x7f(%a2,%d4.w)
 	clr.b		(0xffffffff).w
 	clr.b		(0xffffffff).l
 	clr.w		%d4
@@ -682,7 +682,7 @@
 	clr.w		(%a2)+
 	clr.w		-(%a2)
 	clr.w		0x7fff(%a2)
-	clr.w		0x7f(%a2,%d4)
+	clr.w		0x7f(%a2,%d4.w)
 	clr.w		(0xffffffff).w
 	clr.w		(0xffffffff).l
 	clr.l		%d4
@@ -690,7 +690,7 @@
 	clr.l		(%a2)+
 	clr.l		-(%a2)
 	clr.l		0x7fff(%a2)
-	clr.l		0x7f(%a2,%d4)
+	clr.l		0x7f(%a2,%d4.w)
 	clr.l		(0xffffffff).w
 	clr.l		(0xffffffff).l
 
@@ -699,7 +699,7 @@
 	neg.b		(%a2)+
 	neg.b		-(%a2)
 	neg.b		0x7fff(%a2)
-	neg.b		0x7f(%a2,%d4)
+	neg.b		0x7f(%a2,%d4.w)
 	neg.b		(0xffffffff).w
 	neg.b		(0xffffffff).l
 	neg.w		%d4
@@ -707,7 +707,7 @@
 	neg.w		(%a2)+
 	neg.w		-(%a2)
 	neg.w		0x7fff(%a2)
-	neg.w		0x7f(%a2,%d4)
+	neg.w		0x7f(%a2,%d4.w)
 	neg.w		(0xffffffff).w
 	neg.w		(0xffffffff).l
 	neg.l		%d4
@@ -715,7 +715,7 @@
 	neg.l		(%a2)+
 	neg.l		-(%a2)
 	neg.l		0x7fff(%a2)
-	neg.l		0x7f(%a2,%d4)
+	neg.l		0x7f(%a2,%d4.w)
 	neg.l		(0xffffffff).w
 	neg.l		(0xffffffff).l
 
@@ -724,7 +724,7 @@
 	not.b		(%a2)+
 	not.b		-(%a2)
 	not.b		0x7fff(%a2)
-	not.b		0x7f(%a2,%d4)
+	not.b		0x7f(%a2,%d4.w)
 	not.b		(0xffffffff).w
 	not.b		(0xffffffff).l
 	not.w		%d4
@@ -732,7 +732,7 @@
 	not.w		(%a2)+
 	not.w		-(%a2)
 	not.w		0x7fff(%a2)
-	not.w		0x7f(%a2,%d4)
+	not.w		0x7f(%a2,%d4.w)
 	not.w		(0xffffffff).w
 	not.w		(0xffffffff).l
 	not.l		%d4
@@ -740,7 +740,7 @@
 	not.l		(%a2)+
 	not.l		-(%a2)
 	not.l		0x7fff(%a2)
-	not.l		0x7f(%a2,%d4)
+	not.l		0x7f(%a2,%d4.w)
 	not.l		(0xffffffff).w
 	not.l		(0xffffffff).l
 
@@ -889,24 +889,24 @@
 	movem.l		*(%pc), %d4-%a2
 	movem.l		*(%pc,%d4.w), %d4-%a2
 
-	lea			(%a2), %a2
-	lea			0x7fff(%a2), %a2
-	lea			(0xffffffff).w, %a2
-	lea			(0xffffffff).l, %a2
-	lea			*(%pc), %a2
-	lea			*(%pc,%d4.w), %a2
+	lea.l		(%a2), %a2
+	lea.l		0x7fff(%a2), %a2
+	lea.l		(0xffffffff).w, %a2
+	lea.l		(0xffffffff).l, %a2
+	lea.l		*(%pc), %a2
+	lea.l		*(%pc,%d4.w), %a2
 
-	chk			%d4, %d2
-	chk			(%a2), %d4
-	chk			(%a2)+, %d4
-	chk			-(%a2), %d4
-	chk			0x7fff(%a2), %d4
-	chk			0x7f(%a2,%d4.w), %d4
-	chk			(0xffffffff).w, %d4
-	chk			(0xffffffff).l, %d4
-	chk			*(%pc), %d4
-	chk			*(%pc,%d4.w), %d4
-	chk			#0xffff, %d4
+	chk.w		%d4, %d2
+	chk.w		(%a2), %d4
+	chk.w		(%a2)+, %d4
+	chk.w		-(%a2), %d4
+	chk.w		0x7fff(%a2), %d4
+	chk.w		0x7f(%a2,%d4.w), %d4
+	chk.w		(0xffffffff).w, %d4
+	chk.w		(0xffffffff).l, %d4
+	chk.w		*(%pc), %d4
+	chk.w		*(%pc,%d4.w), %d4
+	chk.w		#0xffff, %d4
 
 .group_0101:
 	; Group: 0b0101 -> ADDQ/SUBQ/Scc/DBcc
@@ -1309,7 +1309,7 @@
 	suba.w		(%a4)+, %a2
 	suba.w		-(%a4), %a2
 	suba.w		0x7fff(%a4), %a2
-	suba.w		0x7f(%a4,%d4), %a2
+	suba.w		0x7f(%a4,%d4.w), %a2
 	suba.w		(0xffffffff).w, %a2
 	suba.w		(0xffffffff).l, %a2
 	suba.w		#0xffff, %a2
@@ -1321,7 +1321,7 @@
 	suba.l		(%a4)+, %a2
 	suba.l		-(%a4), %a2
 	suba.l		0x7fff(%a4), %a2
-	suba.l		0x7f(%a4,%d4), %a2
+	suba.l		0x7f(%a4,%d4.w), %a2
 	suba.l		(0xffffffff).w, %a2
 	suba.l		(0xffffffff).l, %a2
 	suba.l		#0xffff, %a2
@@ -1571,7 +1571,7 @@
 	adda.w		(%a4)+, %a2
 	adda.w		-(%a4), %a2
 	adda.w		0x7fff(%a4), %a2
-	adda.w		0x7f(%a4,%d4), %a2
+	adda.w		0x7f(%a4,%d4.w), %a2
 	adda.w		(0xffffffff).w, %a2
 	adda.w		(0xffffffff).l, %a2
 	adda.w		#0xffff, %a2
@@ -1583,7 +1583,7 @@
 	adda.l		(%a4)+, %a2
 	adda.l		-(%a4), %a2
 	adda.l		0x7fff(%a4), %a2
-	adda.l		0x7f(%a4,%d4), %a2
+	adda.l		0x7f(%a4,%d4.w), %a2
 	adda.l		(0xffffffff).w, %a2
 	adda.l		(0xffffffff).l, %a2
 	adda.l		#0xffff, %a2
