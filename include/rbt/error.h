@@ -30,7 +30,7 @@ typedef enum RBT_ErrorSeverity {
 	RBT_SEVERITY_FATAL,
 } RBT_ErrorSeverity;
 
-typedef enum RBT_ErrorCode {
+typedef enum RBT_ErrorCode : u8 {
 	// Generic errors (0x00-0x0f)
 	RBT_ERR_SUCCESS = 0,
 	RBT_ERR_INVALID_ARGS = 0x01,

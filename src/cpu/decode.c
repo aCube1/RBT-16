@@ -9,13 +9,19 @@
 #define _OP_GROUP(word)	   (rbt_bits((word), 15, 12))
 #define _OP_SUBGROUP(word) (rbt_bits((word), 11, 8))
 
-#define _OP_SIZE(word)	   (rbt_bits((word), 7, 6))
-#define _OP_COND(word)	   (rbt_bits((word), 11, 8))
-#define _OP_QUICK(word)	   (rbt_bits((word), 11, 9))
-#define _OP_ROTATION(word) _OP_QUICK(word)
+#define _OP_REG(word)	 (rbt_bits((word), 11, 9))
+#define _OP_SIZE(word)	 (rbt_bits((word), 7, 6))
+#define _OP_COND(word)	 (rbt_bits((word), 11, 8))
+#define _OP_OFFSET(word) (rbt_bits((word), 7, 0))
+
+#define _OP_TYPE(word)	   _OP_REG(word)
+#define _OP_ROTATION(word) _OP_REG(word)
+#define _OP_QUICK(word)	   _OP_REG(word)
 
 #define _OP_EA_MODE(word) (rbt_bits((word), 5, 3))
 #define _OP_EA_REG(word)  (rbt_bits((word), 2, 0))
+
+#define _OP_MOVEQ_QUICK(word) _OP_OFFSET(word)
 
 #define _OP_MOVE_SRC_MODE(word) _OP_EA_MODE(word)
 #define _OP_MOVE_SRC_REG(word)	_OP_EA_REG(word)
@@ -31,9 +37,7 @@
 	}
 }
 
-[[nodiscard]] static u8 _store_operand_as_words(
-	const RBT_Operand *operand, RBT_OperandSize size, u16 *words
-) {
+[[nodiscard]] static u8 _store_operand_as_words(const RBT_Operand *operand, u16 *words) {
 	assert(operand);
 
 	switch (operand->type) {
@@ -68,7 +72,7 @@
 			}
 
 			words[0] = ea->imm & 0xffff;
-			return (size == RBT_SIZE_NONE) ? 0 : 1;
+			return (operand->size == RBT_SIZE_NONE) ? 0 : 1;
 		default: return 0;
 		}
 	}
@@ -83,26 +87,28 @@
 		return (operand->size == RBT_SIZE_NONE) ? 0 : 1;
 	case RBT_OPERAND_DISP: //
 		words[0] = operand->disp & 0xffff;
-		return 1;
+		return (operand->size == RBT_SIZE_NONE) ? 0 : 1;
 	case RBT_OPERAND_INDDISP: //
 		words[0] = operand->inddisp.disp & 0xffff;
-		return 1;
+		return (operand->size == RBT_SIZE_NONE) ? 0 : 1;
 	default: return 0;
 	}
 
 	unreachable();
 }
 
-static RBT_ErrorCode _decode_bit(RBT_Instruction *instr, RBT_MemoryBus *bus) {
+static u8 _decode_bit(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	u16 opcode = instr->words[0];
 	u32 curr_pc = instr->start_pc + 2;
 
 	// Static BTST/BCHG/BCLR/BSET: 0000 1000 TT MMMRRR [B.L]
 	// Dynamic BTST/BCHG/BCLR/BSET: 0000 DDD1 TT MMMRRR [B.L]
-	u8 dreg = rbt_bits(opcode, 11, 9);
-	u8 type = _OP_SIZE(opcode);
+	u8 dreg = _OP_REG(opcode);
+	u8 type = rbt_bits(opcode, 7, 6);
 	u8 ea_mode = _OP_EA_MODE(opcode);
 	u8 ea_reg = _OP_EA_REG(opcode);
+
+	instr->size = (ea_mode == 0b000) ? RBT_SIZE_LONG : RBT_SIZE_BYTE;
 
 	switch (type) {
 	case 0b00: instr->mnemonic = RBT_OP_BTST; break;
@@ -112,53 +118,61 @@ static RBT_ErrorCode _decode_bit(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	}
 
 	// Is dynamic?
-	// Dn operand is long-size, and memory operands are byte-size
-	if (RBT_BIT(opcode, 8)) {
-		instr->size = RBT_SIZE_LONG;
-		instr->src.type = RBT_OPERAND_DREG;
-		instr->src.size = instr->size;
-		instr->src.reg = dreg;
-	} else {
-		instr->size = RBT_SIZE_BYTE;
-		instr->src.type = RBT_OPERAND_IMM;
-		instr->src.size = instr->size;
-		instr->src.imm = ((u32)rbt_bus_read_word(bus, curr_pc)) & 0xff;
+	if (rbt_bits(opcode, 11, 8) == 0b1000) {
+		u16 bits = rbt_bus_read_word(bus, curr_pc);
 		if (bus->error_code) {
 			return bus->error_code;
 		}
+		curr_pc += 2;
 
-		curr_pc += 2; // Skip word
+		instr->src.type = RBT_OPERAND_IMM;
+		instr->src.size = RBT_SIZE_WORD;
+		instr->src.imm = bits;
+	} else if (RBT_BIT(opcode, 8)) {
+		instr->src.type = RBT_OPERAND_DREG;
+		instr->src.reg = dreg;
+	} else {
+		rbt_push_error(
+			RBT_ERR_DECODE_ILLEGAL, "BIT: Unknown enconding at 0x%06x", instr->start_pc
+		);
+		return RBT_ERR_DECODE_ILLEGAL;
 	}
 
+	// <ea> as Dn is long-only
 	instr->dst.type = RBT_OPERAND_EA;
-	instr->dst.size = RBT_SIZE_NONE;
+	instr->dst.size = instr->size;
 	curr_pc = rbt_decode_effective_address(
-		ea_mode, ea_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
+		ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->dst.ea
 	);
 	if (curr_pc == UINT32_MAX) {
 		return RBT_ERR_DECODE_INVALID_EA;
 	}
 
-	// EA invalid: An | PC-relative(if not BTST)
-	u16 invalid_ea = RBT_EA_DIRECT_ADDR;
-	if (instr->mnemonic != RBT_OP_BTST)
-		invalid_ea |= RBT_EA_GROUP_PCR;
+	// EA invalid: An, (PC-relative, if BTST), (#imm, if BTST and not dyn)
+	u16 ea_invalid = RBT_EA_DIRECT_ADDR;
+	if (instr->mnemonic != RBT_OP_BTST) {
+		ea_invalid |= RBT_EA_GROUP_PCR;
+	} else if (instr->src.type == RBT_OPERAND_IMM) {
+		ea_invalid |= RBT_EA_IMMEDIATE;
+	}
 
-	if ((instr->dst.ea.mode & invalid_ea) != 0u) {
+	if ((instr->dst.ea.mode & ea_invalid) != 0u) {
 		rbt_push_warn(
-			"BIT: Dest EA(An|PC-relative) isn't allowed, at: 0x%06x", instr->start_pc
+			"BIT: Target EA(An|PC-relative|#imm) isn't allowed, at: 0x%06x",
+			instr->start_pc
 		);
 		return RBT_ERR_DECODE_ILLEGAL_EA;
 	}
+
 	return RBT_ERR_SUCCESS;
 }
 
-static i32 _decode_imm(RBT_Instruction *instr, RBT_MemoryBus *bus) {
+static u8 _decode_imm(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	u16 opcode = instr->words[0];
 	u32 curr_pc = instr->start_pc + 2;
 
 	// ORI/ANDI/SUBI/ADDI/EORI/CMPI: 0000 TTT0 SS MMMRRR [BWL]
-	u8 type = rbt_bits(opcode, 11, 9);
+	u8 type = _OP_TYPE(opcode);
 	u8 size = _OP_SIZE(opcode);
 	u8 ea_mode = _OP_EA_MODE(opcode);
 	u8 ea_reg = _OP_EA_REG(opcode);
@@ -235,7 +249,7 @@ static i32 _decode_imm(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	return RBT_ERR_SUCCESS;
 }
 
-static i32 _decode_moves_movep(RBT_Instruction *instr, RBT_MemoryBus *bus) {
+static u8 _decode_moves_movep(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	u16 opcode = instr->words[0];
 	u32 curr_pc = instr->start_pc + 2;
 
@@ -269,18 +283,20 @@ static i32 _decode_moves_movep(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		instr->size = RBT_BIT(op, 0) ? RBT_SIZE_LONG : RBT_SIZE_WORD;
 		if (to_mem) {
 			instr->src.type = RBT_OPERAND_DREG;
-			instr->src.reg = _OP_MOVE_DST_REG(opcode);
+			instr->src.reg = _OP_REG(opcode);
 
 			instr->dst.type = RBT_OPERAND_INDDISP;
+			instr->dst.size = RBT_SIZE_WORD;
 			instr->dst.inddisp.areg = ea_reg;
 			instr->dst.inddisp.disp = rbt_sign_extend(RBT_SIZE_WORD, disp);
 		} else {
 			instr->src.type = RBT_OPERAND_INDDISP;
+			instr->src.size = RBT_SIZE_WORD;
 			instr->src.inddisp.areg = ea_reg;
 			instr->src.inddisp.disp = rbt_sign_extend(RBT_SIZE_WORD, disp);
 
 			instr->dst.type = RBT_OPERAND_DREG;
-			instr->dst.reg = _OP_MOVE_DST_REG(opcode);
+			instr->dst.reg = _OP_REG(opcode);
 		}
 	} else {
 		// MOVES: 0000 1110 SS MMMRRR [BWL] (M68010+)
@@ -353,7 +369,7 @@ static i32 _decode_moves_movep(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	return RBT_ERR_SUCCESS;
 }
 
-static i32 _decode_move_movea(RBT_Instruction *instr, RBT_MemoryBus *bus) {
+static u8 _decode_move_movea(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	u16 opcode = instr->words[0];
 	u32 curr_pc = instr->start_pc + 2;
 
@@ -423,7 +439,7 @@ static i32 _decode_move_movea(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	return RBT_ERR_SUCCESS;
 }
 
-static i32 _decode_move_reg(RBT_Instruction *instr, RBT_MemoryBus *bus) {
+static u8 _decode_move_reg(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	u16 opcode = instr->words[0];
 	u32 curr_pc = instr->start_pc + 2;
 
@@ -494,7 +510,7 @@ static i32 _decode_move_reg(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	return RBT_ERR_SUCCESS;
 }
 
-static i32 _decode_negx_clr_not(RBT_Instruction *instr, RBT_MemoryBus *bus) {
+static u8 _decode_negx_clr_not(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	u16 opcode = instr->words[0];
 	u32 curr_pc = instr->start_pc + 2;
 
@@ -545,7 +561,7 @@ static i32 _decode_negx_clr_not(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	return RBT_ERR_SUCCESS;
 }
 
-static i32 _decode_movem(RBT_Instruction *instr, RBT_MemoryBus *bus) {
+static u8 _decode_movem(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	u16 opcode = instr->words[0];
 	u32 curr_pc = instr->start_pc + 2;
 
@@ -614,7 +630,7 @@ static i32 _decode_movem(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	return RBT_ERR_SUCCESS;
 }
 
-static i32 _decode_ext_nbcd_swap_bkpt_pea(RBT_Instruction *instr, RBT_MemoryBus *bus) {
+static u8 _decode_ext_nbcd_swap_bkpt_pea(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	u16 opcode = instr->words[0];
 	u32 curr_pc = instr->start_pc + 2;
 
@@ -714,7 +730,7 @@ static i32 _decode_ext_nbcd_swap_bkpt_pea(RBT_Instruction *instr, RBT_MemoryBus 
 	return RBT_ERR_DECODE_ILLEGAL;
 }
 
-static i32 _decode_illegal_tas_tst(RBT_Instruction *instr, RBT_MemoryBus *bus) {
+static u8 _decode_illegal_tas_tst(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	u16 opcode = instr->words[0];
 
 	// ILLEGAL: 0100 1010 11111100 [...]
@@ -766,7 +782,7 @@ static i32 _decode_illegal_tas_tst(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	return RBT_ERR_SUCCESS;
 }
 
-static i32 _decode_misc(RBT_Instruction *instr, RBT_MemoryBus *bus) {
+static u8 _decode_misc(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	u16 opcode = instr->words[0];
 	u32 curr_pc = instr->start_pc + 2;
 
@@ -943,7 +959,7 @@ static i32 _decode_misc(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	return RBT_ERR_SUCCESS;
 }
 
-static i32 _decode_chk_lea(RBT_Instruction *instr, RBT_MemoryBus *bus) {
+static u8 _decode_chk_lea(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	u16 opcode = instr->words[0];
 	u32 curr_pc = instr->start_pc + 2;
 
@@ -989,7 +1005,7 @@ static i32 _decode_chk_lea(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	return RBT_ERR_SUCCESS;
 }
 
-static i32 _decode_addq_subq_scc_dbcc(RBT_Instruction *instr, RBT_MemoryBus *bus) {
+static u8 _decode_addq_subq_scc_dbcc(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	u16 opcode = instr->words[0];
 	u32 curr_pc = instr->start_pc + 2;
 
@@ -1058,6 +1074,10 @@ static i32 _decode_addq_subq_scc_dbcc(RBT_Instruction *instr, RBT_MemoryBus *bus
 
 	instr->mnemonic = RBT_BIT(opcode, 8) ? RBT_OP_SUBQ : RBT_OP_ADDQ;
 	instr->size = _decode_size(size);
+	if (instr->size == RBT_SIZE_NONE) {
+		rbt_push_warn("Invalid operand size at: 0x%06x", instr->start_pc);
+		return RBT_ERR_DECODE_ILLEGAL;
+	}
 
 	instr->src.type = RBT_OPERAND_IMM;
 	instr->src.size = RBT_SIZE_NONE;
@@ -1089,6 +1109,45 @@ static i32 _decode_addq_subq_scc_dbcc(RBT_Instruction *instr, RBT_MemoryBus *bus
 		);
 		return RBT_ERR_DECODE_ILLEGAL_EA;
 	}
+
+	return RBT_ERR_SUCCESS;
+}
+
+static u8 _decode_branch(RBT_Instruction *instr, RBT_MemoryBus *bus) {
+	u16 opcode = instr->words[0];
+	u32 curr_pc = instr->start_pc + 2;
+
+	// BRA: 0110 0000 DDDDDDDD [BW.]
+	// BSR: 0110 0001 DDDDDDDD [BW.]
+	// Bcc: 0110 cccc DDDDDDDD [BW.]
+	u8 cond = _OP_COND(opcode);
+	u16 offset = _OP_OFFSET(opcode);
+	instr->size = RBT_SIZE_BYTE;
+
+	// Read 16-bits offset if 8-bits offset is 0x00
+	if (offset == 0x00) {
+		instr->size = RBT_SIZE_WORD;
+		offset = rbt_bus_read_word(bus, curr_pc);
+		if (bus->error_code) {
+			return bus->error_code;
+		}
+	}
+
+	if (cond == RBT_COND_T) {
+		instr->mnemonic = RBT_OP_BRA;
+	} else if (cond == RBT_COND_F) {
+		instr->mnemonic = RBT_OP_BSR;
+	} else {
+		instr->mnemonic = RBT_OP_Bcc;
+	}
+
+	instr->aux.type = RBT_OPERAND_IMM;
+	instr->aux.size = RBT_SIZE_NONE;
+	instr->aux.imm = cond;
+
+	instr->dst.type = RBT_OPERAND_DISP;
+	instr->dst.size = (instr->size == RBT_SIZE_BYTE) ? RBT_SIZE_NONE : RBT_SIZE_WORD;
+	instr->dst.disp = rbt_sign_extend(instr->size, offset);
 
 	return RBT_ERR_SUCCESS;
 }
@@ -1229,8 +1288,40 @@ RBT_ErrorCode rbt_decode_instruction(RBT_MemoryBus *bus, u32 pc, RBT_Instruction
 		// DBcc: 0101 cccc 11 001RRR [.W.]
 		status = _decode_addq_subq_scc_dbcc(instr, bus);
 		break;
-	case RBT_OPGROUP_BRANCH:  break;
-	case RBT_OPGROUP_MOVEQ:	  break;
+	case RBT_OPGROUP_BRANCH:
+		// BRA: 0110 0000 dddddddd [BW.]
+		// BSR: 0110 0001 dddddddd [BW.]
+		// Bcc: 0110 cccc dddddddd [BW.]
+		status = _decode_branch(instr, bus);
+		break;
+	case RBT_OPGROUP_MOVEQ: {
+		// MOVEQ: 0111 RRR0 QQQQQQQQ [..L]
+		u16 opcode = instr->words[0];
+
+		if (RBT_BIT(opcode, 8)) {
+			rbt_push_error(
+				RBT_ERR_DECODE_ILLEGAL, "MOVEQ: Unknown encoding at 0x%06x",
+				instr->start_pc
+			);
+			status = RBT_ERR_DECODE_ILLEGAL;
+			break;
+		}
+
+		u8 quick = _OP_MOVEQ_QUICK(opcode);
+		u8 dreg = _OP_REG(opcode);
+
+		instr->mnemonic = RBT_OP_MOVEQ;
+		instr->size = RBT_SIZE_LONG;
+
+		instr->src.type = RBT_OPERAND_IMM;
+		instr->src.size = RBT_SIZE_NONE;
+		instr->src.imm = quick;
+
+		instr->dst.type = RBT_OPERAND_DREG;
+		instr->dst.reg = dreg;
+
+		status = RBT_ERR_SUCCESS;
+	} break;
 	case RBT_OPGROUP_ORDIV:	  break;
 	case RBT_OPGROUP_SUBSUBX: break;
 	case RBT_OPGROUP_LINEA:
@@ -1248,13 +1339,13 @@ RBT_ErrorCode rbt_decode_instruction(RBT_MemoryBus *bus, u32 pc, RBT_Instruction
 	}
 
 	instr->word_count += _store_operand_as_words(
-		&instr->aux, instr->size, &instr->words[instr->word_count]
+		&instr->aux, &instr->words[instr->word_count]
 	);
 	instr->word_count += _store_operand_as_words(
-		&instr->src, instr->size, &instr->words[instr->word_count]
+		&instr->src, &instr->words[instr->word_count]
 	);
 	instr->word_count += _store_operand_as_words(
-		&instr->dst, instr->size, &instr->words[instr->word_count]
+		&instr->dst, &instr->words[instr->word_count]
 	);
 
 	instr->len = instr->word_count * 2; // length is stored as bytes
