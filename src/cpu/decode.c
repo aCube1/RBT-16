@@ -28,6 +28,39 @@
 #define _OP_MOVE_DST_MODE(word) (rbt_bits((word), 8, 6))
 #define _OP_MOVE_DST_REG(word)	(rbt_bits((word), 11, 9))
 
+[[nodiscard]] static bool _validate_ea(
+	const RBT_EffectiveAddress *ea,
+	u16 invalid_modes,
+	const char *instr_name,
+	const char *operand_name,
+	u32 pc
+) {
+	if ((ea->mode & invalid_modes) == 0u) {
+		return true;
+	}
+
+	static char buf[128] = {};
+
+	i32 count = 0;
+	if (invalid_modes & RBT_EA_DIRECT_DATA)
+		strcat(buf, (count++ > 0) ? "|Dn" : "Dn");
+	if (invalid_modes & RBT_EA_DIRECT_ADDR)
+		strcat(buf, (count++ > 0) ? "|An" : "An");
+	if (invalid_modes & RBT_EA_IMMEDIATE)
+		strcat(buf, (count++ > 0) ? "|#imm" : "#imm");
+	if (invalid_modes & RBT_EA_GROUP_PCR)
+		strcat(buf, (count++ > 0) ? "|PC-rel" : "PC-rel");
+	if (invalid_modes & RBT_EA_INDIRECT_POSTINC)
+		strcat(buf, (count++ > 0) ? "|(An)+" : "(An)+");
+	if (invalid_modes & RBT_EA_INDIRECT_PREDEC)
+		strcat(buf, (count++ > 0) ? "|-(An)" : "-(An)");
+
+	rbt_push_warn(
+		"%s: %s EA(%s) isn't allowed, at: 0x%06x", instr_name, operand_name, buf, pc
+	);
+	return false;
+}
+
 [[nodiscard]] static inline RBT_OperandSize _decode_size(u8 size) {
 	switch (size) {
 	case 0b00: return RBT_SIZE_BYTE;
@@ -156,11 +189,7 @@ static u8 _decode_bit(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		ea_invalid |= RBT_EA_IMMEDIATE;
 	}
 
-	if ((instr->dst.ea.mode & ea_invalid) != 0u) {
-		rbt_push_warn(
-			"BIT: Target EA(An|PC-relative|#imm) isn't allowed, at: 0x%06x",
-			instr->start_pc
-		);
+	if (!_validate_ea(&instr->dst.ea, ea_invalid, "BIT", "Target", instr->start_pc)) {
 		return RBT_ERR_DECODE_ILLEGAL_EA;
 	}
 
@@ -239,10 +268,7 @@ static u8 _decode_imm(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	if (instr->mnemonic != RBT_OP_CMPI)
 		ea_invalid |= RBT_EA_GROUP_PCR;
 
-	if ((instr->dst.ea.mode & ea_invalid) != 0u) {
-		rbt_push_warn(
-			"IMM: Dest EA(An|#imm|PC-relative) isn't allowed, at: 0x%06x", instr->start_pc
-		);
+	if (!_validate_ea(&instr->dst.ea, ea_invalid, "IMM", "Dest", instr->start_pc)) {
 		return RBT_ERR_DECODE_ILLEGAL_EA;
 	}
 
@@ -357,11 +383,7 @@ static u8 _decode_moves_movep(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		// EA invalid: Dn, An, #imm, PC-relative
 		u16 ea_invalid = RBT_EA_DIRECT_DATA | RBT_EA_DIRECT_ADDR | RBT_EA_IMMEDIATE
 					   | RBT_EA_GROUP_PCR;
-		if ((target_ea->mode & ea_invalid) != 0u) {
-			rbt_push_warn(
-				"MOVES: Target EA(Dn|An|#imm|PC-relative) isn't allowed, at: 0x%06x",
-				instr->start_pc
-			);
+		if (!_validate_ea(target_ea, ea_invalid, "MOVES", "Target", instr->start_pc)) {
 			return RBT_ERR_DECODE_ILLEGAL_EA;
 		}
 	}
@@ -419,11 +441,9 @@ static u8 _decode_move_movea(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	if (instr->mnemonic == RBT_OP_MOVE) {
 		// EA invalid: An, #imm, PC-relative
 		u16 ea_invalid = RBT_EA_DIRECT_ADDR | RBT_EA_IMMEDIATE | RBT_EA_GROUP_PCR;
-		if ((instr->dst.ea.mode & ea_invalid) != 0u) {
-			rbt_push_warn(
-				"MOVE: Source EA(An|#imm|PC-relative) isn't allowed, at: 0x%06x",
-				instr->start_pc
-			);
+		if (!_validate_ea(
+				&instr->dst.ea, ea_invalid, "MOVE", "Source", instr->start_pc
+			)) {
 			return RBT_ERR_DECODE_ILLEGAL_EA;
 		}
 	}
@@ -490,20 +510,18 @@ static u8 _decode_move_reg(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 	// EA invalid: An, [#imm, PC-relative](if from CCR/SR)
 	u16 ea_invalid;
-	RBT_EffectiveAddress *ea;
+	RBT_EffectiveAddress *target_ea;
 	if (instr->src.type == RBT_OPERAND_EA) {
-		ea = &instr->src.ea;
+		target_ea = &instr->src.ea;
 		ea_invalid = RBT_EA_DIRECT_ADDR | RBT_EA_IMMEDIATE | RBT_EA_GROUP_PCR;
 	} else {
-		ea = &instr->dst.ea;
+		target_ea = &instr->dst.ea;
 		ea_invalid = RBT_EA_DIRECT_ADDR;
 	}
 
-	if ((ea->mode & ea_invalid) != 0u) {
-		rbt_push_warn(
-			"MOVE <> SR/CCR: Target EA(An|#imm|PC-relative) isn't allowed , at: 0x%06x",
-			instr->start_pc
-		);
+	if (!_validate_ea(
+			target_ea, ea_invalid, "MOVE <> SR/CCR", "Target", instr->start_pc
+		)) {
 		return RBT_ERR_DECODE_ILLEGAL_EA;
 	}
 
@@ -550,11 +568,7 @@ static u8 _decode_negx_clr_not(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 	// EA invalid: An, PC-relative, #imm
 	u16 ea_invalid = RBT_EA_DIRECT_ADDR | RBT_EA_IMMEDIATE | RBT_EA_GROUP_PCR;
-	if ((instr->dst.ea.mode & ea_invalid) != 0u) {
-		rbt_push_warn(
-			"MISC: Dest EA(An|#imm|PC-relative) isn't allowed, at: 0x%06x",
-			instr->start_pc
-		);
+	if (!_validate_ea(&instr->dst.ea, ea_invalid, "MISC", "Dest", instr->start_pc)) {
 		return RBT_ERR_DECODE_ILLEGAL_EA;
 	}
 
@@ -618,13 +632,8 @@ static u8 _decode_movem(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		ea_invalid |= RBT_EA_INDIRECT_POSTINC | RBT_EA_GROUP_PCR;
 	}
 
-	if ((target_ea->mode & ea_invalid) != 0u) {
-		rbt_push_warn(
-			"MOVEM: Target EA(Dn|An|(An)+|PC-relative|#imm) isn't allowed, at: "
-			"0x%06x",
-			instr->start_pc
-		);
-		return RBT_ERR_DECODE_INVALID_EA;
+	if (!_validate_ea(target_ea, ea_invalid, "MOVEM", "Target", instr->start_pc)) {
+		return RBT_ERR_DECODE_ILLEGAL_EA;
 	}
 
 	return RBT_ERR_SUCCESS;
@@ -669,11 +678,7 @@ static u8 _decode_ext_nbcd_swap_bkpt_pea(RBT_Instruction *instr, RBT_MemoryBus *
 
 		// EA invalid: An, #imm, PC-relative
 		u16 ea_invalid = RBT_EA_DIRECT_ADDR | RBT_EA_IMMEDIATE | RBT_EA_GROUP_PCR;
-		if ((instr->dst.ea.mode & ea_invalid) != 0u) {
-			rbt_push_warn(
-				"NBCD: Dest EA(An|#imm|PC-relative) isn't allowed, at: 0x%06x",
-				instr->start_pc
-			);
+		if (!_validate_ea(&instr->dst.ea, ea_invalid, "NBCD", "Dest", instr->start_pc)) {
 			return RBT_ERR_DECODE_ILLEGAL_EA;
 		}
 
@@ -713,13 +718,7 @@ static u8 _decode_ext_nbcd_swap_bkpt_pea(RBT_Instruction *instr, RBT_MemoryBus *
 
 		// EA invalid: Dn, An, (An)+, -(An), #imm
 		u16 ea_invalid = RBT_EA_DIRECT_DATA | RBT_EA_DIRECT_ADDR | RBT_EA_GROUP_REL;
-
-		if ((instr->src.ea.mode & ea_invalid) != 0u) {
-			rbt_push_warn(
-				"PEA: Dest EA(Dn|An|(An)+|-(An)|#imm) isn't allowed, at: "
-				"0x%06x",
-				instr->start_pc
-			);
+		if (!_validate_ea(&instr->src.ea, ea_invalid, "PEA", "Source", instr->start_pc)) {
 			return RBT_ERR_DECODE_ILLEGAL_EA;
 		}
 
@@ -771,11 +770,7 @@ static u8 _decode_illegal_tas_tst(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	if (instr->mnemonic == RBT_OP_TAS)
 		ea_invalid |= RBT_EA_GROUP_PCR;
 
-	if ((instr->dst.ea.mode & ea_invalid) != 0u) {
-		rbt_push_warn(
-			"TAS/TST: Dest EA(An|#imm|PC-relative) isn't allowed, at: 0x%06x",
-			instr->start_pc
-		);
+	if (!_validate_ea(&instr->dst.ea, ea_invalid, "TAS/TST", "Dest", instr->start_pc)) {
 		return RBT_ERR_DECODE_ILLEGAL_EA;
 	}
 
@@ -807,11 +802,9 @@ static u8 _decode_misc(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		// EA invalid: Dn, An, #imm, (An)+, -(An)
 		u16 ea_invalid = RBT_EA_DIRECT_DATA | RBT_EA_DIRECT_ADDR | RBT_EA_IMMEDIATE
 					   | RBT_EA_GROUP_REL;
-		if ((instr->dst.ea.mode & ea_invalid) != 0u) {
-			rbt_push_warn(
-				"JMP/JSR: Dest EA(Dn|An|#imm|(An)+|-(An)) isn't allowed, at: 0x%06x",
-				instr->start_pc
-			);
+		if (!_validate_ea(
+				&instr->dst.ea, ea_invalid, "JMP/JSR", "Dest", instr->start_pc
+			)) {
 			return RBT_ERR_DECODE_ILLEGAL_EA;
 		}
 
@@ -993,12 +986,7 @@ static u8 _decode_chk_lea(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	if (instr->mnemonic == RBT_OP_LEA)
 		ea_invalid |= RBT_EA_DIRECT_DATA | RBT_EA_IMMEDIATE | RBT_EA_GROUP_REL;
 
-	if ((instr->src.ea.mode & ea_invalid) != 0u) {
-		rbt_push_warn(
-			"LEA/CHK: Dest EA(An|Dn|(An)+|-(An)|#imm) isn't allowed , at: "
-			"0x%06x",
-			instr->start_pc
-		);
+	if (!_validate_ea(&instr->src.ea, ea_invalid, "LEA/CHK", "Source", instr->start_pc)) {
 		return RBT_ERR_DECODE_ILLEGAL_EA;
 	}
 
@@ -1061,11 +1049,7 @@ static u8 _decode_addq_subq_scc_dbcc(RBT_Instruction *instr, RBT_MemoryBus *bus)
 
 		// EA invalid: An, PC-relative, #imm
 		u16 ea_invalid = RBT_EA_DIRECT_ADDR | RBT_EA_GROUP_PCR | RBT_EA_IMMEDIATE;
-		if ((instr->dst.ea.mode & ea_invalid) != 0u) {
-			rbt_push_warn(
-				"Scc: Target EA(An,PC-relative,#imm) isn't allowed, at: 0x%06x",
-				instr->start_pc
-			);
+		if (!_validate_ea(&instr->dst.ea, ea_invalid, "Scc", "Target", instr->start_pc)) {
 			return RBT_ERR_DECODE_ILLEGAL_EA;
 		}
 
@@ -1102,11 +1086,7 @@ static u8 _decode_addq_subq_scc_dbcc(RBT_Instruction *instr, RBT_MemoryBus *bus)
 
 	// EA invalid: PC-relative, #imm
 	u16 ea_invalid = RBT_EA_GROUP_PCR | RBT_EA_IMMEDIATE;
-	if ((instr->dst.ea.mode & ea_invalid) != 0u) {
-		rbt_push_warn(
-			"ADDQ/SUBQ: Dest EA(PC-relative|#imm) isn't allowed, at: 0x%06x",
-			instr->start_pc
-		);
+	if (!_validate_ea(&instr->dst.ea, ea_invalid, "ADDQ/SUBQ", "Dest", instr->start_pc)) {
 		return RBT_ERR_DECODE_ILLEGAL_EA;
 	}
 

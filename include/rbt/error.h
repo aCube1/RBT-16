@@ -73,5 +73,6 @@ void rbt_err_push(
 );
 void rbt_err_flush(void);
 
+void rbt_set_err_min_severity(RBT_ErrorSeverity min_level);
 void rbt_set_err_stream(FILE *stream);
 const RBT_ErrorEntry *rbt_query_last_error(void);

@@ -18,6 +18,7 @@ typedef struct RBT_ErrorContext {
 	FILE *stream;
 } RBT_ErrorContext;
 
+static RBT_ErrorSeverity _min_severity = RBT_SEVERITY_INFO;
 static _Thread_local struct RBT_ErrorContext _err_ctx = {};
 
 static const char *const _severity_name[] = {
@@ -46,6 +47,10 @@ void rbt_err_push(
 	assert(func);
 	assert(file);
 	assert(fmt);
+
+	if (severity < _min_severity) {
+		return; // Skip storing errors below severity
+	}
 
 	if (_err_ctx.stack_top >= RBT_ERR_STACK_MAX) {
 		rbt_err_flush();
