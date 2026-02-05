@@ -28,13 +28,11 @@ void test_indexext_from_word_sign_and_fields(void) {
 	TEST_ASSERT_TRUE(ix.is_addr);
 	TEST_ASSERT_TRUE(ix.is_long);
 	TEST_ASSERT_EQUAL(1, ix.xreg);
-	TEST_ASSERT_EQUAL_INT8(0x0A, ix.displacement);
+	TEST_ASSERT_EQUAL_INT8(0x0A, ix.disp);
 }
 
 void test_indexext_to_word_roundtrip(void) {
-	RBT_IndexExtension ix = {
-		.is_addr = true, .is_long = true, .xreg = 3, .displacement = -5
-	};
+	RBT_IndexExtension ix = { .is_addr = true, .is_long = true, .xreg = 3, .disp = -5 };
 	u16 word = rbt_indexext_to_word(&ix);
 
 	RBT_IndexExtension decoded = { 0 };
@@ -42,7 +40,7 @@ void test_indexext_to_word_roundtrip(void) {
 	TEST_ASSERT_EQUAL(ix.is_addr, decoded.is_addr);
 	TEST_ASSERT_EQUAL(ix.is_long, decoded.is_long);
 	TEST_ASSERT_EQUAL(ix.xreg, decoded.xreg);
-	TEST_ASSERT_EQUAL_INT8(ix.displacement, decoded.displacement);
+	TEST_ASSERT_EQUAL_INT8(ix.disp, decoded.disp);
 }
 
 void test_decode_absolute_short_sign_extend(void) {

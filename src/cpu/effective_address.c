@@ -21,7 +21,7 @@ bool rbt_indexext_from_word(u16 ext, RBT_IndexExtension *ix) {
 	ix->is_addr = RBT_BIT(ext, 15);
 	ix->is_long = RBT_BIT(ext, 11);
 	ix->xreg = rbt_bits(ext, 14, 12);
-	ix->displacement = rbt_sign_extend(RBT_SIZE_BYTE, ext & 0xff);
+	ix->disp = rbt_sign_extend(RBT_SIZE_BYTE, ext & 0xff);
 
 	return true;
 }
@@ -37,7 +37,7 @@ u16 rbt_indexext_to_word(const RBT_IndexExtension *ix) {
 		word |= 1 << 11;
 
 	word |= ((u16)ix->xreg) << 12;
-	word |= ix->displacement & 0xff;
+	word |= ix->disp & 0xff;
 
 	return word;
 }
@@ -89,8 +89,8 @@ u32 rbt_decode_effective_address(
 		bytes = 2;
 
 		ea->mode = RBT_EA_INDIRECT_DISPLACEMENT;
-		ea->indirect_disp.areg = reg;
-		ea->indirect_disp.disp = rbt_sign_extend(RBT_SIZE_WORD, disp);
+		ea->ind_disp.areg = reg;
+		ea->ind_disp.disp = rbt_sign_extend(RBT_SIZE_WORD, disp);
 	} break;
 	case 0b110: { // (d8, Xi, An)
 		u16 ext = rbt_bus_read_word(bus, pc);
@@ -100,8 +100,8 @@ u32 rbt_decode_effective_address(
 		bytes = 2;
 
 		ea->mode = RBT_EA_INDIRECT_INDEXED;
-		ea->indirect_indexed.areg = reg;
-		if (!rbt_indexext_from_word(ext, &ea->indirect_indexed.ix)) {
+		ea->ind_idx.areg = reg;
+		if (!rbt_indexext_from_word(ext, &ea->ind_idx.ix)) {
 			goto decoding_error;
 		}
 	} break;
@@ -145,7 +145,7 @@ u32 rbt_decode_effective_address(
 			bytes = 2;
 
 			ea->mode = RBT_EA_PC_INDEXED;
-			if (!rbt_indexext_from_word(ext, &ea->pc_indexed)) {
+			if (!rbt_indexext_from_word(ext, &ea->pc_idx)) {
 				goto decoding_error;
 			}
 		} break;

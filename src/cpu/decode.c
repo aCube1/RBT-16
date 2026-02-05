@@ -79,10 +79,10 @@
 
 		switch (ea->mode) {
 		case RBT_EA_INDIRECT_DISPLACEMENT:
-			words[0] = ea->indirect_disp.disp & 0xffff;
+			words[0] = ea->ind_disp.disp & 0xffff;
 			return 1;
 		case RBT_EA_INDIRECT_INDEXED:
-			words[0] = rbt_indexext_to_word(&ea->indirect_indexed.ix);
+			words[0] = rbt_indexext_to_word(&ea->ind_idx.ix);
 			return 1;
 		case RBT_EA_ABSOLUTE_SHORT: //
 			words[0] = ea->absolute_short & 0xffff;
@@ -94,9 +94,7 @@
 		case RBT_EA_PC_DISPLACEMENT: //
 			words[0] = ea->pc_disp & 0xffff;
 			return 1;
-		case RBT_EA_PC_INDEXED:
-			words[0] = rbt_indexext_to_word(&ea->pc_indexed);
-			return 1;
+		case RBT_EA_PC_INDEXED: words[0] = rbt_indexext_to_word(&ea->pc_idx); return 1;
 		case RBT_EA_IMMEDIATE:
 			if (operand->size == RBT_SIZE_LONG) {
 				words[0] = (ea->imm >> 16) & 0xffff;

@@ -4,8 +4,10 @@
 
 #include <unity.h>
 
+#define _PRINT_PC (1)
+
 enum {
-	_ALIGN_PC = 2,
+	_ALIGN_PC = 0,
 	_ALIGN_MNEMONIC = _ALIGN_PC + 40,
 	_ALIGN_OPERATORS = _ALIGN_PC + 48,
 };
@@ -79,9 +81,9 @@ static i32 _stringfy_effective_address(const RBT_EffectiveAddress *ea, char *out
 	case RBT_EA_INDIRECT_POSTINC: return sprintf(out, "(%%a%u)+", ea->indirect);
 	case RBT_EA_INDIRECT_PREDEC:  return sprintf(out, "-(%%a%u)", ea->indirect);
 	case RBT_EA_INDIRECT_DISPLACEMENT:
-		return sprintf(out, "%i(%%a%u)", ea->indirect_disp.disp, ea->indirect_disp.areg);
+		return sprintf(out, "%i(%%a%u)", ea->ind_disp.disp, ea->ind_disp.areg);
 	case RBT_EA_INDIRECT_INDEXED: {
-		const RBT_IndirectIndexed *ix = &ea->indirect_indexed;
+		const RBT_IndirectIndexed *ix = &ea->ind_idx;
 
 		char xreg = 'd';
 		if (ix->ix.is_addr)
@@ -92,8 +94,7 @@ static i32 _stringfy_effective_address(const RBT_EffectiveAddress *ea, char *out
 			xreg = 'l';
 
 		return sprintf(
-			out, "%i(%%a%u, %%%c%u.%c)", ix->ix.displacement, ix->areg, xreg, ix->ix.xreg,
-			size
+			out, "%i(%%a%u, %%%c%u.%c)", ix->ix.disp, ix->areg, xreg, ix->ix.xreg, size
 		);
 	};
 	case RBT_EA_ABSOLUTE_SHORT:	 return sprintf(out, "(0x%04x).w", ea->absolute_short);
@@ -101,16 +102,15 @@ static i32 _stringfy_effective_address(const RBT_EffectiveAddress *ea, char *out
 	case RBT_EA_PC_DISPLACEMENT: return sprintf(out, "%i(%%pc)", ea->pc_disp);
 	case RBT_EA_PC_INDEXED:		 {
 		char xreg = 'd';
-		if (ea->pc_indexed.is_addr)
+		if (ea->pc_idx.is_addr)
 			xreg = 'a';
 
 		char size = 'w';
-		if (ea->pc_indexed.is_long)
+		if (ea->pc_idx.is_long)
 			size = 'l';
 
 		return sprintf(
-			out, "%i(%%pc, %%%c%u.%c)", ea->pc_indexed.displacement, xreg,
-			ea->pc_indexed.xreg, size
+			out, "%i(%%pc, %%%c%u.%c)", ea->pc_idx.disp, xreg, ea->pc_idx.xreg, size
 		);
 	};
 	case RBT_EA_IMMEDIATE: return sprintf(out, "#0x%x", ea->imm);
@@ -169,7 +169,7 @@ static void test_opcodes(void) {
 			size = ".l";
 
 		i32 len = 0;
-		if (len != _ALIGN_PC) {
+		if (_PRINT_PC) {
 			len = _align_text(len, _ALIGN_PC, out);
 			len += sprintf(&out[len], "%06x: ", instr.start_pc);
 

@@ -88,8 +88,8 @@ void test_decode_dynamic_bchg(void) {
 
 	TEST_ASSERT_EQUAL(RBT_OPERAND_EA, instr.dst.type);
 	TEST_ASSERT_EQUAL(RBT_EA_INDIRECT_DISPLACEMENT, instr.dst.ea.mode);
-	TEST_ASSERT_EQUAL(5, instr.dst.ea.indirect_disp.disp);
-	TEST_ASSERT_EQUAL(1, instr.dst.ea.indirect_disp.areg);
+	TEST_ASSERT_EQUAL(5, instr.dst.ea.ind_disp.disp);
+	TEST_ASSERT_EQUAL(1, instr.dst.ea.ind_disp.areg);
 
 	TEST_ASSERT_EQUAL(2, instr.word_count);
 	TEST_ASSERT_EQUAL_HEX16_ARRAY(

@@ -33,7 +33,7 @@ typedef struct RBT_IndexExtension {
 	bool is_long;
 	u8 xreg;
 	// u8 scale; // M68020+; Must always be 0 on M68000/MC68008/MC68010
-	i32 displacement;
+	i32 disp;
 } RBT_IndexExtension;
 
 typedef struct RBT_IndirectDisp {
@@ -51,16 +51,16 @@ typedef struct RBT_EffectiveAddress {
 	u32 start_pc;
 
 	union {
-		u8 dreg;							  // EA = Dn
-		u8 areg;							  // EA = An
-		u8 indirect;						  // EA = (An) / (An) + SIZE / (An) - SIZE
-		RBT_IndirectDisp indirect_disp;		  // EA = (An) + d16
-		RBT_IndirectIndexed indirect_indexed; // EA = (An) + (Xi) + d8
-		u32 absolute_short;					  // EA = (xxx).w | Sign Extended
-		u32 absolute_long;					  // EA = (xxx).l
-		i32 pc_disp;						  // EA = (PC) + d16
-		RBT_IndexExtension pc_indexed;		  // EA = (PC) + (Xi) + d8
-		u32 imm;							  // EA = #imm
+		u8 dreg;					 // EA = Dn
+		u8 areg;					 // EA = An
+		u8 indirect;				 // EA = (An) / (An) + SIZE / (An) - SIZE
+		RBT_IndirectDisp ind_disp;	 // EA = (An) + d16
+		RBT_IndirectIndexed ind_idx; // EA = (An) + (Xi) + d8
+		u32 absolute_short;			 // EA = (xxx).w | Sign Extended
+		u32 absolute_long;			 // EA = (xxx).l
+		i32 pc_disp;				 // EA = (PC) + d16
+		RBT_IndexExtension pc_idx;	 // EA = (PC) + (Xi) + d8
+		u32 imm;					 // EA = #imm
 	};
 } RBT_EffectiveAddress;
 
