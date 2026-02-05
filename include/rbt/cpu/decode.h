@@ -107,7 +107,6 @@ typedef enum RBT_OperandType {
 	RBT_OPERAND_IMM,	 // Generic immediate data: #imm, reglist...
 	RBT_OPERAND_DISP,	 // Displacement
 	RBT_OPERAND_INDDISP, // Indirect displacement (d16, An)
-	RBT_OPERAND_DIR,	 // Direction
 	// Implied registers
 	RBT_OPERAND_CCR,
 	RBT_OPERAND_SR,
@@ -123,7 +122,6 @@ typedef struct RBT_Operand {
 		u32 imm;
 		i32 disp;
 		RBT_IndirectDisp inddisp;
-		bool dir;
 	};
 } RBT_Operand;
 
