@@ -128,7 +128,7 @@ static i32 _stringfy_operand(const RBT_Operand *operand, char *out) {
 	case RBT_OPERAND_IMM:  return sprintf(out, "#0x%x", operand->imm);
 	case RBT_OPERAND_DISP: return sprintf(out, "%i", operand->disp);
 	case RBT_OPERAND_INDDISP:
-		return sprintf(out, "%i(%%a%u)", operand->inddisp.disp, operand->inddisp.areg);
+		return sprintf(out, "%i(%%a%u)", operand->ind_disp.disp, operand->ind_disp.areg);
 	case RBT_OPERAND_CCR: return sprintf(out, "%%ccr");
 	case RBT_OPERAND_SR:  return sprintf(out, "%%sr");
 	case RBT_OPERAND_USP: return sprintf(out, "%%usp");

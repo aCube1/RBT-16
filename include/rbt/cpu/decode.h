@@ -121,7 +121,7 @@ typedef struct RBT_Operand {
 		u8 reg;
 		u32 imm;
 		i32 disp;
-		RBT_IndirectDisp inddisp;
+		RBT_IndirectDisp ind_disp;
 	};
 } RBT_Operand;
 
