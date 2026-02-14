@@ -439,7 +439,7 @@ static u8 _decode_move_movea(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		return RBT_ERR_DECODE_INVALID_EA;
 	}
 
-	// EA invalid: [An, #imm, PC-relative](if MOVE)
+	// EA invalid: #imm, PC-relative
 	u16 ea_invalid = RBT_EA_IMMEDIATE | RBT_EA_GROUP_PCR;
 	if (!_validate_ea(&instr->dst.ea, ea_invalid, "MOVE", "Source", instr->start_pc)) {
 		return RBT_ERR_DECODE_ILLEGAL_EA;
@@ -544,7 +544,7 @@ static u8 _decode_negx_clr_not(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	case 0b0010: instr->mnemonic = RBT_OP_CLR; break;
 	case 0b0110: instr->mnemonic = RBT_OP_NOT; break;
 	default:
-		rbt_push_warn("MISC: Unknown opcode encoding at: %06x", instr->start_pc);
+		rbt_push_warn("MISC: Unknown opcode encoding at: 0x%06x", instr->start_pc);
 		return RBT_ERR_DECODE_ILLEGAL;
 	}
 
@@ -721,7 +721,7 @@ static u8 _decode_ext_nbcd_swap_bkpt_pea(RBT_Instruction *instr, RBT_MemoryBus *
 		return RBT_ERR_SUCCESS;
 	}
 
-	rbt_push_warn("MISC: Unknown opcode encoding at: %06x", instr->start_pc);
+	rbt_push_warn("MISC: Unknown opcode encoding at: 0x%06x", instr->start_pc);
 	return RBT_ERR_DECODE_ILLEGAL;
 }
 
@@ -1191,7 +1191,7 @@ static u8 _decode_ordiv(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		instr->mnemonic = RBT_OP_SBCD;
 		instr->size = RBT_SIZE_BYTE;
 
-		// 1: -(Ax)->-(Ay); 0: Dx->Dy
+		// 1: -(Ay)->-(Ax); 0: Dy->Dx
 		if (RBT_BIT(opcode, 3)) {
 			instr->src.type = RBT_OPERAND_AREG;
 			instr->dst.type = RBT_OPERAND_AREG;
@@ -1468,7 +1468,7 @@ static u8 _decode_cmp_eor(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 // MULU: 1100 DDD0 11 MMMRRR [.W.]
 // MULS: 1100 DDD1 11 MMMRRR [.W.]
 // ABCD: 1100 RRR 10000 mRRR [B..]
-// EXG:  1100 RRR1 MM 00mRRR [..L]
+// EXG:  1100 RRR1 ooooo RRR [..L]
 // AND:  1100 DDDd SS MMMRRR [BWL]
 static u8 _decode_and_mul(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	u16 opcode = instr->words[0];
@@ -1513,7 +1513,7 @@ static u8 _decode_and_mul(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		u8 reg_y = _OP_EA_REG(opcode); // Source
 		u8 reg_x = _OP_REG(opcode);	   // Dest
 
-		// 1: -(Ax)->-(Ay); 0: Dx->Dy
+		// 1: -(Ay)->-(Ax); 0: Dy->Dx
 		if (RBT_BIT(opcode, 3)) {
 			instr->src.type = RBT_OPERAND_AREG;
 			instr->dst.type = RBT_OPERAND_AREG;
@@ -1716,10 +1716,10 @@ static u8 _decode_addaddx(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	return RBT_ERR_SUCCESS;
 }
 
-// ASd:  1110 000d 11 MMMRRR [BWL]
-// LSd:  1110 001d 11 MMMRRR [BWL]
-// ROXd: 1110 010d 11 MMMRRR [BWL]
-// ROd:  1110 011d 11 MMMRRR [BWL]
+// ASd:  1110 000d 11 MMMRRR [.W.]
+// LSd:  1110 001d 11 MMMRRR [.W.]
+// ROXd: 1110 010d 11 MMMRRR [.W.]
+// ROd:  1110 011d 11 MMMRRR [.W.]
 // ASd:  1110 rrrd SS m00DDD [BWL]
 // LSd:  1110 rrrd SS m01DDD [BWL]
 // ROXd: 1110 rrrd SS m10DDD [BWL]
@@ -1976,7 +1976,7 @@ RBT_ErrorCode rbt_decode_instruction(RBT_MemoryBus *bus, u32 pc, RBT_Instruction
 	case RBT_OPGROUP_ORDIV:
 		// DIVU: 1000 RRR0 11 MMMRRR [.W.]
 		// DIVS: 1000 RRR1 11 MMMRRR [.W.]
-		// SBCD: 1000 RRR1 0000 mRRR [B..]
+		// SBCD: 1000 RRR 10000 mRRR [B..]
 		// OR:   1000 RRRd SS MMMRRR [BWL]
 		status = _decode_ordiv(instr, bus);
 		break;
@@ -2000,8 +2000,9 @@ RBT_ErrorCode rbt_decode_instruction(RBT_MemoryBus *bus, u32 pc, RBT_Instruction
 	case RBT_OPGROUP_ANDMUL:
 		// MULU: 1100 DDD0 11 MMMRRR [.W.]
 		// MULS: 1100 DDD1 11 MMMRRR [.W.]
-		// ABCD: 1100 RRR1 0000 mRRR [B..]
-		// EXG:  1100 RRR1 ooooooRRR [..L]
+		// ABCD: 1100 RRR 10000 mRRR [B..]
+		// EXG:  1100 RRR1 ooooo RRR [..L]
+		// AND:  1100 DDDd SS MMMRRR [BWL]
 		status = _decode_and_mul(instr, bus);
 		break;
 	case RBT_OPGROUP_ADDADDX:
@@ -2011,10 +2012,10 @@ RBT_ErrorCode rbt_decode_instruction(RBT_MemoryBus *bus, u32 pc, RBT_Instruction
 		status = _decode_addaddx(instr, bus);
 		break;
 	case RBT_OPGROUP_SHIFT:
-		// ASd:  1110 000d 11 MMMRRR [BWL]
-		// LSd:  1110 001d 11 MMMRRR [BWL]
-		// ROXd: 1110 010d 11 MMMRRR [BWL]
-		// ROd:  1110 011d 11 MMMRRR [BWL]
+		// ASd:  1110 000d 11 MMMRRR [.W.]
+		// LSd:  1110 001d 11 MMMRRR [.W.]
+		// ROXd: 1110 010d 11 MMMRRR [.W.]
+		// ROd:  1110 011d 11 MMMRRR [.W.]
 		// ASd:  1110 rrrd SS m00DDD [BWL]
 		// LSd:  1110 rrrd SS m01DDD [BWL]
 		// ROXd: 1110 rrrd SS m10DDD [BWL]
