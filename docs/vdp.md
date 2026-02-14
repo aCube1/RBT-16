@@ -18,11 +18,22 @@
 - 12-bit RGB colors; 4096 possible combinations
 - Color `#0000` is not rendered; Transparent color
 
+```asm
+; Palette Entry Format
+Word 0:
+	F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
+	.  .  .  .  R  R  R  R  G  G  G  G  B  B  B  B
+
+	[3:0]  B - blue component
+	[7:4]  G - green component
+	[11:8] R - red component
+```
+
 ---
 
 ## Tiles
 
-- Are stored in 4bpp, with the maximum size of 8x8.
+- Are stored in chunky 4bpp, with the maximum size of 8x8.
 - They can be combined into bigger ones either with sprites or metatiles.
 - Sprites and Tilemaps have individual Tile base registers
 
@@ -37,9 +48,8 @@
 - Up to 96 sprites on screen
 - Sprite priority: Can be draw above or below backgrounds
 
-### Sprite Attribute Object layout
-
 ```asm
+; Sprite Attribute Object layout
 Word 0:
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     V  .  v  h  W  W  x  x  x  x  x  x  x  x  x  x
@@ -137,9 +147,8 @@ Word 3:
 - Can fit up to 16x16 TAOs(Tile Attribute Objects)
 - Maximum of unique 256 entries
 
-#### Tile Attribute Object layout
-
 ```asm
+; Tile Attribute Object layout
 Word 0:
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     v  h  p  p  p  .  t  t  t  t  t  t  t  t  t  t
@@ -195,8 +204,9 @@ Word 0:
 |   c   | V scale / sin(theta) |
 |   d   | V skew / cos(theta)  |
 
-> $\left[x   \; y   \right] \rightarrow \text{Pixel local position}$ <br>
-> $\left[O_X \; O_Y \right] \rightarrow \text{Object's origin position}$ <br>
+$\left[x   \; y   \right] \rightarrow \text{Pixel local position}$
+
+$\left[O_X \; O_Y \right] \rightarrow \text{Object's origin position}$
 
 ---
 
@@ -250,29 +260,43 @@ VDP_ADDR + 0x0006 -> VDP_BACKDROP | R/W
 ;=============
 ; VRAM access
 ;=============
-VDP_ADDR + 0x0010 -> VDP_VRAM_ADDR_L | W
+VDP_ADDR + 0x0010 -> VDP_VRAM_ADDR_L | W/R
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     a  a  a  a  a  a  a  a  a  a  a  a  a  a  a  a
 
     [15:0] a - ADDR_LOW -> VRAM address low word (VRAM_ADDR[15:0])
 
-VDP_ADDR + 0x0012 -> VDP_VRAM_ADDR_H | W
+VDP_ADDR + 0x0012 -> VDP_VRAM_ADDR_H | W/R
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
-    .  .  .  .  .  .  s  D  .  .  .  .  i  i  i  i
+    D  s  .  .  i  i  i  i  .  .  .  .  .  .  .  a
 
-    [3:0] i - INC_RATE -> Auto increment (0-15, see table below)
-    [8:8] D - DECR -> 1: decrement, 0: increment
-    [9:9] s - SIZE -> 1: word, 0: byte
+	[0:0]   a - ADDR_HIGH -> VRAM address high bit (VRAM_ADDR[16:16])
+    [11:8]  i - INC_RATE -> Auto increment (0-15, see table below)
+    [14:14] s - SIZE -> 1: word, 0: byte
+	[15:15] D - DECR -> 1: decrement, 0: increment
 
-; auto-increment
-; 0 -> 0     8 -> 128
-; 1 -> 1     9 -> 256
-; 2 -> 2     10 -> 512
-; 3 -> 4     11 -> 1024
-; 4 -> 8     12 -> 40
-; 5 -> 16    13 -> 80
-; 6 -> 32    14 -> 200
-; 7 -> 64    15 -> 320
+; auto-increment table:
+; value | increment | use case
+; ----- | --------- | --------
+;   0   |     0     | No auto-increment
+;   1   |     1     | Sequential byte access
+;   2   |     2     | Sequential word access
+;   3   |     4     | Skip 4 bytes / 2 words
+;   4   |     8     | Sprite OAM / affine matrix
+;   5   |    16     | Skip 16 bytes
+;   6   |    32     | Tile row (8x8 @ 4bpp = 32 bytes)
+;   7   |    64     | Two tile rows / sprite palette
+;   8   |   128     | Metatile
+;   9   |   160     | Bitmap scanline (320x200x4bpp, 640x400x2bpp)
+;  10   |   256     | Palette map
+;  11   |   320     | Bitmap scanline (320x200x8bpp, 640x200x4bpp)
+;  12   |   512     | 512-byte boundary
+;  13   |  1024     | 1KB boundary
+;  14   |  2048     | 2KB boundary
+;  15   |  4096     | 4KB boundary
+
+; Note: WORD size mode is little-endian
+
 
 VDP_ADDR + 0x0014 -> VDP_DATA | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
@@ -365,6 +389,8 @@ VDP_ADDR + 0x0052 -> ABG1_CTRL | R/W
     [4:0]   A - AFFINE_IDX -> Index of the affine matrix (0-31)
 	[9:8]   b - BG_SELECT -> Select background (00: BG0, 01: BG1, 10: BG2, 11: BG3)
     [15:15] a - AFFINE_E -> Affine enable
+
+; BG_SELECT selects which background will act as affine
 
 ; Note: If same BG is selected in both ABG0_CTRL and ABG1_CTRL
 ; with both enabled, the background is disabled entirely
