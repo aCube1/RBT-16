@@ -14,7 +14,7 @@
 
 ## Colors and Palettes
 
-- 8 palettes of 16 colors
+- 16 palettes of 16 colors
 - 12-bit RGB colors; 4096 possible combinations
 - Color `#0000` is not rendered; Transparent color
 
@@ -69,10 +69,10 @@ Word 1:
 
 Word 2:
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
-    P  P  p  p  p  .  t  t  t  t  t  t  t  t  t  t
+    P  P  p  p  p  p  t  t  t  t  t  t  t  t  t  t
 
     [9:0]   t - tile index (0-1023)
-    [13:11] p - palette (0-7)
+    [13:11] p - palette (0-15)
     [15:14] P - priority/z-index (00: Highest, 11: Lowest)
 
 Word 3:
@@ -88,7 +88,7 @@ Word 3:
 | X Position    | 10 bits  | 0-1023 horizontal; allows off-screen positioning |
 | Y Position    | 10 bits  | 0-1023 vertical                                  |
 | Tile Index    | 10 bits  | Index of the first tile; Up to 1024 tiles        |
-| Palette Index |  3 bits  | Selects one of 8 palettes in VRAM                |
+| Palette Index |  4 bits  | Selects one of 16 palettes in VRAM               |
 | Size          | 2+2 bits | Selects sprite's width/height; HHxWW             |
 | Flip H/V      | 1+1 bits | On bit set, flips sprite horizontally/vertically |
 | Priority      |  2 bits  | Sprite Z-index relative to background layers     |
@@ -131,12 +131,12 @@ Word 3:
     - Are formed by 128x128 tiles grouped by metatiles
     - Each entry is a 8-bit index of the Metatile
 
-| Mode | Layers   |    Palette    |  Virtual Size   | Capabilities             |
-| :--: | -------- | :-----------: | :-------------: | ------------------------ |
-|  00  | 4 Tiled  | `128; 8 x 16` |   1024x1024px   | 4 static                 |
-|  01  | 4 Tiled  | `128; 8 x 16` |   1024x1024px   | 2 static + 2 affine      |
-|  10  | 1 Bitmap |     `256`     | Up to 640x400px | 2/4/8bpp; not scrollable |
-|  11  | None     |     `xxx`     |    Disabled     | Video blank              |
+| Mode | Layers   |   Palette    |  Virtual Size   | Capabilities             |
+| :--: | -------- | :----------: | :-------------: | ------------------------ |
+|  00  | 4 Tiled  | `256; 16x16` |   1024x1024px   | 4 static                 |
+|  01  | 4 Tiled  | `256; 16x16` |   1024x1024px   | 2 static + 2 affine      |
+|  10  | 1 Bitmap |    `256`     | Up to 640x400px | 2/4/8bpp; not scrollable |
+|  11  | None     |    `xxx`     |    Disabled     | Video blank              |
 
 > Mode 11 is reserved: Video Display is turned off if enabled
 
@@ -151,10 +151,10 @@ Word 3:
 ; Tile Attribute Object layout
 Word 0:
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
-    v  h  p  p  p  .  t  t  t  t  t  t  t  t  t  t
+    v  h  p  p  p  p  t  t  t  t  t  t  t  t  t  t
 
     [9:0]   t - tile index (0-1023)
-    [13:11] p - palette (0-7)
+    [13:11] p - palette (0-15)
     [14:14] h - flip horizontal
     [15:15] v - flip vertical
 ```
@@ -162,7 +162,7 @@ Word 0:
 | Field         |   Bits   | Description                                    |
 | ------------- | :------: | ---------------------------------------------- |
 | Tile Index    | 10 bits  | Index of the tile; Up to 1024 tiles            |
-| Palette Index |  3 bits  | Selects one of 8 palettes in VRAM              |
+| Palette Index |  4 bits  | Selects one of 16 palettes in VRAM             |
 | Flip H/V      | 1+1 bits | On bit set, flips tile horizontally/vertically |
 
 > Tile attribute object size: 1 word -> 2 bytes
@@ -178,14 +178,15 @@ Word 0:
 - Color mapping in bitmap modes:
     - 8bpp (320x200x8):
         - Each pixel = 8-bit value (0-255)
+        - Bits [7:4] = palette index (0-15)
+        - Bits [3:0] = color index within palette (0-15)
         - Direct index into palette RAM at BG_PALETTE_BASE
-        - Can access all 256 colors from all 8 palettes
     - 4bpp (320x200x4, 640x200x4):
         - Each pixel = 4-bit value (0-15)
-        - Uses first 16 colors from palette RAM at BG_PALETTE_BASE
+        - Uses palette 0 only (first 16 colors at BG_PALETTE_BASE)
     - 2bpp (320x200x2, 640x200x2, 640x400x2):
         - Each pixel = 2-bit value (0-3)
-        - Uses first 4 colors from palette RAM at BG_PALETTE_BASE
+        - Uses first 4 colors from palette 0 (BG_PALETTE_BASE + 0x00 to 0x06)
 
 ---
 
@@ -439,9 +440,9 @@ VDP_ADDR + 0x0084 -> BLT_DST_L | W
 
 VDP_ADDR + 0x0086 -> BLT_DST_H | W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
-    .  .  .  .  .  .  .  .  d  d  d  d  d  d  d  d
+    .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  d
 
-    [7:0] d - BLT_DEST_HI -> Destination address high byte
+    [9:0] d - BLT_DEST_HI -> VRAM destination address high bit
 
 VDP_ADDR + 0x0088 -> BLT_SIZE | W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
@@ -450,16 +451,19 @@ VDP_ADDR + 0x0088 -> BLT_SIZE | W
     [7:0]  w - WIDTH -> Blit width in bytes (1-256)
     [15:8] h - HEIGHT -> Blit height in rows (1-256)
 
-; Size is computed as: (W + 1) x (H + 1)
+; Size is computed as: (W+1) x (H+1)
 
 VDP_ADDR + 0x008a -> BLT_CTRL | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
-    .  .  .  S  A  .  T  T  .  .  .  .  O  O  O  O
+    .  .  S  A  .  .  T  T  .  .  .  .  O  O  O  O
 
     [3:0]   O - OP -> Operation (0000: Copy, 0001: Fill, 0010: Pattern, 0011: Clear)
     [9:8]   T - TYPE -> Transfer type (00: VRAM->VRAM, 01: RAM->VRAM)
-    [11:11] A - ABORT -> Abort current blit (write-only)
-    [12:12] S - START -> Start blit operation (write-only)
+    [12:12] A - ABORT -> Abort current blit (write-only)
+    [13:13] S - START -> Start blit operation (write-only)
+
+; Note: if transfer type is VRAM->VRAM, only the first 17-bits
+; from BLT_SRC address are used: BLT_SRC[16:0], the upper are ignored
 
 VDP_ADDR + 0x008c -> BLT_STATUS | R
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
