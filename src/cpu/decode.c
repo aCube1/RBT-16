@@ -14,12 +14,14 @@
 #define _OP_COND(word)	 (rbt_bits((word), 11, 8))
 #define _OP_OFFSET(word) (rbt_bits((word), 7, 0))
 
+#define _OP_EA_MODE(word) (rbt_bits((word), 5, 3))
+#define _OP_EA_REG(word)  (rbt_bits((word), 2, 0))
+
 #define _OP_TYPE(word)	   _OP_REG(word)
 #define _OP_ROTATION(word) _OP_REG(word)
 #define _OP_QUICK(word)	   _OP_REG(word)
-
-#define _OP_EA_MODE(word) (rbt_bits((word), 5, 3))
-#define _OP_EA_REG(word)  (rbt_bits((word), 2, 0))
+#define _OP_REGY(word)	   _OP_EA_REG(word)
+#define _OP_REGX(word)	   _OP_REG(word)
 
 #define _OP_MOVEQ_QUICK(word) _OP_OFFSET(word)
 
@@ -771,24 +773,25 @@ static u8 _decode_illegal_tas_tst(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	return RBT_ERR_SUCCESS;
 }
 
-// JMP:   0100 1110 11 MMMRRR [...]
-// JSR:   0100 1110 10 MMMRRR [...]
-// TRAP:  0100 1110 0100 VVVV [...]
-// UNLK:  0100 1110 0101 1RRR [...]
-// LINK:  0100 1110 0101 0RRR [.W.]
-//        Offset
-// MOVEC: 0100 1110 0111 101d [..L] (M68010+)
-//        ARRR CTRL_REGISTER
-// RESET: 0100 1110 0111 0000 [...]
-// NOP:   0100 1110 0111 0001 [...]
-// STOP:  0100 1110 0111 0010 [...]
-//        Immediate
-// RTE:   0100 1110 0111 0011 [...]
-// RTD:   0100 1110 0111 0100 [...] (M68010+)
-//        Offset
-// RTS:   0100 1110 0111 0101 [...]
-// TRAPV: 0100 1110 0111 0110 [...]
-// RTR:   0100 1110 0111 0111 [...]
+// JMP:      0100 1110 11 MMMRRR [...]
+// JSR:      0100 1110 10 MMMRRR [...]
+// TRAP:     0100 1110 0100 VVVV [...]
+// UNLK:     0100 1110 0101 1RRR [...]
+// LINK:     0100 1110 0101 0RRR [.W.]
+//           Offset
+// MOVE USP: 0100 1110 0110 dRRR [..L]
+// MOVEC:    0100 1110 0111 101d [..L] (M68010+)
+//           ARRR CTRL_REGISTER
+// RESET:    0100 1110 0111 0000 [...]
+// NOP:      0100 1110 0111 0001 [...]
+// STOP:     0100 1110 0111 0010 [...]
+//           Immediate
+// RTE:      0100 1110 0111 0011 [...]
+// RTD:      0100 1110 0111 0100 [...] (M68010+)
+//           Offset
+// RTS:      0100 1110 0111 0101 [...]
+// TRAPV:    0100 1110 0111 0110 [...]
+// RTR:      0100 1110 0111 0111 [...]
 static u8 _decode_misc(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	u16 opcode = instr->words[0];
 	u32 curr_pc = instr->start_pc + 2;
@@ -1144,10 +1147,10 @@ static u8 _decode_branch(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	return RBT_ERR_SUCCESS;
 }
 
-// DIVU: 1000 RRR0 11 MMMRRR [.W.]
-// DIVS: 1000 RRR1 11 MMMRRR [.W.]
+// DIVU: 1000 DDD0 11 MMMRRR [.W.]
+// DIVS: 1000 DDD1 11 MMMRRR [.W.]
 // SBCD: 1000 RRR 10000 mRRR [B..]
-// OR:   1000 RRRd SS MMMRRR [BWL]
+// OR:   1000 DDDd SS MMMRRR [BWL]
 static u8 _decode_ordiv(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	u16 opcode = instr->words[0];
 	u32 curr_pc = instr->start_pc + 2;
@@ -1155,36 +1158,11 @@ static u8 _decode_ordiv(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	u8 ea_mode = _OP_EA_MODE(opcode);
 	u8 ea_reg = _OP_EA_REG(opcode);
 	u8 size = _OP_SIZE(opcode);
-	u8 xreg = _OP_REG(opcode);
-
-	if (rbt_bits(opcode, 8, 4) == 0b10000) {
-		instr->mnemonic = RBT_OP_SBCD;
-		instr->size = RBT_SIZE_BYTE;
-
-		// 0: Dx->Dy; 1: -(Ax)->-(Ay)
-		if (RBT_BIT(opcode, 3)) {
-			instr->src.type = RBT_OPERAND_AREG;
-			instr->src.reg = ea_reg;
-
-			instr->dst.type = RBT_OPERAND_AREG;
-			instr->dst.reg = xreg;
-		} else {
-			instr->src.type = RBT_OPERAND_DREG;
-			instr->src.reg = ea_reg;
-
-			instr->dst.type = RBT_OPERAND_DREG;
-			instr->dst.reg = xreg;
-		}
-
-		return RBT_ERR_SUCCESS;
-	}
+	u8 dreg = _OP_REG(opcode);
 
 	if (size == 0b11) {
 		instr->mnemonic = RBT_BIT(opcode, 8) ? RBT_OP_DIVS : RBT_OP_DIVU;
 		instr->size = RBT_SIZE_WORD;
-
-		instr->dst.type = RBT_OPERAND_DREG;
-		instr->dst.reg = xreg;
 
 		instr->src.type = RBT_OPERAND_EA;
 		instr->src.size = instr->size;
@@ -1195,6 +1173,9 @@ static u8 _decode_ordiv(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 			return RBT_ERR_DECODE_INVALID_EA;
 		}
 
+		instr->dst.type = RBT_OPERAND_DREG;
+		instr->dst.reg = dreg;
+
 		// EA invalid: An
 		u16 ea_invalid = RBT_EA_DIRECT_ADDR;
 		if (!_validate_ea(
@@ -1202,6 +1183,25 @@ static u8 _decode_ordiv(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 			)) {
 			return RBT_ERR_DECODE_ILLEGAL_EA;
 		}
+
+		return RBT_ERR_SUCCESS;
+	}
+
+	if (rbt_bits(opcode, 8, 4) == 0b10000) {
+		instr->mnemonic = RBT_OP_SBCD;
+		instr->size = RBT_SIZE_BYTE;
+
+		// 1: -(Ax)->-(Ay); 0: Dx->Dy
+		if (RBT_BIT(opcode, 3)) {
+			instr->src.type = RBT_OPERAND_AREG;
+			instr->dst.type = RBT_OPERAND_AREG;
+		} else {
+			instr->src.type = RBT_OPERAND_DREG;
+			instr->dst.type = RBT_OPERAND_DREG;
+		}
+
+		instr->src.reg = _OP_REGY(opcode);
+		instr->dst.reg = _OP_REGX(opcode);
 
 		return RBT_ERR_SUCCESS;
 	}
@@ -1217,14 +1217,14 @@ static u8 _decode_ordiv(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	u16 ea_invalid = RBT_EA_DIRECT_ADDR;
 	RBT_EffectiveAddress *target_ea;
 
-	// 0: Dn or <ea> -> Dn
 	// 1: <ea> or Dn -> <ea>
+	// 0: Dn or <ea> -> Dn
 	if (RBT_BIT(opcode, 8)) {
 		target_ea = &instr->dst.ea;
 		ea_invalid |= RBT_EA_DIRECT_DATA | RBT_EA_GROUP_PCR | RBT_EA_IMMEDIATE;
 
 		instr->src.type = RBT_OPERAND_DREG;
-		instr->src.reg = xreg;
+		instr->src.reg = dreg;
 
 		instr->dst.type = RBT_OPERAND_EA;
 		instr->dst.size = instr->size;
@@ -1241,7 +1241,7 @@ static u8 _decode_ordiv(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		);
 
 		instr->dst.type = RBT_OPERAND_DREG;
-		instr->dst.reg = xreg;
+		instr->dst.reg = dreg;
 	}
 
 	if (curr_pc == UINT32_MAX) {
@@ -1325,8 +1325,8 @@ static u8 _decode_subsubx(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	u16 ea_invalid = 0;
 	RBT_EffectiveAddress *target_ea;
 
-	// 0: Dn - <ea> -> Dn
 	// 1: <ea> - Dn -> <ea>
+	// 0: Dn - <ea> -> Dn
 	if (RBT_BIT(opcode, 8)) {
 		target_ea = &instr->dst.ea;
 		ea_invalid = RBT_EA_DIRECT_DATA | RBT_EA_DIRECT_ADDR | RBT_EA_GROUP_PCR
@@ -1459,6 +1459,141 @@ static u8 _decode_cmp_eor(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		rbt_push_warn(
 			"CMP: Source EA(An) cannot be byte-sized, at: 0x%06x", instr->start_pc
 		);
+		return RBT_ERR_DECODE_ILLEGAL_EA;
+	}
+
+	return RBT_ERR_SUCCESS;
+}
+
+// MULU: 1100 DDD0 11 MMMRRR [.W.]
+// MULS: 1100 DDD1 11 MMMRRR [.W.]
+// ABCD: 1100 RRR 10000 mRRR [B..]
+// EXG:  1100 RRR1 MM 00mRRR [..L]
+// AND:  1100 DDDd SS MMMRRR [BWL]
+static u8 _decode_and_mul(RBT_Instruction *instr, RBT_MemoryBus *bus) {
+	u16 opcode = instr->words[0];
+	u32 curr_pc = instr->start_pc + 2;
+
+	u8 ea_mode = _OP_EA_MODE(opcode);
+	u8 ea_reg = _OP_EA_REG(opcode);
+	u8 dreg = _OP_REG(opcode);
+	u8 size = _OP_SIZE(opcode);
+
+	if (size == 0b11) {
+		instr->mnemonic = RBT_BIT(opcode, 8) ? RBT_OP_MULS : RBT_OP_MULU;
+		instr->size = RBT_SIZE_WORD;
+
+		instr->src.type = RBT_OPERAND_EA;
+		instr->src.size = instr->size;
+		curr_pc = rbt_decode_effective_address(
+			ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->src.ea
+		);
+		if (curr_pc == UINT32_MAX) {
+			return RBT_ERR_DECODE_INVALID_EA;
+		}
+
+		instr->dst.type = RBT_OPERAND_DREG;
+		instr->dst.reg = dreg;
+
+		// EA invalid: An
+		u16 ea_invalid = RBT_EA_DIRECT_ADDR;
+		if (!_validate_ea(
+				&instr->src.ea, ea_invalid, "MULU/MULS", "Source", instr->start_pc
+			)) {
+			return RBT_ERR_DECODE_ILLEGAL_EA;
+		}
+
+		return RBT_ERR_SUCCESS;
+	}
+
+	if (rbt_bits(opcode, 8, 4) == 0b10000) {
+		instr->mnemonic = RBT_OP_ABCD;
+		instr->size = RBT_SIZE_BYTE;
+
+		u8 reg_y = _OP_EA_REG(opcode); // Source
+		u8 reg_x = _OP_REG(opcode);	   // Dest
+
+		// 1: -(Ax)->-(Ay); 0: Dx->Dy
+		if (RBT_BIT(opcode, 3)) {
+			instr->src.type = RBT_OPERAND_AREG;
+			instr->dst.type = RBT_OPERAND_AREG;
+		} else {
+			instr->src.type = RBT_OPERAND_DREG;
+			instr->dst.type = RBT_OPERAND_DREG;
+		}
+
+		instr->src.reg = reg_y;
+		instr->dst.reg = reg_x;
+		return RBT_ERR_SUCCESS;
+	}
+
+	u8 op = rbt_bits(opcode, 7, 3);
+	if (RBT_BIT(opcode, 8) && (op == 0b01000 || op == 0b01001 || op == 0b10001)) {
+		instr->mnemonic = RBT_OP_EXG;
+		instr->size = RBT_SIZE_LONG;
+
+		// 0b01000: Dy <-> Dx
+		// 0b01001: Ay <-> Ax
+		// 0b10001: Ay <-> Dx
+		if (op == 0b01000) {
+			instr->src.type = RBT_OPERAND_DREG;
+			instr->dst.type = RBT_OPERAND_DREG;
+		} else if (op == 0b01001) {
+			instr->src.type = RBT_OPERAND_AREG;
+			instr->dst.type = RBT_OPERAND_AREG;
+		} else if (op == 0b10001) {
+			instr->src.type = RBT_OPERAND_DREG;
+			instr->dst.type = RBT_OPERAND_AREG;
+		}
+
+		instr->src.reg = _OP_REGX(opcode);
+		instr->dst.reg = _OP_REGY(opcode);
+		return RBT_ERR_SUCCESS;
+	}
+
+	instr->mnemonic = RBT_OP_AND;
+	instr->size = _decode_size(size);
+	if (instr->size == RBT_SIZE_NONE) {
+		rbt_push_warn("AND: Invalid operand size at: 0x%06x", instr->start_pc);
+		return RBT_ERR_DECODE_ILLEGAL;
+	}
+
+	// EA invalid: An, [Dn, PC-rel, #imm](if <ea> is dest)
+	u16 ea_invalid = RBT_EA_DIRECT_ADDR;
+	RBT_EffectiveAddress *target_ea;
+
+	// 1: <ea> and Dn -> <ea>
+	// 0: Dn and <ea> -> Dn
+	if (RBT_BIT(opcode, 8)) {
+		target_ea = &instr->dst.ea;
+		ea_invalid |= RBT_EA_DIRECT_DATA | RBT_EA_GROUP_PCR | RBT_EA_IMMEDIATE;
+
+		instr->src.type = RBT_OPERAND_DREG;
+		instr->src.reg = dreg;
+
+		instr->dst.type = RBT_OPERAND_EA;
+		instr->dst.size = instr->size;
+		curr_pc = rbt_decode_effective_address(
+			ea_mode, ea_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
+		);
+	} else {
+		target_ea = &instr->src.ea;
+
+		instr->src.type = RBT_OPERAND_EA;
+		instr->src.size = instr->size;
+		curr_pc = rbt_decode_effective_address(
+			ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->src.ea
+		);
+
+		instr->dst.type = RBT_OPERAND_DREG;
+		instr->dst.reg = dreg;
+	}
+
+	if (curr_pc == UINT32_MAX) {
+		return RBT_ERR_DECODE_INVALID_EA;
+	}
+
+	if (!_validate_ea(target_ea, ea_invalid, "AND", "Target", instr->start_pc)) {
 		return RBT_ERR_DECODE_ILLEGAL_EA;
 	}
 
@@ -1659,7 +1794,13 @@ RBT_ErrorCode rbt_decode_instruction(RBT_MemoryBus *bus, u32 pc, RBT_Instruction
 		// CMPA: 1011 AAAS 11 MMMRRR [.WL]
 		status = _decode_cmp_eor(instr, bus);
 		break;
-	case RBT_OPGROUP_ANDMUL:  break;
+	case RBT_OPGROUP_ANDMUL:
+		// MULU: 1100 DDD0 11 MMMRRR [.W.]
+		// MULS: 1100 DDD1 11 MMMRRR [.W.]
+		// ABCD: 1100 RRR1 0000 mRRR [B..]
+		// EXG:  1100 RRR1 ooooooRRR [..L]
+		status = _decode_and_mul(instr, bus);
+		break;
 	case RBT_OPGROUP_ADDADDX: break;
 	case RBT_OPGROUP_SHIFT:	  break;
 	case RBT_OPGROUP_LINEF:
