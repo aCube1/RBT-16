@@ -206,7 +206,7 @@ static u8 _decode_imm(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 	instr->size = _decode_size(size);
 	if (instr->size == RBT_SIZE_NONE) {
-		rbt_push_warn("Invalid operand size at: 0x%06x", instr->start_pc);
+		rbt_push_warn("IMM: Invalid operand size at: 0x%06x", instr->start_pc);
 		return RBT_ERR_DECODE_ILLEGAL;
 	}
 
@@ -218,7 +218,9 @@ static u8 _decode_imm(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	case 0b101: instr->mnemonic = RBT_OP_EORI; break;
 	case 0b110: instr->mnemonic = RBT_OP_CMPI; break;
 	default:
-		rbt_push_warn("Unknown immediate type 0x%02x at: 0x%06x", type, instr->start_pc);
+		rbt_push_warn(
+			"IMM: Unknown immediate type 0x%02x at: 0x%06x", type, instr->start_pc
+		);
 		return RBT_ERR_DECODE_ILLEGAL;
 	}
 
@@ -546,7 +548,7 @@ static u8 _decode_negx_clr_not(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 	instr->size = _decode_size(size);
 	if (instr->size == RBT_SIZE_NONE) {
-		rbt_push_warn("Invalid operand size at: 0x%06x", instr->start_pc);
+		rbt_push_warn("MISC: Invalid operand size at: 0x%06x", instr->start_pc);
 		return RBT_ERR_DECODE_ILLEGAL;
 	}
 
@@ -744,7 +746,7 @@ static u8 _decode_illegal_tas_tst(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		instr->size = _decode_size(size);
 	}
 	if (instr->size == RBT_SIZE_NONE) {
-		rbt_push_warn("Invalid operand size at: 0x%06x", instr->start_pc);
+		rbt_push_warn("TAS/TST: Invalid operand size at: 0x%06x", instr->start_pc);
 		return RBT_ERR_DECODE_ILLEGAL;
 	}
 
@@ -1069,7 +1071,7 @@ static u8 _decode_addq_subq(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	instr->mnemonic = RBT_BIT(opcode, 8) ? RBT_OP_SUBQ : RBT_OP_ADDQ;
 	instr->size = _decode_size(size);
 	if (instr->size == RBT_SIZE_NONE) {
-		rbt_push_warn("Invalid operand size at: 0x%06x", instr->start_pc);
+		rbt_push_warn("ADDQ/SUBQ: Invalid operand size at: 0x%06x", instr->start_pc);
 		return RBT_ERR_DECODE_ILLEGAL;
 	}
 
@@ -1207,7 +1209,7 @@ static u8 _decode_ordiv(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	instr->mnemonic = RBT_OP_OR;
 	instr->size = _decode_size(size);
 	if (instr->size == RBT_SIZE_NONE) {
-		rbt_push_warn("Invalid operand size at: 0x%06x", instr->start_pc);
+		rbt_push_warn("OR: Invalid operand size at: 0x%06x", instr->start_pc);
 		return RBT_ERR_DECODE_ILLEGAL;
 	}
 
@@ -1215,7 +1217,8 @@ static u8 _decode_ordiv(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	u16 ea_invalid = RBT_EA_DIRECT_ADDR;
 	RBT_EffectiveAddress *target_ea;
 
-	// 0: mem->Dn; 1: Dn->mem
+	// 0: Dn or <ea> -> Dn
+	// 1: <ea> or Dn -> <ea>
 	if (RBT_BIT(opcode, 8)) {
 		target_ea = &instr->dst.ea;
 		ea_invalid |= RBT_EA_DIRECT_DATA | RBT_EA_GROUP_PCR | RBT_EA_IMMEDIATE;
@@ -1286,7 +1289,7 @@ static u8 _decode_subsubx(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		instr->mnemonic = RBT_OP_SUBX;
 		instr->size = _decode_size(size);
 		if (instr->size == RBT_SIZE_NONE) {
-			rbt_push_warn("Invalid operand size at: 0x%06x", instr->start_pc);
+			rbt_push_warn("SUBX: Invalid operand size at: 0x%06x", instr->start_pc);
 			return RBT_ERR_DECODE_ILLEGAL;
 		}
 
@@ -1314,7 +1317,7 @@ static u8 _decode_subsubx(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	instr->mnemonic = RBT_OP_SUB;
 	instr->size = _decode_size(size);
 	if (instr->size == RBT_SIZE_NONE) {
-		rbt_push_warn("Invalid operand size at: 0x%06x", instr->start_pc);
+		rbt_push_warn("SUB: Invalid operand size at: 0x%06x", instr->start_pc);
 		return RBT_ERR_DECODE_ILLEGAL;
 	}
 
@@ -1322,7 +1325,8 @@ static u8 _decode_subsubx(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	u16 ea_invalid = 0;
 	RBT_EffectiveAddress *target_ea;
 
-	// 0: mem->reg; 1: reg->mem
+	// 0: Dn - <ea> -> Dn
+	// 1: <ea> - Dn -> <ea>
 	if (RBT_BIT(opcode, 8)) {
 		target_ea = &instr->dst.ea;
 		ea_invalid = RBT_EA_DIRECT_DATA | RBT_EA_DIRECT_ADDR | RBT_EA_GROUP_PCR
@@ -1361,6 +1365,100 @@ static u8 _decode_subsubx(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	}
 
 	if (!_validate_ea(target_ea, ea_invalid, "SUB", "Target", instr->start_pc)) {
+		return RBT_ERR_DECODE_ILLEGAL_EA;
+	}
+
+	return RBT_ERR_SUCCESS;
+}
+
+// EOR:  1011 DDD1 SS MMMRRR [BWL]
+// CMPM: 1011 AAA1 SS 001RRR [BWL]
+// CMP:  1011 DDD0 SS MMMRRR [BWL]
+// CMPA: 1011 AAAS 11 MMMRRR [.WL]
+static u8 _decode_cmp_eor(RBT_Instruction *instr, RBT_MemoryBus *bus) {
+	u16 opcode = instr->words[0];
+	u32 curr_pc = instr->start_pc + 2;
+
+	u8 ea_mode = _OP_EA_MODE(opcode);
+	u8 ea_reg = _OP_EA_REG(opcode);
+	u8 size = _OP_SIZE(opcode);
+
+	if (RBT_BIT(opcode, 8) && size != 0b11) {
+		RBT_OperandSize op_size = _decode_size(size);
+
+		if (ea_mode == 0b001) {
+			instr->mnemonic = RBT_OP_CMPM;
+			instr->size = op_size;
+
+			u8 reg_y = _OP_EA_REG(opcode); // Source
+			u8 reg_x = _OP_REG(opcode);	   // Dest
+
+			instr->src.type = RBT_OPERAND_AREG;
+			instr->src.reg = reg_y;
+
+			instr->dst.type = RBT_OPERAND_AREG;
+			instr->dst.reg = reg_x;
+
+			return RBT_ERR_SUCCESS;
+		}
+
+		instr->mnemonic = RBT_OP_EOR;
+		instr->size = op_size;
+
+		instr->src.type = RBT_OPERAND_DREG;
+		instr->src.reg = _OP_REG(opcode);
+
+		instr->dst.type = RBT_OPERAND_EA;
+		instr->dst.size = instr->size;
+		curr_pc = rbt_decode_effective_address(
+			ea_mode, ea_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
+		);
+		if (curr_pc == UINT32_MAX) {
+			return RBT_ERR_DECODE_INVALID_EA;
+		}
+
+		// EA invalid: An, PC-relative, #imm
+		u16 ea_invalid = RBT_EA_DIRECT_ADDR | RBT_EA_GROUP_PCR | RBT_EA_IMMEDIATE;
+		if (!_validate_ea(&instr->dst.ea, ea_invalid, "EOR", "Dest", instr->start_pc)) {
+			return RBT_ERR_DECODE_ILLEGAL_EA;
+		}
+
+		return RBT_ERR_SUCCESS;
+	}
+
+	if (size == 0b11) {
+		instr->mnemonic = RBT_OP_CMPA;
+		instr->size = RBT_BIT(opcode, 8) ? RBT_SIZE_LONG : RBT_SIZE_WORD;
+	} else {
+		instr->mnemonic = RBT_OP_CMP;
+		instr->size = _decode_size(size);
+		if (instr->size == RBT_SIZE_NONE) {
+			rbt_push_warn("CMP: Invalid operand size at: 0x%06x", instr->start_pc);
+			return RBT_ERR_DECODE_ILLEGAL;
+		}
+	}
+
+	instr->src.type = RBT_OPERAND_EA;
+	instr->src.size = instr->size;
+	curr_pc = rbt_decode_effective_address(
+		ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->src.ea
+	);
+	if (curr_pc == UINT32_MAX) {
+		return RBT_ERR_DECODE_INVALID_EA;
+	}
+
+	if (instr->mnemonic == RBT_OP_CMPA) {
+		instr->dst.type = RBT_OPERAND_AREG;
+		instr->dst.reg = _OP_REG(opcode);
+	} else {
+		instr->dst.type = RBT_OPERAND_DREG;
+		instr->dst.reg = _OP_REG(opcode);
+	}
+
+	if (instr->src.ea.mode == RBT_EA_DIRECT_ADDR && instr->size == RBT_SIZE_BYTE) {
+		rbt_push_warn(
+			"CMP: Source EA(An) cannot be byte-sized, at: 0x%06x", instr->start_pc
+		);
 		return RBT_ERR_DECODE_ILLEGAL_EA;
 	}
 
@@ -1554,7 +1652,13 @@ RBT_ErrorCode rbt_decode_instruction(RBT_MemoryBus *bus, u32 pc, RBT_Instruction
 		instr->mnemonic = RBT_OP_LINEA;
 		instr->size = RBT_SIZE_NONE;
 		break;
-	case RBT_OPGROUP_CMPEOR:  break;
+	case RBT_OPGROUP_CMPEOR:
+		// EOR:  1011 DDD1 SS MMMRRR [BWL]
+		// CMPM: 1011 AAA1 SS 001RRR [BWL]
+		// CMP:  1011 DDD0 SS MMMRRR [BWL]
+		// CMPA: 1011 AAAS 11 MMMRRR [.WL]
+		status = _decode_cmp_eor(instr, bus);
+		break;
 	case RBT_OPGROUP_ANDMUL:  break;
 	case RBT_OPGROUP_ADDADDX: break;
 	case RBT_OPGROUP_SHIFT:	  break;
