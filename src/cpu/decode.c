@@ -17,11 +17,11 @@
 #define _OP_EA_MODE(word) (rbt_bits((word), 5, 3))
 #define _OP_EA_REG(word)  (rbt_bits((word), 2, 0))
 
-#define _OP_TYPE(word)	   _OP_REG(word)
-#define _OP_ROTATION(word) _OP_REG(word)
-#define _OP_QUICK(word)	   _OP_REG(word)
-#define _OP_REGY(word)	   _OP_EA_REG(word)
-#define _OP_REGX(word)	   _OP_REG(word)
+#define _OP_TYPE(word)	_OP_REG(word)
+#define _OP_SHIFT(word) _OP_REG(word)
+#define _OP_QUICK(word) _OP_REG(word)
+#define _OP_REGY(word)	_OP_EA_REG(word)
+#define _OP_REGX(word)	_OP_REG(word)
 
 #define _OP_MOVEQ_QUICK(word) _OP_OFFSET(word)
 
@@ -1716,6 +1716,93 @@ static u8 _decode_addaddx(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	return RBT_ERR_SUCCESS;
 }
 
+// ASd:  1110 000d 11 MMMRRR [BWL]
+// LSd:  1110 001d 11 MMMRRR [BWL]
+// ROXd: 1110 010d 11 MMMRRR [BWL]
+// ROd:  1110 011d 11 MMMRRR [BWL]
+// ASd:  1110 rrrd SS m00DDD [BWL]
+// LSd:  1110 rrrd SS m01DDD [BWL]
+// ROXd: 1110 rrrd SS m10DDD [BWL]
+// ROd:  1110 rrrd SS m11DDD [BWL]
+static u8 _decode_shift(RBT_Instruction *instr, RBT_MemoryBus *bus) {
+	u16 opcode = instr->words[0];
+	u32 curr_pc = instr->start_pc + 2;
+
+	u8 size = _OP_SIZE(opcode);
+
+	// Is memory shift?
+	if (size == 0b11) {
+		u8 ea_mode = _OP_EA_MODE(opcode);
+		u8 ea_reg = _OP_EA_REG(opcode);
+
+		switch (rbt_bits(opcode, 11, 8)) {
+		case 0b0000: instr->mnemonic = RBT_OP_ASR; break;
+		case 0b0001: instr->mnemonic = RBT_OP_ASL; break;
+		case 0b0010: instr->mnemonic = RBT_OP_LSR; break;
+		case 0b0011: instr->mnemonic = RBT_OP_LSL; break;
+		case 0b0100: instr->mnemonic = RBT_OP_ROXR; break;
+		case 0b0101: instr->mnemonic = RBT_OP_ROXL; break;
+		case 0b0110: instr->mnemonic = RBT_OP_ROR; break;
+		case 0b0111: instr->mnemonic = RBT_OP_ROL; break;
+		default:
+			rbt_push_warn(
+				"SHIFT: Illegal decoding for memory shift, at: 0x%06x", instr->start_pc
+			);
+			return RBT_ERR_DECODE_ILLEGAL;
+		}
+
+		instr->size = RBT_SIZE_WORD;
+
+		instr->dst.type = RBT_OPERAND_EA;
+		instr->dst.size = instr->size;
+		curr_pc = rbt_decode_effective_address(
+			ea_mode, ea_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
+		);
+		if (curr_pc == UINT32_MAX) {
+			return RBT_ERR_DECODE_INVALID_EA;
+		}
+
+		// EA invalid: Dn, An, PC-relative, #imm
+		u16 ea_invalid = RBT_EA_DIRECT_DATA | RBT_EA_DIRECT_ADDR | RBT_EA_IMMEDIATE
+					   | RBT_EA_GROUP_PCR;
+		if (!_validate_ea(&instr->dst.ea, ea_invalid, "SHIFT", "Dest", instr->start_pc)) {
+			return RBT_ERR_DECODE_ILLEGAL_EA;
+		}
+
+		return RBT_ERR_SUCCESS;
+	}
+
+	bool dir = RBT_BIT(opcode, 8) == 1u; // 0: Right; 1: Left
+	switch (rbt_bits(opcode, 4, 3)) {
+	case 0b00: instr->mnemonic = dir ? RBT_OP_ASL : RBT_OP_ASR; break;
+	case 0b01: instr->mnemonic = dir ? RBT_OP_LSL : RBT_OP_LSR; break;
+	case 0b10: instr->mnemonic = dir ? RBT_OP_ROXL : RBT_OP_ROXR; break;
+	case 0b11: instr->mnemonic = dir ? RBT_OP_ROL : RBT_OP_ROR; break;
+	default:   unreachable();
+	}
+
+	instr->size = _decode_size(size);
+	if (instr->size == RBT_SIZE_NONE) {
+		rbt_push_warn("SHIFT: Invalid operand size at: 0x%06x", instr->start_pc);
+		return RBT_ERR_DECODE_ILLEGAL;
+	}
+
+	instr->dst.type = RBT_OPERAND_DREG;
+	instr->dst.reg = _OP_REGY(opcode);
+
+	// 1: Dn; 0: #imm
+	if (RBT_BIT(opcode, 5)) {
+		instr->src.type = RBT_OPERAND_DREG;
+		instr->src.reg = _OP_REG(opcode);
+	} else {
+		instr->src.type = RBT_OPERAND_IMM;
+		instr->src.size = RBT_SIZE_NONE;
+		instr->src.imm = _OP_SHIFT(opcode);
+	}
+
+	return RBT_ERR_SUCCESS;
+}
+
 RBT_ErrorCode rbt_decode_instruction(RBT_MemoryBus *bus, u32 pc, RBT_Instruction *instr) {
 	assert(bus);
 	assert(instr);
@@ -1923,7 +2010,17 @@ RBT_ErrorCode rbt_decode_instruction(RBT_MemoryBus *bus, u32 pc, RBT_Instruction
 		// ADDA: 1101 AAAs 11 MMMRRR [.WL]
 		status = _decode_addaddx(instr, bus);
 		break;
-	case RBT_OPGROUP_SHIFT: break;
+	case RBT_OPGROUP_SHIFT:
+		// ASd:  1110 000d 11 MMMRRR [BWL]
+		// LSd:  1110 001d 11 MMMRRR [BWL]
+		// ROXd: 1110 010d 11 MMMRRR [BWL]
+		// ROd:  1110 011d 11 MMMRRR [BWL]
+		// ASd:  1110 rrrd SS m00DDD [BWL]
+		// LSd:  1110 rrrd SS m01DDD [BWL]
+		// ROXd: 1110 rrrd SS m10DDD [BWL]
+		// ROd:  1110 rrrd SS m11DDD [BWL]
+		status = _decode_shift(instr, bus);
+		break;
 	case RBT_OPGROUP_LINEF:
 		instr->mnemonic = RBT_OP_LINEF;
 		instr->size = RBT_SIZE_NONE;
