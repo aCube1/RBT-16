@@ -41,19 +41,19 @@
 
 	static char buf[128] = {};
 
-	i32 count = 0;
+	i32 pos = 0;
 	if (invalid_modes & RBT_EA_DIRECT_DATA)
-		strcat(buf, (count++ > 0) ? "|Dn" : "Dn");
+		pos += snprintf(buf + pos, sizeof(buf) - pos, "%sDn", pos > 0 ? "|" : "");
 	if (invalid_modes & RBT_EA_DIRECT_ADDR)
-		strcat(buf, (count++ > 0) ? "|An" : "An");
+		pos += snprintf(buf + pos, sizeof(buf) - pos, "%sAn", pos > 0 ? "|" : "");
 	if (invalid_modes & RBT_EA_IMMEDIATE)
-		strcat(buf, (count++ > 0) ? "|#imm" : "#imm");
+		pos += snprintf(buf + pos, sizeof(buf) - pos, "%s#imm", pos > 0 ? "|" : "");
 	if (invalid_modes & RBT_EA_GROUP_PCR)
-		strcat(buf, (count++ > 0) ? "|PC-rel" : "PC-rel");
+		pos += snprintf(buf + pos, sizeof(buf) - pos, "%sPC-rel", pos > 0 ? "|" : "");
 	if (invalid_modes & RBT_EA_INDIRECT_POSTINC)
-		strcat(buf, (count++ > 0) ? "|(An)+" : "(An)+");
+		pos += snprintf(buf + pos, sizeof(buf) - pos, "%s(An)+", pos > 0 ? "|" : "");
 	if (invalid_modes & RBT_EA_INDIRECT_PREDEC)
-		strcat(buf, (count++ > 0) ? "|-(An)" : "-(An)");
+		pos += snprintf(buf + pos, sizeof(buf) - pos, "%s-(An)", pos > 0 ? "|" : "");
 
 	rbt_push_warn(
 		"%s: %s EA(%s) isn't allowed, at: 0x%06x", instr_name, operand_name, buf, pc
@@ -408,7 +408,7 @@ static u8 _decode_move_movea(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	case 0b11: instr->size = RBT_SIZE_WORD; break;
 	case 0b10: instr->size = RBT_SIZE_LONG; break;
 	default:
-		rbt_push_warn("MOVE: Invalid operand size at: 0x%06x", instr->start_pc);
+		rbt_push_warn("MOVE/MOVEA: Invalid operand size at: 0x%06x", instr->start_pc);
 		return RBT_ERR_DECODE_ILLEGAL;
 	}
 
@@ -1336,6 +1336,13 @@ static u8 _decode_subsubx(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		curr_pc = rbt_decode_effective_address(
 			ea_mode, ea_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
 		);
+
+		if (instr->dst.ea.mode == RBT_EA_DIRECT_ADDR && instr->size == RBT_SIZE_BYTE) {
+			rbt_push_warn(
+				"SUB: Dest EA(An) cannot be byte-sized, at: 0x%06x", instr->start_pc
+			);
+			return RBT_ERR_DECODE_ILLEGAL_EA;
+		}
 	} else {
 		target_ea = &instr->src.ea;
 
@@ -1555,6 +1562,7 @@ RBT_ErrorCode rbt_decode_instruction(RBT_MemoryBus *bus, u32 pc, RBT_Instruction
 		instr->mnemonic = RBT_OP_LINEF;
 		instr->size = RBT_SIZE_NONE;
 		break;
+	default: unreachable();
 	}
 
 	instr->word_count += _store_operand_as_words(
