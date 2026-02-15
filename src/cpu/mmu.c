@@ -25,15 +25,15 @@ static RBT_MMIODevice *_get_mmio_handler(RBT_MemoryBus *bus, u32 addr, u32 *offs
 		return &bus->apu;
 	}
 
-	// IO
+	// IO (Input/Output)
 	if (_is_address_in_range(addr, RBT_MMU_IO_ADDR, RBT_MMU_IO_SIZE)) {
 		*offset = addr - RBT_MMU_IO_ADDR;
 		return &bus->io;
 	}
 
-	// SDC (SD Card)
-	if (_is_address_in_range(addr, RBT_MMU_SDC_ADDR, RBT_MMU_SDC_SIZE)) {
-		*offset = addr - RBT_MMU_SDC_ADDR;
+	// MSD (microSD Card)
+	if (_is_address_in_range(addr, RBT_MMU_MSD_ADDR, RBT_MMU_MSD_SIZE)) {
+		*offset = addr - RBT_MMU_MSD_ADDR;
 		return &bus->sdc;
 	}
 

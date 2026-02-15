@@ -32,7 +32,7 @@ typedef enum RBT_OpCondition {
 	RBT_COND_HI = 0b0010, // HIgh
 	RBT_COND_LS = 0b0011, // Lower or Same
 	RBT_COND_CC = 0b0100, // Carry Clear
-	RBT_COND_CS = 0b0101, // Cary Set
+	RBT_COND_CS = 0b0101, // Carry Set
 	RBT_COND_NE = 0b0110, // Not Equal
 	RBT_COND_EQ = 0b0111, // EQual
 	RBT_COND_VC = 0b1000, // oVerflow Clear

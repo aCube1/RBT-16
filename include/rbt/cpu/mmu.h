@@ -14,7 +14,7 @@ enum {
 	RBT_MMU_VDP_SIZE = 64 * 1024,  // 64KB  (VDP MMIO)
 	RBT_MMU_APU_SIZE = 64 * 1024,  // 64KB  (Audio RAM)
 	RBT_MMU_IO_SIZE = 32 * 1024,   // 32KB  (Controllers, PS/2, GPIO)
-	RBT_MMU_SDC_SIZE = 32 * 1024,  // 32KB  (SD Card)
+	RBT_MMU_MSD_SIZE = 32 * 1024,  // 32KB  (microSD Card)
 	RBT_MMU_DBG_SIZE = 64 * 1024,  // 64KB  (Reserved/Debug IO)
 	RBT_MMU_EXT_SIZE = 64 * 1024,  // 64KB  (Per Expansion Card)
 
@@ -23,7 +23,7 @@ enum {
 	RBT_MMU_VDP_ADDR = 0xf8'0000,
 	RBT_MMU_APU_ADDR = 0xf9'0000,
 	RBT_MMU_IO_ADDR = 0xfa'0000,
-	RBT_MMU_SDC_ADDR = 0xfa'8000,
+	RBT_MMU_MSD_ADDR = 0xfa'8000,
 	RBT_MMU_DBG_ADDR = 0xfb'0000,
 
 	RBT_MMU_EXT0_ADDR = 0xfc'0000,
