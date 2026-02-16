@@ -87,6 +87,7 @@ u16 rbt_calculate_timing(const RBT_Instruction *instr) {
 	assert(instr);
 
 	bool is_long = instr->size == RBT_SIZE_LONG;
+	bool is_dst_reg = (instr->dst.ea.mode & RBT_EA_GROUP_REG) != 0u;
 
 	u16 cycles = 0;
 	bool should_add_ea = false;
@@ -137,7 +138,7 @@ u16 rbt_calculate_timing(const RBT_Instruction *instr) {
 		should_add_ea = true;
 		break;
 	case RBT_OP_EOR:
-		if (instr->dst.ea.mode == RBT_EA_DIRECT_DATA) {
+		if (instr->dst.type == RBT_OPERAND_DREG) {
 			// EOR Dn,Dn
 			// B/W: 4(1/0)+ | L: 6(1/0)+
 			cycles = !is_long ? 4 : 6;
@@ -185,7 +186,7 @@ u16 rbt_calculate_timing(const RBT_Instruction *instr) {
 		[[fallthrough]];
 	case RBT_OP_ADDI:
 	case RBT_OP_SUBI:
-		if (instr->dst.ea.mode == RBT_EA_DIRECT_DATA) {
+		if (is_dst_reg) {
 			// op #,Dn
 			// B/W: 8(2/0) | L: 14(3/0)
 			cycles = !is_long ? 8 : 14;
@@ -198,8 +199,7 @@ u16 rbt_calculate_timing(const RBT_Instruction *instr) {
 		break;
 	case RBT_OP_ADDQ:
 	case RBT_OP_SUBQ:
-		if (instr->dst.ea.mode == RBT_EA_DIRECT_DATA
-			|| instr->dst.ea.mode == RBT_EA_DIRECT_ADDR) {
+		if (is_dst_reg) {
 			// op #,Dn
 			//   B/W: 4(1/0) | L: 8(1/0)
 			// op #,An
@@ -225,10 +225,22 @@ u16 rbt_calculate_timing(const RBT_Instruction *instr) {
 		// L: 4(1/0)
 		cycles = 4;
 		break;
+	case RBT_OP_NBCD:
+		if (is_dst_reg) {
+			// NBCD Dn
+			// B: 6(1/0)
+			cycles = 6;
+		} else {
+			// NBCD <ea>
+			// B: 8(1/1)+
+			cycles = 8;
+			should_add_ea = true;
+		}
+		break;
 	case RBT_OP_NEG:
 	case RBT_OP_NEGX:
 	case RBT_OP_NOT:
-		if ((instr->dst.ea.mode & RBT_EA_GROUP_REG) != 0u) {
+		if (is_dst_reg) {
 			// op Dn
 			// B/W: 4(1/0) | L: 6(1/0)
 			cycles = !is_long ? 4 : 6;
@@ -240,8 +252,41 @@ u16 rbt_calculate_timing(const RBT_Instruction *instr) {
 		}
 		break;
 	case RBT_OP_CLR:
-		// op <ea>
+		// CLR <ea>
 		cycles = _get_clr_cycles(instr->dst.ea.mode, instr->dst.size);
+		break;
+	case RBT_OP_Scc:
+		if (is_dst_reg) {
+			// Scc Dn
+			// B,False: 4(1/0)
+			// B,True: 4(1/0)
+			cycles = 4;
+		} else {
+			// Scc <ea>
+			// B,False: 8(1/1)+
+			// B,True: 8(1/1)+
+			cycles = 8;
+			should_add_ea = true;
+		}
+		break;
+	case RBT_OP_TAS:
+		if (is_dst_reg) {
+			// TAS Dn
+			// B: 4(1/0)
+			cycles = 4;
+		} else {
+			// TAS <ea>
+			// B: 14(2/1)+
+			cycles = 14;
+			should_add_ea = true;
+		}
+		break;
+	case RBT_OP_TST:
+		// TST <ea>
+		// B/W/L: 4(1/0)+
+		// NOTE: cycles are the same for register and memory
+		cycles = 4;
+		should_add_ea = true;
 		break;
 	}
 
