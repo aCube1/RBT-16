@@ -37,6 +37,7 @@ target_sources(
 		"src/cpu/effective_address.c"
 		"src/cpu/mmu.c"
 		"src/cpu/register_types.c"
+		"src/cpu/timing.c"
 		"src/error.c"
 )
 
