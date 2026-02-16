@@ -35,7 +35,7 @@ Word 0:
 ## Tiles
 
 - Are stored in chunky 4bpp, with the maximum size of 8x8.
-- They can be combined into bigger ones either with sprites or metatiles.
+- Tiles can be merged to create large sprites.
 - Sprites and Tilemaps have individual Tile base registers
 
 > Tile size: (8 \* 8) / 2 -> 32B
@@ -63,9 +63,9 @@ Word 0:
 
 Word 1:
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
-    .  .  .  .  H  H  y  y  y  y  y  y  y  y  y  y
+    .  .  .  .  H  H  .  y  y  y  y  y  y  y  y  y
 
-    [9:0]   y - Y position (0-1023)
+    [9:0]   y - Y position (0-511)
     [11:10] H - sprite's height (8-64)
 
 Word 2:
@@ -87,7 +87,7 @@ Word 3:
 | Field         |   Bits   | Description                                      |
 | ------------- | :------: | ------------------------------------------------ |
 | X Position    | 10 bits  | 0-1023 horizontal; allows off-screen positioning |
-| Y Position    | 10 bits  | 0-1023 vertical                                  |
+| Y Position    |  9 bits  | 0-511 vertical; allows off-screen positioning    |
 | Tile Index    | 10 bits  | Index of the first tile; Up to 1024 tiles        |
 | Palette Index |  4 bits  | Selects one of 16 palettes in VRAM               |
 | Size          | 2+2 bits | Selects sprite's width/height; HHxWW             |
@@ -137,16 +137,13 @@ Word 3:
 - 4 Layers: can be static or affine transformed
 - 3 Modes: Each mode has different capabilities
 - Tiled modes:
-    - Can be scrolled
-    - Are formed by 128x128 tiles grouped by metatiles
-    - Each entry is a 8-bit index of the Metatile
-    - Each entry is a 8-bit index of the Metatile; Only lower 6-bits are used,
-      upper 2-bits are ignored
+    - Each layer is formed by Tile Attribute Objects
+        - Can be scrolled
 
 | Mode | Layers   |   Palette    |  Virtual Size   | Capabilities             |
 | :--: | -------- | :----------: | :-------------: | ------------------------ |
-|  00  | 4 Tiled  | `256; 16x16` |   1024x1024px   | 4 static                 |
-|  01  | 4 Tiled  | `256; 16x16` |   1024x1024px   | 2 static + 2 affine      |
+|  00  | 4 Tiled  | `256; 16x16` |   1024x512px    | 4 static                 |
+|  01  | 4 Tiled  | `256; 16x16` |   1024x512px    | 2 static + 2 affine      |
 |  10  | 1 Bitmap |    `256`     | Up to 640x400px | 2/4/8bpp; not scrollable |
 |  11  | None     |    `xxx`     |    Disabled     | Video blank              |
 
@@ -156,16 +153,9 @@ Word 3:
 
 > Affine transformation is applied on the top-left corner
 
-> Note: Map entries use only bits `[5:0]` as the metatile index (0-63).
-> Bits `[7:6]` are ignored
-
-### Metatile
-
-- Can fit up to 8x8 TAOs(Tile Attribute Objects)
-- Maximum of unique 64 entries
+### Tile Attribute Object
 
 ```asm
-; Tile Attribute Object layout
 Word 0:
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     v  h  p  p  p  p  t  t  t  t  t  t  t  t  t  t
@@ -182,7 +172,7 @@ Word 0:
 | Palette Index |  4 bits  | Selects one of 16 palettes in VRAM             |
 | Flip H/V      | 1+1 bits | On bit set, flips tile horizontally/vertically |
 
-> Tile attribute object size: 1 word -> 2 bytes
+> Tile Attribute Object size: 1 word -> 2 bytes
 
 ### Bitmap Mode
 
@@ -192,7 +182,7 @@ Word 0:
     3. 640x400 2bpp
 
 - If enabled, scrolling registers values are ignored
-- Sprites cannot be used while bitmap is enabled. VDP skip sprite processing
+- Sprites cannot be used while bitmap is enabled. VDP skips sprite processing
 - Color mapping in bitmap modes:
     - 8bpp (320x200x8):
         - Each pixel = 8-bit value (0-255)
@@ -249,10 +239,9 @@ VDP_ADDR + 0x0000 -> VDP_CTRL | R/W
 
 VDP_ADDR + 0x0002 -> VDP_STATUS | R
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
-    .  .  .  .  v  h  l  L  L  L  L  L  L  L  L  L
+    .  .  .  .  v  h  .  L  L  L  L  L  L  L  L  L
 
     [8:0]   L - CUR_LINE -> Current scanline (0-479 Visible, 0-511 Total)
-    [9:9]   l - LINE_MATCH -> Line-compare match
     [10:10] h - HBLANK -> H-Blank active
     [11:11] v - VBLANK -> V-Blank active
 
@@ -260,9 +249,10 @@ VDP_ADDR + 0x0002 -> VDP_STATUS | R
 
 VDP_ADDR + 0x0004 -> VDP_SCANLINE_CMP | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
-    .  .  .  .  .  .  .  L  L  L  L  L  L  L  L  L
+    l  .  .  .  .  .  .  L  L  L  L  L  L  L  L  L
 
-    [8:0] L - LINE - Line-compare value (0-511)
+    [8:0]   L - LINE -> Line-compare value (0-511)
+	[15:15] l - LINE_MATCH -> Line-compare match
 
 ; Triggers an interrupt when the current scanline matches
 
@@ -275,6 +265,7 @@ VDP_ADDR + 0x0006 -> VDP_BACKDROP | R/W
     [11:8] r - RED -> Red component (0-15)
 
 ; Backdrop color is displayed where no layers are visible
+
 
 ;=============
 ; VRAM access
@@ -306,7 +297,7 @@ VDP_ADDR + 0x0012 -> VDP_VRAM_ADDR_H | W/R
 ;   6   |    32     | Tile row (8x8 @ 4bpp = 32 bytes)
 ;   7   |    64     | Two tile rows / Two palettes
 ;   8   |    80     | Bitmap scanline (320x200x2bpp)
-;   9   |   128     | Metatile (8x8 TAOs)
+;   9   |   128     | Skip 128 bytes
 ;  10   |   160     | Bitmap scanline (320x200x4bpp, 640x200x2bpp, 640x400x2bpp)
 ;  11   |   256     | Palette map
 ;  12   |   320     | Bitmap scanline (320x200x8bpp, 640x200x4bpp)
@@ -316,12 +307,12 @@ VDP_ADDR + 0x0012 -> VDP_VRAM_ADDR_H | W/R
 
 ; Note: WORD size mode is little-endian
 
-
 VDP_ADDR + 0x0014 -> VDP_DATA | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     D  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D
 
     [15:0] D - DATA -> VRAM data
+
 
 ;================
 ; Memory mapping
@@ -329,11 +320,11 @@ VDP_ADDR + 0x0014 -> VDP_DATA | R/W
 VDP_ADDR + 0x0020 -> SPR_TILE_BASE | R/W
 VDP_ADDR + 0x0022 -> BG_TILE_BASE | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
-    .  .  .  .  a  a  a  a  a  a  a  a  a  a  a  a
+    .  .  .  .  .  .  .  .  .  .  a  a  a  a  a  a
 
-    [11:0] a - TILE_ADDR -> Tileset base address (32-byte aligned)
+    [5:0] a - TILE_ADDR -> Tileset base address (2KB aligned)
 
-; VRAM_ADDR[16:5] = TILE_BASE
+; VRAM_ADDR = TILE_ADDR << 11
 
 VDP_ADDR + 0x0024 -> PALETTE_BASE | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
@@ -341,31 +332,24 @@ VDP_ADDR + 0x0024 -> PALETTE_BASE | R/W
 
     [7:0] a - PAL_ADDR -> Palette base address (512-byte aligned)
 
-; VRAM_ADDR[16:9] = PAL_ADDR
+; VRAM_ADDR = PAL_ADDR << 9
 
 VDP_ADDR + 0x0028 -> SPR_OAM_BASE | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
-    .  .  .  .  a  a  a  a  a  a  a  a  a  a  a  a
+    .  .  .  .  .  .  .  .  a  a  a  a  a  a  a  a
 
-    [11:0] a - OAM_ADDR -> Sprite's OAM base address (32-byte aligned)
+    [7:0] a - OAM_ADDR -> Sprite's OAM base address (512-byte aligned)
 
-; VRAM_ADDR[16:5] = OAM_ADDR
+; VRAM_ADDR = OAM_ADDR << 9
 
 VDP_ADDR + 0x002a -> AFFINE_BASE | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
-    .  .  .  .  .  a  a  a  a  a  a  a  a  a  a  a
+    .  .  .  .  .  .  .  .  a  a  a  a  a  a  a  a
 
-    [10:0] a - AFFINE_ADDR -> Affine matrices base address (64-byte aligned)
+    [7:0] a - AFFINE_ADDR -> Affine matrices base address (512-byte aligned)
 
-; VRAM_ADDR[16:6] = AFFINE_BASE
+; VRAM_ADDR = AFFINE_BASE << 9
 
-VDP_ADDR + 0x002c -> META_BASE | R/W
-    F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
-    .  .  .  .  .  .  a  a  a  a  a  a  a  a  a  a
-
-    [9:0] a - METATILE_ADDR -> Metatiles base address (128-byte aligned)
-
-; VRAM_ADDR[16:7] = METATILE_BASE
 
 ;=====================================
 ; Background layer control (4 layers)
@@ -375,13 +359,12 @@ VDP_ADDR + 0x0032 -> BG1_CTRL | R/W
 VDP_ADDR + 0x0034 -> BG2_CTRL | R/W
 VDP_ADDR + 0x0036 -> BG3_CTRL | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
-    E  S  S  .  .  .  .  M  M  M  M  M  M  M  M  M
+    E  .  .  .  .  .  .  .  .  .  M  M  M  M  M  M
 
-    [8:0]   M - MAP_BASE -> Metatile map base address (256-byte aligned)
-    [14:13] S - METASIZE -> Metatile size (00: 2x2, 01: 4x4, 10: 8x8, 11: reserved)
+    [5:0]   M - MAP_ADDR -> Map base address (2KB aligned)
     [15:15] E - ENABLE -> Layer enable
 
-; VRAM_ADDR[16:8] = MAP_BASE
+; VRAM_ADDR = MAP_ADDR << 11
 
 VDP_ADDR + 0x0040 -> BG0_SCROLL_X | R/W
 VDP_ADDR + 0x0042 -> BG0_SCROLL_Y | R/W
@@ -392,9 +375,14 @@ VDP_ADDR + 0x004a -> BG2_SCROLL_Y | R/W
 VDP_ADDR + 0x004c -> BG3_SCROLL_X | R/W
 VDP_ADDR + 0x004e -> BG3_SCROLL_Y | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
-    .  .  .  .  .  .  s  s  s  s  s  s  s  s  s  s
+    .  .  .  .  .  .  x  x  x  x  x  x  x  x  x  x
+	.  .  .  .  .  .  .  y  y  y  y  y  y  y  y  y
 
-    [9:0] s - SCROLL -> Scroll position (0-1023)
+; BG_SCROLL_X
+    [9:0] x - SCROLL_X -> Scroll X position (0-1023)
+; BG_SCROLL_Y
+	[8:0] y - SCROLL_Y -> Scroll Y position (0-511)
+
 
 ;==========================
 ; Affine transform control
@@ -413,15 +401,16 @@ VDP_ADDR + 0x0052 -> ABG1_CTRL | R/W
 ; Note: If same BG is selected in both ABG0_CTRL and ABG1_CTRL
 ; with both enabled, the background is disabled entirely
 
+
 ;=====================
 ; Bitmap mode control
 ;=====================
 VDP_ADDR + 0x0060 -> BMP_CTRL | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
-    .  .  .  .  .  a  a  a  .  .  .  .  .  M  M  M
+    .  .  .  .  .  M  M  M  .  .  a  a  a  a  a  a
 
-    [2:0]  M - BMP_MODE -> Bitmap Mode (0-7, see table below)
-    [10:8] a - BMP_ADDR -> Bitmap base address (see alignment table below)
+    [5:0]  a - BMP_ADDR -> Bitmap base address (2KB aligned)
+	[10:8] M - BMP_MODE -> Bitmap Mode (0-7, see table below)
 
 ; Valid bitmap modes
 ; 000 -> 320x200x8    100 -> 640x200x2
@@ -429,10 +418,12 @@ VDP_ADDR + 0x0060 -> BMP_CTRL | R/W
 ; 010 -> 320x200x2    110 -> Invalid
 ; 011 -> 640x200x4    111 -> Invalid
 
-; Alignment
-; 8bpp modes: 64KB alignment (VRAM_ADDR[16:16] = BMP_ADDR[0:0])
-; 4bpp modes: 32KB alignment (VRAM_ADDR[16:15] = BMP_ADDR[1:0])
-; 2bpp modes: 16KB alignment (VRAM_ADDR[16:14] = BMP_ADDR[2:0])
+; VRAM_ADDR = BMP_ADDR << 11
+; For large modes:
+;   - 8bpp: BMP_ADDR must be multiple of 32 (64KB aligned)
+;   - 4bpp: BMP_ADDR multiple of 16 (32KB aligned)
+;   - 2bpp: BMP_ADDR multiple of 8  (16KB aligned)
+
 
 ;================
 ; Blitter Engine
@@ -499,6 +490,7 @@ VDP_ADDR + 0x008e -> BLT_PATTERN | R/W
 
     [15:0] p - PATTERN -> 16-bit pattern data repeated horizontally
 
+
 ;====================
 ; Blitter FX drawing
 ;====================
@@ -520,11 +512,11 @@ VDP_ADDR + 0x0092 -> FX_COLOR | R/W
 
 VDP_ADDR + 0x0094 -> FX_VERTEX_BASE | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
-    .  .  .  .  .  a  a  a  a  a  a  a  a  a  a  a
+    .  .  .  .  .  .  .  .  .  .  a  a  a  a  a  a
 
-    [10:0] a - VERTEX_ADDR -> Vertex data base address (64-byte aligned)
+    [5:0] a - VERTEX_ADDR -> Vertex data base address (2KB aligned)
 
-; VRAM_ADDR[16:6] = VERTEX_ADDR
+; VRAM_ADDR = VERTEX_ADDR << 11
 
 ; Vertices are stored contiguously: 3 words (6 bytes) per vertex, no padding
 
@@ -553,11 +545,11 @@ VDP_ADDR + 0x0094 -> FX_VERTEX_BASE | R/W
 
 VDP_ADDR + 0x0096 -> FX_TEX_BASE | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
-    .  .  .  .  a  a  a  a  a  a  a  a  a  a  a  a
+    .  .  .  .  .  .  .  .  .  .  a  a  a  a  a  a
 
-    [11:0] a - TEX_ADDR -> Texture base address (32-byte aligned)
+    [5:0] a - TEX_ADDR -> Texture base address (2KB aligned)
 
-; VRAM_ADDR[16:5] = TEX_ADDR
+; VRAM_ADDR = TEX_ADDR << 11
 
 VDP_ADDR + 0x0098 -> FX_TEX_SIZE | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
