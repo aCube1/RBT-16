@@ -83,11 +83,17 @@ static u8 _get_clr_cycles(RBT_AddressMode mode, RBT_OperandSize size) {
 	return _clr_cycles[idx][size_idx];
 }
 
+[[nodiscard]] static bool _is_operand_reg(const RBT_Operand *op) {
+	if (op->type == RBT_OPERAND_EA)
+		return (op->ea.mode & RBT_EA_GROUP_REG) != 0u;
+
+	return false;
+}
+
 u16 rbt_calculate_timing(const RBT_Instruction *instr) {
 	assert(instr);
 
 	bool is_long = instr->size == RBT_SIZE_LONG;
-	bool is_dst_reg = (instr->dst.ea.mode & RBT_EA_GROUP_REG) != 0u;
 
 	u16 cycles = 0;
 	bool should_add_ea = false;
@@ -138,7 +144,7 @@ u16 rbt_calculate_timing(const RBT_Instruction *instr) {
 		should_add_ea = true;
 		break;
 	case RBT_OP_EOR:
-		if (instr->dst.type == RBT_OPERAND_DREG) {
+		if (_is_operand_reg(&instr->dst)) {
 			// EOR Dn,Dn
 			// B/W: 4(1/0)+ | L: 6(1/0)+
 			cycles = !is_long ? 4 : 6;
@@ -186,7 +192,7 @@ u16 rbt_calculate_timing(const RBT_Instruction *instr) {
 		[[fallthrough]];
 	case RBT_OP_ADDI:
 	case RBT_OP_SUBI:
-		if (is_dst_reg) {
+		if (_is_operand_reg(&instr->dst)) {
 			// op #,Dn
 			// B/W: 8(2/0) | L: 14(3/0)
 			cycles = !is_long ? 8 : 14;
@@ -199,7 +205,7 @@ u16 rbt_calculate_timing(const RBT_Instruction *instr) {
 		break;
 	case RBT_OP_ADDQ:
 	case RBT_OP_SUBQ:
-		if (is_dst_reg) {
+		if (_is_operand_reg(&instr->dst)) {
 			// op #,Dn
 			//   B/W: 4(1/0) | L: 8(1/0)
 			// op #,An
@@ -226,7 +232,7 @@ u16 rbt_calculate_timing(const RBT_Instruction *instr) {
 		cycles = 4;
 		break;
 	case RBT_OP_NBCD:
-		if (is_dst_reg) {
+		if (_is_operand_reg(&instr->dst)) {
 			// NBCD Dn
 			// B: 6(1/0)
 			cycles = 6;
@@ -240,7 +246,7 @@ u16 rbt_calculate_timing(const RBT_Instruction *instr) {
 	case RBT_OP_NEG:
 	case RBT_OP_NEGX:
 	case RBT_OP_NOT:
-		if (is_dst_reg) {
+		if (_is_operand_reg(&instr->dst)) {
 			// op Dn
 			// B/W: 4(1/0) | L: 6(1/0)
 			cycles = !is_long ? 4 : 6;
@@ -256,7 +262,7 @@ u16 rbt_calculate_timing(const RBT_Instruction *instr) {
 		cycles = _get_clr_cycles(instr->dst.ea.mode, instr->dst.size);
 		break;
 	case RBT_OP_Scc:
-		if (is_dst_reg) {
+		if (_is_operand_reg(&instr->dst)) {
 			// Scc Dn
 			// B,False: 4(1/0)
 			// B,True: 4(1/0)
@@ -270,7 +276,7 @@ u16 rbt_calculate_timing(const RBT_Instruction *instr) {
 		}
 		break;
 	case RBT_OP_TAS:
-		if (is_dst_reg) {
+		if (_is_operand_reg(&instr->dst)) {
 			// TAS Dn
 			// B: 4(1/0)
 			cycles = 4;

@@ -52,8 +52,7 @@ typedef struct RBT_EffectiveAddress {
 	u32 start_pc;
 
 	union {
-		u8 dreg;					 // EA = Dn
-		u8 areg;					 // EA = An
+		u8 reg;						 // EA = Dn or An
 		u8 indirect;				 // EA = (An) / (An) + SIZE / (An) - SIZE
 		RBT_IndirectDisp ind_disp;	 // EA = (An) + d16
 		RBT_IndirectIndexed ind_idx; // EA = (An) + (Xi) + d8
@@ -61,7 +60,7 @@ typedef struct RBT_EffectiveAddress {
 		u32 absolute_long;			 // EA = (xxx).l
 		i32 pc_disp;				 // EA = (PC) + d16
 		RBT_IndexExtension pc_idx;	 // EA = (PC) + (Xi) + d8
-		u32 imm;					 // EA = #imm
+		u32 imm;					 // EA = #imm, reg-list, conditions
 	};
 } RBT_EffectiveAddress;
 

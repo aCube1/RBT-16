@@ -101,12 +101,8 @@ typedef enum RBT_OpMnemonic {
 
 typedef enum RBT_OperandType {
 	RBT_OPERAND_NONE,
-	RBT_OPERAND_EA,		 // Effective Address
-	RBT_OPERAND_DREG,	 // Dn
-	RBT_OPERAND_AREG,	 // An
-	RBT_OPERAND_IMM,	 // Generic immediate data: #imm, reglist...
-	RBT_OPERAND_DISP,	 // Displacement
-	RBT_OPERAND_INDDISP, // Indirect displacement (d16, An)
+	RBT_OPERAND_EA,	  // Effective Address
+	RBT_OPERAND_DISP, // Displacement
 	// Implied registers
 	RBT_OPERAND_CCR,
 	RBT_OPERAND_SR,
@@ -118,10 +114,7 @@ typedef struct RBT_Operand {
 	RBT_OperandSize size; // Specific size of operation: Eg. BTST <#imm,Dn>, Dn is Long
 	union {
 		RBT_EffectiveAddress ea;
-		u8 reg;
-		u32 imm;
 		i32 disp;
-		RBT_IndirectDisp ind_disp;
 	};
 } RBT_Operand;
 

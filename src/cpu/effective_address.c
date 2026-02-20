@@ -10,10 +10,10 @@ bool rbt_indexext_from_word(u16 ext, RBT_IndexExtension *ix) {
 	assert(ix);
 
 	// Brief Extension Word
-	//  F  | E D C |  B  | A 9 8 | 7 6 5 4 3 2 1 0
-	// A/D |  REG  | W/L | SCALE |  DISPLACEMENT
+	//  F  | E D C |  B  |  A 9  | 8 | 7 6 5 4 3 2 1 0
+	// A/D |  REG  | W/L | SCALE | 0 |  DISPLACEMENT
 
-	if (rbt_bits(ext, 10, 8) != 0) {
+	if (rbt_bits(ext, 10, 9) != 0) {
 		rbt_push_error(RBT_ERR_DECODE_INVALID_EA, "Extension word's scale bit is set");
 		return false;
 	}
@@ -63,11 +63,11 @@ u32 rbt_decode_effective_address(
 	switch (mode) {
 	case 0b000: // Dn
 		ea->mode = RBT_EA_DIRECT_DATA;
-		ea->dreg = reg;
+		ea->reg = reg;
 		break;
 	case 0b001: // An
 		ea->mode = RBT_EA_DIRECT_ADDR;
-		ea->areg = reg;
+		ea->reg = reg;
 		break;
 	case 0b010: // (An)
 		ea->mode = RBT_EA_INDIRECT;
