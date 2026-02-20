@@ -57,8 +57,9 @@ void test_decode_static_btst(void) {
 	TEST_ASSERT_EQUAL(RBT_OP_BTST, instr.mnemonic);
 	TEST_ASSERT_EQUAL(RBT_SIZE_BYTE, instr.size);
 
-	TEST_ASSERT_EQUAL(RBT_OPERAND_IMM, instr.src.type);
-	TEST_ASSERT_EQUAL(5, instr.src.imm);
+	TEST_ASSERT_EQUAL(RBT_OPERAND_EA, instr.src.type);
+	TEST_ASSERT_EQUAL(RBT_EA_IMMEDIATE, instr.src.ea.mode);
+	TEST_ASSERT_EQUAL(5, instr.src.ea.imm);
 
 	TEST_ASSERT_EQUAL(RBT_OPERAND_EA, instr.dst.type);
 	TEST_ASSERT_EQUAL(RBT_EA_INDIRECT, instr.dst.ea.mode);
@@ -83,8 +84,9 @@ void test_decode_dynamic_bchg(void) {
 	TEST_ASSERT_EQUAL(RBT_OP_BCHG, instr.mnemonic);
 	TEST_ASSERT_EQUAL(RBT_SIZE_BYTE, instr.size);
 
-	TEST_ASSERT_EQUAL(RBT_OPERAND_DREG, instr.src.type);
-	TEST_ASSERT_EQUAL(3, instr.src.reg);
+	TEST_ASSERT_EQUAL(RBT_OPERAND_EA, instr.src.type);
+	TEST_ASSERT_EQUAL(RBT_EA_IMMEDIATE, instr.src.ea.mode);
+	TEST_ASSERT_EQUAL(3, instr.src.ea.reg);
 
 	TEST_ASSERT_EQUAL(RBT_OPERAND_EA, instr.dst.type);
 	TEST_ASSERT_EQUAL(RBT_EA_INDIRECT_DISPLACEMENT, instr.dst.ea.mode);
@@ -106,8 +108,9 @@ void test_decode_static_bset(void) {
 	TEST_ASSERT_EQUAL(RBT_OP_BSET, instr.mnemonic);
 	TEST_ASSERT_EQUAL(RBT_SIZE_BYTE, instr.size);
 
-	TEST_ASSERT_EQUAL(RBT_OPERAND_IMM, instr.src.type);
-	TEST_ASSERT_EQUAL(5, instr.src.imm);
+	TEST_ASSERT_EQUAL(RBT_OPERAND_EA, instr.src.type);
+	TEST_ASSERT_EQUAL(RBT_EA_IMMEDIATE, instr.src.ea.mode);
+	TEST_ASSERT_EQUAL(5, instr.src.ea.imm);
 
 	TEST_ASSERT_EQUAL(RBT_OPERAND_EA, instr.dst.type);
 	TEST_ASSERT_EQUAL(RBT_EA_ABSOLUTE_SHORT, instr.dst.ea.mode);
@@ -128,8 +131,10 @@ void test_decode_andi_w(void) {
 	TEST_ASSERT_EQUAL(RBT_OP_ANDI, instr.mnemonic);
 	TEST_ASSERT_EQUAL(RBT_SIZE_WORD, instr.size);
 
-	TEST_ASSERT_EQUAL(RBT_OPERAND_IMM, instr.src.type);
-	TEST_ASSERT_EQUAL(0x9abc, instr.src.imm);
+	TEST_ASSERT_EQUAL(RBT_OPERAND_EA, instr.src.type);
+	TEST_ASSERT_EQUAL(RBT_EA_IMMEDIATE, instr.src.ea.mode);
+	TEST_ASSERT_EQUAL(5, instr.src.ea.imm);
+	TEST_ASSERT_EQUAL(0x9abc, instr.src.ea.imm);
 
 	TEST_ASSERT_EQUAL(RBT_OPERAND_EA, instr.dst.type);
 	TEST_ASSERT_EQUAL(RBT_EA_ABSOLUTE_SHORT, instr.dst.ea.mode);

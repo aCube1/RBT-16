@@ -219,7 +219,7 @@ static u8 _decode_imm(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	instr->src.type = RBT_OPERAND_EA;
 	instr->src.size = instr->size;
 	instr->src.ea.mode = RBT_EA_IMMEDIATE;
-	instr->src.ea.imm = rbt_bus_load(bus, instr->size, curr_pc);
+	instr->src.ea.imm = rbt_bus_fetch_imm(bus, instr->size, curr_pc);
 	if (bus->error_code) {
 		return bus->error_code;
 	}

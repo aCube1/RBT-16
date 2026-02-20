@@ -151,7 +151,7 @@ u32 rbt_decode_effective_address(
 		} break;
 		case 0b100: { // #imm
 			ea->mode = RBT_EA_IMMEDIATE;
-			ea->imm = rbt_bus_load(bus, size, pc);
+			ea->imm = rbt_bus_fetch_imm(bus, size, pc);
 			if (bus->error_code) {
 				goto decoding_error;
 			}

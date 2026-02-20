@@ -76,5 +76,7 @@ void rbt_bus_write_byte(RBT_MemoryBus *bus, u32 addr, u8 byte);
 void rbt_bus_write_word(RBT_MemoryBus *bus, u32 addr, u16 word);
 void rbt_bus_write_long(RBT_MemoryBus *bus, u32 addr, u32 long_);
 
-u32 rbt_bus_load(RBT_MemoryBus *bus, RBT_OperandSize size, u32 addr);
+u64 rbt_bus_load(RBT_MemoryBus *bus, RBT_OperandSize size, u32 addr);
 void rbt_bus_store(RBT_MemoryBus *bus, RBT_OperandSize size, u32 addr, u32 data);
+
+u64 rbt_bus_fetch_imm(RBT_MemoryBus *bus, RBT_OperandSize size, u32 addr);

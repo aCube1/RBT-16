@@ -75,8 +75,8 @@ static const char *_conditions[] = {
 
 static i32 _stringfy_effective_address(const RBT_EffectiveAddress *ea, char *out) {
 	switch (ea->mode) {
-	case RBT_EA_DIRECT_DATA:	  return sprintf(out, "%%d%u", ea->dreg);
-	case RBT_EA_DIRECT_ADDR:	  return sprintf(out, "%%a%u", ea->areg);
+	case RBT_EA_DIRECT_DATA:	  return sprintf(out, "%%d%u", ea->reg);
+	case RBT_EA_DIRECT_ADDR:	  return sprintf(out, "%%a%u", ea->reg);
 	case RBT_EA_INDIRECT:		  return sprintf(out, "(%%a%u)", ea->indirect);
 	case RBT_EA_INDIRECT_POSTINC: return sprintf(out, "(%%a%u)+", ea->indirect);
 	case RBT_EA_INDIRECT_PREDEC:  return sprintf(out, "-(%%a%u)", ea->indirect);
@@ -123,16 +123,11 @@ static i32 _stringfy_effective_address(const RBT_EffectiveAddress *ea, char *out
 static i32 _stringfy_operand(const RBT_Operand *operand, char *out) {
 	switch (operand->type) {
 	case RBT_OPERAND_EA:   return _stringfy_effective_address(&operand->ea, out);
-	case RBT_OPERAND_DREG: return sprintf(out, "%%d%u", operand->reg);
-	case RBT_OPERAND_AREG: return sprintf(out, "%%a%u", operand->reg);
-	case RBT_OPERAND_IMM:  return sprintf(out, "#0x%x", operand->imm);
 	case RBT_OPERAND_DISP: return sprintf(out, "%i", operand->disp);
-	case RBT_OPERAND_INDDISP:
-		return sprintf(out, "%i(%%a%u)", operand->ind_disp.disp, operand->ind_disp.areg);
-	case RBT_OPERAND_CCR: return sprintf(out, "%%ccr");
-	case RBT_OPERAND_SR:  return sprintf(out, "%%sr");
-	case RBT_OPERAND_USP: return sprintf(out, "%%usp");
-	default:			  return 0;
+	case RBT_OPERAND_CCR:  return sprintf(out, "%%ccr");
+	case RBT_OPERAND_SR:   return sprintf(out, "%%sr");
+	case RBT_OPERAND_USP:  return sprintf(out, "%%usp");
+	default:			   return 0;
 	}
 
 	unreachable();
@@ -182,7 +177,7 @@ static void test_opcodes(void) {
 
 		if (instr.mnemonic == RBT_OP_Scc || instr.mnemonic == RBT_OP_DBcc
 			|| instr.mnemonic == RBT_OP_Bcc) {
-			u8 cond = instr.aux.imm;
+			u8 cond = instr.aux.ea.imm;
 			len += sprintf(
 				&out[len], "%s%s ", _mnemonics[instr.mnemonic], _conditions[cond]
 			);

@@ -166,7 +166,10 @@ bool rbt_bus_init_from_file(RBT_MemoryBus *bus, const char *filename) {
 	}
 
 	fclose(file);
-	return rbt_bus_init(bus, size, rom);
+	bool success = rbt_bus_init(bus, size, rom);
+
+	free(rom);
+	return success;
 }
 
 u64 rbt_bus_read_byte(RBT_MemoryBus *bus, u32 addr) {
@@ -261,6 +264,8 @@ u64 rbt_bus_read_word(RBT_MemoryBus *bus, u32 addr) {
 u64 rbt_bus_read_long(RBT_MemoryBus *bus, u32 addr) {
 	assert(bus);
 
+	addr &= 0xffffff;
+
 	// The M68000/MC68008/MC68010 do not support unaligned access
 	if (addr & 1) {
 		rbt_push_error(RBT_ERR_MEM_UNALIGNED, "Unaligned memory access at: 0x%06x", addr);
@@ -299,7 +304,7 @@ void rbt_bus_write_byte(RBT_MemoryBus *bus, u32 addr, u8 byte) {
 
 	u32 offset;
 	RBT_MMIODevice *mmio = _get_mmio_handler(bus, addr, &offset);
-	if (!mmio || !mmio->read_byte) {
+	if (!mmio || !mmio->write_byte) {
 		rbt_push_error(RBT_ERR_MEM_UNMAPPED, "Memory isn't mapped at: 0x%06x", addr);
 		bus->error_code = RBT_ERR_MEM_UNMAPPED;
 		bus->last_error_addr = addr;
@@ -344,14 +349,14 @@ void rbt_bus_write_word(RBT_MemoryBus *bus, u32 addr, u16 word) {
 
 	u32 offset;
 	RBT_MMIODevice *mmio = _get_mmio_handler(bus, addr, &offset);
-	if (!mmio || !mmio->read_byte) {
+	if (!mmio || !mmio->write_word) {
 		rbt_push_error(RBT_ERR_MEM_UNMAPPED, "Memory isn't mapped at: 0x%06x", addr);
 		bus->error_code = RBT_ERR_MEM_UNMAPPED;
 		bus->last_error_addr = addr;
 		return;
 	}
 
-	if (!mmio->write_byte(mmio, offset, word)) {
+	if (!mmio->write_word(mmio, offset, word)) {
 		rbt_push_error(RBT_ERR_MEM_BUS_ERROR, "Bus fault at: 0x%06x", addr);
 		bus->error_code = RBT_ERR_MEM_BUS_ERROR;
 		bus->last_error_addr = addr;
@@ -377,17 +382,12 @@ void rbt_bus_write_long(RBT_MemoryBus *bus, u32 addr, u32 long_) {
 	rbt_bus_write_word(bus, addr + 2, long_ & 0xffff);
 }
 
-u32 rbt_bus_load(RBT_MemoryBus *bus, RBT_OperandSize size, u32 addr) {
+u64 rbt_bus_load(RBT_MemoryBus *bus, RBT_OperandSize size, u32 addr) {
 	switch (size) {
-	case RBT_SIZE_BYTE:
-	case RBT_SIZE_WORD: {
-		u16 word = rbt_bus_read_word(bus, addr);
-		return size == RBT_SIZE_BYTE ? (word & 0xff) : word;
-	}
-	case RBT_SIZE_LONG: //
-		return rbt_bus_read_long(bus, addr);
-	default: //
-		return 0;
+	case RBT_SIZE_BYTE: return rbt_bus_read_byte(bus, addr);
+	case RBT_SIZE_WORD: return rbt_bus_read_word(bus, addr);
+	case RBT_SIZE_LONG: return rbt_bus_read_long(bus, addr);
+	default:			return 0;
 	}
 }
 
@@ -401,4 +401,18 @@ void rbt_bus_store(RBT_MemoryBus *bus, RBT_OperandSize size, u32 addr, u32 data)
 		break;
 	}
 	// clang-format on
+}
+
+u64 rbt_bus_fetch_imm(RBT_MemoryBus *bus, RBT_OperandSize size, u32 addr) {
+	switch (size) {
+	case RBT_SIZE_BYTE:
+	case RBT_SIZE_WORD: {
+		u16 word = rbt_bus_read_word(bus, addr);
+		return size == RBT_SIZE_BYTE ? (word & 0xff) : word;
+	}
+	case RBT_SIZE_LONG: //
+		return rbt_bus_read_long(bus, addr);
+	default: //
+		return 0;
+	}
 }
