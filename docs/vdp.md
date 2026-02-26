@@ -299,9 +299,9 @@ VDP_ADDR + 0x0012 -> VDP_VRAM_ADDR_H | W/R
 ;   8   |    80     | Bitmap scanline (320x200x2bpp)
 ;   9   |   128     | Skip 128 bytes
 ;  10   |   160     | Bitmap scanline (320x200x4bpp, 640x200x2bpp, 640x400x2bpp)
-;  11   |   256     | Palette map
+;  11   |   256     | Skip 256 bytes
 ;  12   |   320     | Bitmap scanline (320x200x8bpp, 640x200x4bpp)
-;  13   |   512     | 512-byte boundary
+;  13   |   512     | 512-byte boundary / Palette map
 ;  14   |  1024     | 1KB boundary
 ;  15   |  2048     | 2KB boundary
 
