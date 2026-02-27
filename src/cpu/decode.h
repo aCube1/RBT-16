@@ -1,7 +1,7 @@
 #pragma once
 
+#include "cpu/effective_address.h"
 #include "rbt/basic_types.h"
-#include "rbt/cpu/effective_address.h"
 
 enum {
 	RBT_MAX_INSTR_WORDS = 16,

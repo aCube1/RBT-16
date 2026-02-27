@@ -1,8 +1,8 @@
 #pragma once
 
 #include "rbt/basic_types.h"
-#include "rbt/cpu/mmu.h"
 #include "rbt/helpers.h"
+#include "rbt/mmu.h"
 
 typedef enum RBT_AddressMode : u16 {
 	RBT_EA_DIRECT_DATA = 1 << 0,		   // mode:000, reg:Dn  | Dn

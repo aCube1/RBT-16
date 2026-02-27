@@ -39,6 +39,7 @@ target_sources(
 		"src/cpu/mmu.c"
 		"src/cpu/timing.c"
 		"src/error.c"
+		"src/helpers.c"
 )
 
 target_include_directories(

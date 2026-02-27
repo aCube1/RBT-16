@@ -1,6 +1,8 @@
-#include "rbt/cpu/decode.h"
+#include "cpu/decode.h"
 
-#include "rbt/cpu/effective_address.h"
+#include "cpu/effective_address.h"
+#include "cpu/mmu_internal.h"
+#include "error.h"
 
 #include <assert.h>
 #include <string.h>
@@ -140,9 +142,9 @@ static u8 _decode_bit(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 	// Is dynamic?
 	if (rbt_bits(opcode, 11, 8) == 0b1000) {
-		u16 bits = rbt_bus_read_word(bus, curr_pc);
-		if (bus->error_code) {
-			return bus->error_code;
+		u16 bits;
+		if (rbt_bus_read_word(bus, curr_pc, &bits)) {
+			return rbt_query_last_error()->code;
 		}
 		curr_pc += 2;
 
@@ -219,9 +221,9 @@ static u8 _decode_imm(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	instr->src.type = RBT_OPERAND_EA;
 	instr->src.size = instr->size;
 	instr->src.ea.mode = RBT_EA_IMMEDIATE;
-	instr->src.ea.imm = rbt_bus_fetch_imm(bus, instr->size, curr_pc);
-	if (bus->error_code) {
-		return bus->error_code;
+
+	if (_bus_fetch_imm(bus, instr->size, curr_pc, &instr->src.ea.imm)) {
+		return rbt_query_last_error()->code;
 	}
 
 	// Skip out immediate words
@@ -287,9 +289,9 @@ static u8 _decode_moves_movep(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		}
 		instr->mnemonic = RBT_OP_MOVEP;
 
-		u16 disp = rbt_bus_read_word(bus, curr_pc);
-		if (bus->error_code) {
-			return bus->error_code;
+		u16 disp;
+		if (rbt_bus_read_word(bus, curr_pc, &disp)) {
+			return rbt_query_last_error()->code;
 		}
 		curr_pc += 2;
 
@@ -333,9 +335,9 @@ static u8 _decode_moves_movep(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 			return RBT_ERR_DECODE_ILLEGAL;
 		}
 
-		u16 ext = rbt_bus_read_word(bus, curr_pc);
-		if (bus->error_code) {
-			return bus->error_code;
+		u16 ext;
+		if (rbt_bus_read_word(bus, curr_pc, &ext)) {
+			return rbt_query_last_error()->code;
 		}
 		curr_pc += 2;
 
@@ -582,9 +584,9 @@ static u8 _decode_movem(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	instr->mnemonic = RBT_OP_MOVEM;
 	instr->size = RBT_BIT(opcode, 6) ? RBT_SIZE_LONG : RBT_SIZE_WORD;
 
-	u16 regs = rbt_bus_read_word(bus, curr_pc);
-	if (bus->error_code) {
-		return bus->error_code;
+	u16 regs;
+	if (rbt_bus_read_word(bus, curr_pc, &regs)) {
+		return rbt_query_last_error()->code;
 	}
 	curr_pc += 2;
 
@@ -853,9 +855,9 @@ static u8 _decode_misc(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		instr->src.ea.reg = rbt_bits(opcode, 2, 0);
 
 		if (instr->mnemonic == RBT_OP_LINK) {
-			u16 offset = rbt_bus_read_word(bus, curr_pc);
-			if (bus->error_code) {
-				return bus->error_code;
+			u16 offset;
+			if (rbt_bus_read_word(bus, curr_pc, &offset)) {
+				return rbt_query_last_error()->code;
 			}
 
 			instr->size = RBT_SIZE_WORD;
@@ -893,9 +895,9 @@ static u8 _decode_misc(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	// MOVEC: 0100 1110 0111 101d [..L] (M68010+)
 	//        ARRR CTRL_REGISTER
 	if (rbt_bits(opcode, 3, 1) == 0b101) {
-		u16 data = rbt_bus_read_word(bus, curr_pc);
-		if (bus->error_code) {
-			return bus->error_code;
+		u16 data;
+		if (rbt_bus_read_word(bus, curr_pc, &data)) {
+			return rbt_query_last_error()->code;
 		}
 
 		instr->mnemonic = RBT_OP_MOVEC;
@@ -961,16 +963,16 @@ static u8 _decode_misc(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		instr->src.type = RBT_OPERAND_EA;
 		instr->src.size = RBT_SIZE_WORD;
 		instr->src.ea.mode = RBT_EA_IMMEDIATE;
-		instr->src.ea.imm = rbt_bus_read_word(bus, curr_pc);
-		if (bus->error_code) {
-			return bus->error_code;
+
+		if (_bus_fetch_imm(bus, instr->src.size, curr_pc, &instr->src.ea.imm)) {
+			return rbt_query_last_error()->code;
 		}
 	}
 
 	if (instr->mnemonic == RBT_OP_RTD) {
-		u16 disp = rbt_bus_read_word(bus, curr_pc);
-		if (bus->error_code) {
-			return bus->error_code;
+		u16 disp;
+		if (rbt_bus_read_word(bus, curr_pc, &disp)) {
+			return rbt_query_last_error()->code;
 		}
 
 		instr->src.type = RBT_OPERAND_DISP;
@@ -1042,9 +1044,9 @@ static u8 _decode_addq_subq(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		u8 cond = _OP_COND(opcode);
 
 		if (ea_mode == 0b001) {
-			u16 offset = rbt_bus_read_word(bus, curr_pc);
-			if (bus->error_code) {
-				return bus->error_code;
+			u16 offset;
+			if (rbt_bus_read_word(bus, curr_pc, &offset)) {
+				return rbt_query_last_error()->code;
 			}
 
 			instr->mnemonic = RBT_OP_DBcc;
@@ -1144,9 +1146,8 @@ static u8 _decode_branch(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	// Read 16-bits offset if 8-bits offset is 0x00
 	if (offset == 0x00) {
 		instr->size = RBT_SIZE_WORD;
-		offset = rbt_bus_read_word(bus, curr_pc);
-		if (bus->error_code) {
-			return bus->error_code;
+		if (rbt_bus_read_word(bus, curr_pc, &offset)) {
+			return rbt_query_last_error()->code;
 		}
 	}
 
@@ -1876,10 +1877,10 @@ RBT_ErrorCode rbt_decode_instruction(RBT_MemoryBus *bus, u32 pc, RBT_Instruction
 	memset(instr, 0, sizeof(RBT_Instruction));
 	instr->start_pc = pc & 0xff'ffff;
 	instr->word_count = 1;
-	instr->words[0] = rbt_bus_read_word(bus, instr->start_pc);
-	if (bus->error_code) {
+
+	if (rbt_bus_read_word(bus, instr->start_pc, &instr->words[0])) {
 		rbt_push_error(RBT_ERR_MEM_BUS_ERROR, "Failed to fetch instruction word");
-		return bus->error_code;
+		return RBT_ERR_MEM_BUS_ERROR;
 	}
 
 	u16 opcode = instr->words[0];

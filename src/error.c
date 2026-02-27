@@ -1,6 +1,7 @@
-#include "rbt/error.h"
+#include "error.h"
 
 #include "rbt/basic_types.h"
+#include "rbt/error_codes.h"
 
 #include <assert.h>
 #include <stdarg.h>

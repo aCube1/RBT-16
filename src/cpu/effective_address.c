@@ -1,6 +1,7 @@
-#include "rbt/cpu/effective_address.h"
+#include "cpu/effective_address.h"
 
-#include "rbt/error.h"
+#include "cpu/mmu_internal.h"
+#include "error.h"
 #include "rbt/helpers.h"
 
 #include <assert.h>
@@ -82,8 +83,9 @@ u32 rbt_decode_effective_address(
 		ea->indirect = reg;
 		break;
 	case 0b101: { // (d16, An)
-		u16 disp = rbt_bus_read_word(bus, pc);
-		if (bus->error_code) {
+
+		u16 disp;
+		if (rbt_bus_read_word(bus, pc, &disp)) {
 			goto decoding_error;
 		}
 		bytes = 2;
@@ -93,8 +95,8 @@ u32 rbt_decode_effective_address(
 		ea->ind_disp.disp = rbt_sign_extend(RBT_SIZE_WORD, disp);
 	} break;
 	case 0b110: { // (d8, Xi, An)
-		u16 ext = rbt_bus_read_word(bus, pc);
-		if (bus->error_code) {
+		u16 ext;
+		if (rbt_bus_read_word(bus, pc, &ext)) {
 			goto decoding_error;
 		}
 		bytes = 2;
@@ -108,8 +110,8 @@ u32 rbt_decode_effective_address(
 	case 0b111:
 		switch (reg) {
 		case 0b000: { // (xxx).w
-			u16 abs = rbt_bus_read_word(bus, pc);
-			if (bus->error_code) {
+			u16 abs;
+			if (rbt_bus_read_word(bus, pc, &abs)) {
 				goto decoding_error;
 			}
 			bytes = 2;
@@ -118,8 +120,8 @@ u32 rbt_decode_effective_address(
 			ea->absolute_short = rbt_sign_extend(RBT_SIZE_WORD, abs);
 		} break;
 		case 0b001: { // (xxx).l
-			u32 abs = rbt_bus_read_long(bus, pc);
-			if (bus->error_code) {
+			u32 abs;
+			if (rbt_bus_read_long(bus, pc, &abs)) {
 				goto decoding_error;
 			}
 			bytes = 4;
@@ -128,8 +130,8 @@ u32 rbt_decode_effective_address(
 			ea->absolute_long = abs;
 		} break;
 		case 0b010: { // (d16, PC)
-			u16 disp = rbt_bus_read_word(bus, pc);
-			if (bus->error_code) {
+			u16 disp;
+			if (rbt_bus_read_word(bus, pc, &disp)) {
 				goto decoding_error;
 			}
 			bytes = 2;
@@ -138,8 +140,8 @@ u32 rbt_decode_effective_address(
 			ea->pc_disp = rbt_sign_extend(RBT_SIZE_WORD, disp);
 		} break;
 		case 0b011: { // (d8, Xi, PC)
-			u16 ext = rbt_bus_read_word(bus, pc);
-			if (bus->error_code) {
+			u16 ext;
+			if (rbt_bus_read_word(bus, pc, &ext)) {
 				goto decoding_error;
 			}
 			bytes = 2;
@@ -151,8 +153,8 @@ u32 rbt_decode_effective_address(
 		} break;
 		case 0b100: { // #imm
 			ea->mode = RBT_EA_IMMEDIATE;
-			ea->imm = rbt_bus_fetch_imm(bus, size, pc);
-			if (bus->error_code) {
+
+			if (_bus_fetch_imm(bus, size, pc, &ea->imm)) {
 				goto decoding_error;
 			}
 

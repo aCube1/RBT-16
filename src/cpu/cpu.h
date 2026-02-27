@@ -1,6 +1,6 @@
 #pragma once
 
-#include "rbt/cpu/mmu.h"
+#include "rbt/mmu.h"
 
 // F  E  D C B A  9  8  7 6 5 4 3 2 1 0
 // T0 T1 S M 0 I2 I1 I0 0 0 0 X N Z V C

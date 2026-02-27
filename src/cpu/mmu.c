@@ -1,4 +1,7 @@
-#include "rbt/cpu/mmu.h"
+#include "rbt/mmu.h"
+
+#include "error.h"
+#include "mmu_internal.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -31,10 +34,10 @@ static RBT_MMIODevice *_get_mmio_handler(RBT_MemoryBus *bus, u32 addr, u32 *offs
 		return &bus->io;
 	}
 
-	// MSD (microSD Card)
-	if (_is_address_in_range(addr, RBT_MMU_MSD_ADDR, RBT_MMU_MSD_SIZE)) {
-		*offset = addr - RBT_MMU_MSD_ADDR;
-		return &bus->sdc;
+	// SD (microSD Card)
+	if (_is_address_in_range(addr, RBT_MMU_SD_ADDR, RBT_MMU_SD_SIZE)) {
+		*offset = addr - RBT_MMU_SD_ADDR;
+		return &bus->sd;
 	}
 
 	// EXT (Extension Cards)
@@ -77,9 +80,6 @@ RBT_MemoryBus *rbt_create_bus(u8 ram_slots) {
 	}
 	memset(bus->rom, 0, RBT_MMU_ROM_SIZE * sizeof(u8));
 
-	bus->error_code = RBT_ERR_SUCCESS;
-	bus->last_error_addr = 0;
-
 	return bus;
 
 error:
@@ -105,17 +105,30 @@ void rbt_bus_reset(RBT_MemoryBus *bus) {
 	if (!bus)
 		return;
 
-	bus->error_code = RBT_ERR_SUCCESS;
-	bus->last_error_addr = 0;
-
 	memset(bus->ram, 0, bus->ram_size);
 }
 
-bool rbt_bus_init(RBT_MemoryBus *bus, usize size, const u8 *rom) {
+void rbt_attach_bus_mmio(RBT_MemoryBus *bus, RBT_BusDevice dev, RBT_MMIODevice device) {
+	assert(bus);
+
+	switch (dev) {
+	case RBT_BUSDEV_VDP:  bus->vdp = device; break;
+	case RBT_BUSDEV_APU:  bus->apu = device; break;
+	case RBT_BUSDEV_IO:	  bus->io = device; break;
+	case RBT_BUSDEV_SD:	  bus->sd = device; break;
+	case RBT_BUSDEV_EXT0: bus->ext[0] = device; break;
+	case RBT_BUSDEV_EXT1: bus->ext[1] = device; break;
+	case RBT_BUSDEV_EXT2: bus->ext[2] = device; break;
+	case RBT_BUSDEV_EXT3: bus->ext[3] = device; break;
+	default:			  unreachable();
+	}
+}
+
+RBT_ErrorCode rbt_bus_init(RBT_MemoryBus *bus, usize size, const u8 *rom) {
 	assert(bus);
 
 	if (size == 0 || !rom) {
-		return false;
+		return RBT_ERR_INVALID_ARGS;
 	}
 
 	if (size > RBT_MMU_ROM_SIZE) {
@@ -124,20 +137,18 @@ bool rbt_bus_init(RBT_MemoryBus *bus, usize size, const u8 *rom) {
 	}
 	memcpy(bus->rom, rom, size);
 
-	return true;
+	return RBT_ERR_SUCCESS;
 }
 
-bool rbt_bus_init_from_file(RBT_MemoryBus *bus, const char *filename) {
+RBT_ErrorCode rbt_bus_init_from_file(RBT_MemoryBus *bus, const char *filename) {
 	assert(bus && bus->rom);
 	assert(filename);
 
 	FILE *file = fopen(filename, "rb");
 	if (!file) {
 		rbt_push_error(RBT_ERR_SYS_IO, "Failed to open ROM file at: %s", filename);
-		return false;
+		return RBT_ERR_SYS_IO;
 	}
-
-	u8 *rom = nullptr;
 
 	usize size = 0;
 	while (size < RBT_MMU_ROM_SIZE) {
@@ -147,87 +158,76 @@ bool rbt_bus_init_from_file(RBT_MemoryBus *bus, const char *filename) {
 			break;
 		}
 
-		u8 *tmpbuf = realloc(rom, size + bytes_read);
-		if (!tmpbuf) {
-			rbt_push_fatal(RBT_ERR_SYS_OUT_OF_MEMORY, "Failed to allocate ROM buffer");
-			fclose(file);
-			return false;
-		}
+		usize remaining = RBT_MMU_ROM_SIZE - size;
+		if (bytes_read > remaining)
+			bytes_read = remaining;
 
-		rom = tmpbuf;
-		memcpy(rom + size, buf, bytes_read); // Copy read bytes to new memory region
+		memcpy(bus->rom + size, buf, bytes_read);
 		size += bytes_read;
 	}
 
 	if (ferror(file)) {
 		rbt_push_fatal(RBT_ERR_SYS_IO, "Unable to read ROM file: %s", filename);
 		fclose(file);
-		return false;
+		return RBT_ERR_SYS_IO;
 	}
 
 	fclose(file);
-	bool success = rbt_bus_init(bus, size, rom);
-
-	free(rom);
-	return success;
+	return RBT_ERR_SUCCESS;
 }
 
-u64 rbt_bus_read_byte(RBT_MemoryBus *bus, u32 addr) {
+RBT_ErrorCode rbt_bus_read_byte(RBT_MemoryBus *bus, u32 addr, u8 *out) {
 	assert(bus);
-	bus->error_code = RBT_ERR_SUCCESS;
+	assert(out);
 
 	addr &= 0xffffff;
 
 	// RAM region
 	if (bus->ram && bus->ram_size && addr < RBT_MMU_RAM_SIZE) {
-		return bus->ram[addr % bus->ram_size];
+		*out = bus->ram[addr % bus->ram_size];
+		return RBT_ERR_SUCCESS;
 	}
 
 	// ROM region
 	if (bus->rom && _is_address_in_range(addr, RBT_MMU_ROM_ADDR, RBT_MMU_ROM_SIZE)) {
 		u32 offset = addr - RBT_MMU_ROM_ADDR;
-		return bus->rom[offset];
+		*out = bus->rom[offset];
+		return RBT_ERR_SUCCESS;
 	}
 
 	u32 offset;
 	RBT_MMIODevice *mmio = _get_mmio_handler(bus, addr, &offset);
 	if (!mmio || !mmio->read_byte) {
 		rbt_push_error(RBT_ERR_MEM_UNMAPPED, "Memory isn't mapped at: 0x%06x", addr);
-		bus->error_code = RBT_ERR_MEM_UNMAPPED;
-		bus->last_error_addr = addr;
-		return UINT64_MAX;
+		return RBT_ERR_MEM_UNMAPPED;
 	}
 
-	u8 byte;
-	if (mmio->read_byte(mmio->device, offset, &byte)) {
-		return byte;
+	if (mmio->read_byte(mmio->device, offset, out)) {
+		return RBT_ERR_SUCCESS;
 	}
 
 	rbt_push_error(RBT_ERR_MEM_BUS_ERROR, "Bus fault at: 0x%06x", addr);
-	bus->error_code = RBT_ERR_MEM_BUS_ERROR;
-	bus->last_error_addr = addr;
-	return UINT64_MAX;
+	return RBT_ERR_MEM_BUS_ERROR;
 }
 
-u64 rbt_bus_read_word(RBT_MemoryBus *bus, u32 addr) {
+RBT_ErrorCode rbt_bus_read_word(RBT_MemoryBus *bus, u32 addr, u16 *out) {
 	assert(bus);
-	bus->error_code = RBT_ERR_SUCCESS;
+	assert(out);
 
 	addr &= 0xffffff;
 
-	// The M68000/MC68008/MC68010 do not support unaligned access
+	// The M68000/MC68008/MC68010 does not support unaligned access
 	if (addr & 1) {
 		rbt_push_error(RBT_ERR_MEM_UNALIGNED, "Unaligned memory access at: 0x%06x", addr);
-		bus->error_code = RBT_ERR_MEM_UNALIGNED;
-		bus->last_error_addr = addr;
-		return UINT64_MAX;
+		return RBT_ERR_MEM_UNALIGNED;
 	}
 
 	// RAM region (Wrap around on unused ram slots)
 	if (bus->ram && bus->ram_size && addr < RBT_MMU_RAM_SIZE) {
 		u32 offset = addr % bus->ram_size;
 		u32 next = (offset + 1) % bus->ram_size;
-		return (bus->ram[offset] << 8) | bus->ram[next];
+		*out = (bus->ram[offset] << 8) | bus->ram[next];
+		return RBT_ERR_SUCCESS;
 	}
 
 	// ROM region
@@ -238,98 +238,92 @@ u64 rbt_bus_read_word(RBT_MemoryBus *bus, u32 addr) {
 			word |= bus->rom[offset + 1];
 		}
 
-		return word;
+		*out = word;
+		return RBT_ERR_SUCCESS;
 	}
 
 	u32 offset;
 	RBT_MMIODevice *mmio = _get_mmio_handler(bus, addr, &offset);
 	if (!mmio || !mmio->read_word) {
 		rbt_push_error(RBT_ERR_MEM_UNMAPPED, "Memory isn't mapped at: 0x%06x", addr);
-		bus->error_code = RBT_ERR_MEM_UNMAPPED;
-		bus->last_error_addr = addr;
-		return UINT64_MAX;
+		return RBT_ERR_MEM_UNMAPPED;
 	}
 
-	u16 word;
-	if (mmio->read_word(mmio->device, offset, &word)) {
-		return word;
+	if (mmio->read_word(mmio->device, offset, out)) {
+		return RBT_ERR_SUCCESS;
 	}
 
 	rbt_push_error(RBT_ERR_MEM_BUS_ERROR, "Bus fault at: 0x%06x", addr);
-	bus->error_code = RBT_ERR_MEM_BUS_ERROR;
-	bus->last_error_addr = addr;
-	return UINT64_MAX;
+	return RBT_ERR_MEM_BUS_ERROR;
 }
 
-u64 rbt_bus_read_long(RBT_MemoryBus *bus, u32 addr) {
+RBT_ErrorCode rbt_bus_read_long(RBT_MemoryBus *bus, u32 addr, u32 *out) {
 	assert(bus);
+	assert(out);
 
 	addr &= 0xffffff;
 
 	// The M68000/MC68008/MC68010 do not support unaligned access
 	if (addr & 1) {
 		rbt_push_error(RBT_ERR_MEM_UNALIGNED, "Unaligned memory access at: 0x%06x", addr);
-		bus->error_code = RBT_ERR_MEM_UNALIGNED;
-		bus->last_error_addr = addr;
-		return UINT64_MAX;
+		return RBT_ERR_MEM_UNALIGNED;
 	}
 
-	u16 high_word = rbt_bus_read_word(bus, addr);
-	if (bus->error_code)
-		return UINT64_MAX;
-	u16 low_word = rbt_bus_read_word(bus, addr + 2);
-	if (bus->error_code)
-		return UINT64_MAX;
+	u16 high_word;
+	u16 low_word;
 
-	return ((u32)high_word << 16) | low_word;
+	RBT_ErrorCode err = rbt_bus_read_word(bus, addr, &high_word);
+	if (err)
+		return err;
+	err = rbt_bus_read_word(bus, addr + 2, &low_word);
+	if (err)
+		return err;
+
+	*out = ((u32)high_word << 16) | low_word;
+	return RBT_ERR_SUCCESS;
 }
 
-void rbt_bus_write_byte(RBT_MemoryBus *bus, u32 addr, u8 byte) {
+RBT_ErrorCode rbt_bus_write_byte(RBT_MemoryBus *bus, u32 addr, u8 byte) {
 	assert(bus);
-	bus->error_code = RBT_ERR_SUCCESS;
 
 	addr &= 0xffffff;
 
 	// RAM region (Wrap around at unused ram slots)
 	if (bus->ram && addr < RBT_MMU_RAM_SIZE) {
 		bus->ram[addr % bus->ram_size] = byte;
-		return;
+		return RBT_ERR_SUCCESS;
 	}
 
 	// ROM region
 	if (_is_address_in_range(addr, RBT_MMU_ROM_ADDR, RBT_MMU_ROM_SIZE)) {
 		rbt_push_warn("Attempted write to ROM at: 0x%06x", addr);
-		return;
+		return RBT_ERR_MEM_READONLY;
 	}
 
 	u32 offset;
 	RBT_MMIODevice *mmio = _get_mmio_handler(bus, addr, &offset);
 	if (!mmio || !mmio->write_byte) {
 		rbt_push_error(RBT_ERR_MEM_UNMAPPED, "Memory isn't mapped at: 0x%06x", addr);
-		bus->error_code = RBT_ERR_MEM_UNMAPPED;
-		bus->last_error_addr = addr;
-		return;
+		return RBT_ERR_MEM_UNMAPPED;
 	}
 
 	if (!mmio->write_byte(mmio->device, offset, byte)) {
 		rbt_push_error(RBT_ERR_MEM_BUS_ERROR, "Bus fault at: 0x%06x", addr);
-		bus->error_code = RBT_ERR_MEM_BUS_ERROR;
-		bus->last_error_addr = addr;
+		return RBT_ERR_MEM_BUS_ERROR;
 	}
+
+	return RBT_ERR_SUCCESS;
 }
 
-void rbt_bus_write_word(RBT_MemoryBus *bus, u32 addr, u16 word) {
+RBT_ErrorCode rbt_bus_write_word(RBT_MemoryBus *bus, u32 addr, u16 word) {
 	assert(bus);
-	bus->error_code = RBT_ERR_SUCCESS;
 
 	addr &= 0xffffff;
 
 	// The M68000/MC68008/MC68010 doesn't support unaligned access
 	if (addr & 1) {
 		rbt_push_error(RBT_ERR_MEM_UNALIGNED, "Unaligned memory access at: 0x%06x", addr);
-		bus->error_code = RBT_ERR_MEM_UNALIGNED;
-		bus->last_error_addr = addr;
-		return;
+		return RBT_ERR_MEM_UNALIGNED;
 	}
 
 	// RAM region (Wrap around on unused ram slots)
@@ -338,32 +332,31 @@ void rbt_bus_write_word(RBT_MemoryBus *bus, u32 addr, u16 word) {
 		u32 next = (offset + 1) % bus->ram_size;
 		bus->ram[offset] = (word >> 8) & 0xff;
 		bus->ram[next] = word & 0xff;
-		return;
+		return RBT_ERR_SUCCESS;
 	}
 
 	// ROM region
 	if (_is_address_in_range(addr, RBT_MMU_ROM_ADDR, RBT_MMU_ROM_SIZE)) {
 		rbt_push_warn("Attempted write to ROM at: 0x%06x", addr);
-		return;
+		return RBT_ERR_MEM_READONLY;
 	}
 
 	u32 offset;
 	RBT_MMIODevice *mmio = _get_mmio_handler(bus, addr, &offset);
 	if (!mmio || !mmio->write_word) {
 		rbt_push_error(RBT_ERR_MEM_UNMAPPED, "Memory isn't mapped at: 0x%06x", addr);
-		bus->error_code = RBT_ERR_MEM_UNMAPPED;
-		bus->last_error_addr = addr;
-		return;
+		return RBT_ERR_MEM_UNMAPPED;
 	}
 
 	if (!mmio->write_word(mmio->device, offset, word)) {
 		rbt_push_error(RBT_ERR_MEM_BUS_ERROR, "Bus fault at: 0x%06x", addr);
-		bus->error_code = RBT_ERR_MEM_BUS_ERROR;
-		bus->last_error_addr = addr;
+		return RBT_ERR_MEM_BUS_ERROR;
 	}
+
+	return RBT_ERR_SUCCESS;
 }
 
-void rbt_bus_write_long(RBT_MemoryBus *bus, u32 addr, u32 long_) {
+RBT_ErrorCode rbt_bus_write_long(RBT_MemoryBus *bus, u32 addr, u32 long_) {
 	assert(bus);
 
 	addr &= 0xffffff;
@@ -371,46 +364,69 @@ void rbt_bus_write_long(RBT_MemoryBus *bus, u32 addr, u32 long_) {
 	// The M68000/MC68008/MC68010 do not support unaligned access
 	if (addr & 1) {
 		rbt_push_error(RBT_ERR_MEM_UNALIGNED, "Unaligned memory access at: 0x%06x", addr);
-		bus->error_code = RBT_ERR_MEM_UNALIGNED;
-		bus->last_error_addr = addr;
-		return;
+		return RBT_ERR_MEM_UNALIGNED;
 	}
 
-	rbt_bus_write_word(bus, addr, (long_ >> 16) & 0xffff);
-	if (bus->error_code)
-		return;
-	rbt_bus_write_word(bus, addr + 2, long_ & 0xffff);
+	RBT_ErrorCode err = rbt_bus_write_word(bus, addr, (long_ >> 16) & 0xffff);
+	if (err)
+		return err;
+	err = rbt_bus_write_word(bus, addr + 2, long_ & 0xffff);
+
+	return err;
 }
 
-u64 rbt_bus_load(RBT_MemoryBus *bus, RBT_OperandSize size, u32 addr) {
+RBT_ErrorCode rbt_bus_load(RBT_MemoryBus *bus, RBT_OperandSize size, u32 addr, u32 *out) {
+	RBT_ErrorCode err;
+
 	switch (size) {
-	case RBT_SIZE_BYTE: return rbt_bus_read_byte(bus, addr);
-	case RBT_SIZE_WORD: return rbt_bus_read_word(bus, addr);
-	case RBT_SIZE_LONG: return rbt_bus_read_long(bus, addr);
-	default:			return 0;
+	case RBT_SIZE_BYTE: {
+		u8 byte;
+		err = rbt_bus_read_byte(bus, addr, &byte);
+		if (!err)
+			*out = byte;
+		return err;
+	};
+	case RBT_SIZE_WORD: {
+		u16 word;
+		err = rbt_bus_read_word(bus, addr, &word);
+		if (!err)
+			*out = word;
+		return err;
+	};
+	case RBT_SIZE_LONG: return rbt_bus_read_long(bus, addr, out);
+	default:			return RBT_ERR_INVALID_ARGS;
 	}
+
+	unreachable();
 }
 
-void rbt_bus_store(RBT_MemoryBus *bus, RBT_OperandSize size, u32 addr, u32 data) {
+RBT_ErrorCode rbt_bus_store(
+	RBT_MemoryBus *bus, RBT_OperandSize size, u32 addr, u32 data
+) {
 	switch (size) {
-	case RBT_SIZE_BYTE: rbt_bus_write_byte(bus, addr, data & 0x00ff); break;
-	case RBT_SIZE_WORD: rbt_bus_write_word(bus, addr, data & 0xffff); break;
-	case RBT_SIZE_LONG: rbt_bus_write_long(bus, addr, data); break;
-	default: //
-		break;
+	case RBT_SIZE_BYTE: return rbt_bus_write_byte(bus, addr, data & 0x00ff);
+	case RBT_SIZE_WORD: return rbt_bus_write_word(bus, addr, data & 0xffff);
+	case RBT_SIZE_LONG: return rbt_bus_write_long(bus, addr, data);
+	default:			return RBT_ERR_INVALID_ARGS;
 	}
+
+	unreachable();
 }
 
-u64 rbt_bus_fetch_imm(RBT_MemoryBus *bus, RBT_OperandSize size, u32 addr) {
+RBT_ErrorCode _bus_fetch_imm(
+	RBT_MemoryBus *bus, RBT_OperandSize size, u32 addr, u32 *out
+) {
 	switch (size) {
 	case RBT_SIZE_BYTE:
 	case RBT_SIZE_WORD: {
-		u16 word = rbt_bus_read_word(bus, addr);
-		return size == RBT_SIZE_BYTE ? (word & 0xff) : word;
+		u16 word;
+		RBT_ErrorCode err = rbt_bus_read_word(bus, addr, &word);
+		*out = size == RBT_SIZE_BYTE ? (word & 0xff) : word;
+		return err;
 	}
-	case RBT_SIZE_LONG: //
-		return rbt_bus_read_long(bus, addr);
-	default: //
-		return 0;
+	case RBT_SIZE_LONG: return rbt_bus_read_long(bus, addr, out);
+	default:			return RBT_ERR_INVALID_ARGS;
 	}
+
+	unreachable();
 }
