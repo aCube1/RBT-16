@@ -1,4 +1,7 @@
 ---
+CompileFlags:
+    Add: [-xc]
+    Compiler: clang
 Diagnostics:
     UnusedIncludes: Strict
     ClangTidy:

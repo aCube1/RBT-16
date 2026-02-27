@@ -34,6 +34,7 @@ typedef enum RBT_ErrorCode : u8 {
 	// Generic errors (0x00-0x0f)
 	RBT_ERR_SUCCESS = 0,
 	RBT_ERR_INVALID_ARGS = 0x01,
+	RBT_ERR_INIT_FAILED = 0x02,
 
 	// Decoding errors (0x10-0x1f)
 	RBT_ERR_DECODE_ILLEGAL = 0x10,

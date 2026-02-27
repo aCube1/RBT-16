@@ -1,6 +1,6 @@
 #pragma once
 
-#include "rbt/basic_types.h"
+#include "rbt/cpu/mmu.h"
 
 // F  E  D C B A  9  8  7 6 5 4 3 2 1 0
 // T0 T1 S M 0 I2 I1 I0 0 0 0 X N Z V C
@@ -44,5 +44,13 @@ typedef struct RBT_Registers {
 	u8 sfc;	 // Source Function Code
 } RBT_Registers;
 
-[[nodiscard]] inline u16 rbt_pack_sr(const RBT_StatusRegister *sr);
-inline void rbt_unpack_sr(RBT_StatusRegister *sr, u16 word);
+typedef struct RBT_Cpu {
+	RBT_GeneralRegisters regs;
+	RBT_MemoryBus *bus;
+} RBT_Cpu;
+
+RBT_ErrorCode rbt_init_cpu(RBT_Cpu *cpu);
+void rbt_deinit_cpu(RBT_Cpu *cpu);
+
+[[nodiscard]] u16 rbt_pack_sr(const RBT_StatusRegister *sr);
+void rbt_unpack_sr(RBT_StatusRegister *sr, u16 word);

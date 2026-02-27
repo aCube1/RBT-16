@@ -33,10 +33,10 @@ target_compile_features(
 target_sources(
 	${RBT_LIBCORE}
 	PRIVATE
+		"src/cpu/cpu.c"
 		"src/cpu/decode.c"
 		"src/cpu/effective_address.c"
 		"src/cpu/mmu.c"
-		"src/cpu/register_types.c"
 		"src/cpu/timing.c"
 		"src/error.c"
 )

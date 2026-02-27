@@ -199,7 +199,7 @@ u64 rbt_bus_read_byte(RBT_MemoryBus *bus, u32 addr) {
 	}
 
 	u8 byte;
-	if (mmio->read_byte(mmio, offset, &byte)) {
+	if (mmio->read_byte(mmio->device, offset, &byte)) {
 		return byte;
 	}
 
@@ -251,7 +251,7 @@ u64 rbt_bus_read_word(RBT_MemoryBus *bus, u32 addr) {
 	}
 
 	u16 word;
-	if (mmio->read_word(mmio, offset, &word)) {
+	if (mmio->read_word(mmio->device, offset, &word)) {
 		return word;
 	}
 
@@ -311,7 +311,7 @@ void rbt_bus_write_byte(RBT_MemoryBus *bus, u32 addr, u8 byte) {
 		return;
 	}
 
-	if (!mmio->write_byte(mmio, offset, byte)) {
+	if (!mmio->write_byte(mmio->device, offset, byte)) {
 		rbt_push_error(RBT_ERR_MEM_BUS_ERROR, "Bus fault at: 0x%06x", addr);
 		bus->error_code = RBT_ERR_MEM_BUS_ERROR;
 		bus->last_error_addr = addr;
@@ -356,7 +356,7 @@ void rbt_bus_write_word(RBT_MemoryBus *bus, u32 addr, u16 word) {
 		return;
 	}
 
-	if (!mmio->write_word(mmio, offset, word)) {
+	if (!mmio->write_word(mmio->device, offset, word)) {
 		rbt_push_error(RBT_ERR_MEM_BUS_ERROR, "Bus fault at: 0x%06x", addr);
 		bus->error_code = RBT_ERR_MEM_BUS_ERROR;
 		bus->last_error_addr = addr;
@@ -392,15 +392,13 @@ u64 rbt_bus_load(RBT_MemoryBus *bus, RBT_OperandSize size, u32 addr) {
 }
 
 void rbt_bus_store(RBT_MemoryBus *bus, RBT_OperandSize size, u32 addr, u32 data) {
-	// clang-format off
 	switch (size) {
 	case RBT_SIZE_BYTE: rbt_bus_write_byte(bus, addr, data & 0x00ff); break;
 	case RBT_SIZE_WORD: rbt_bus_write_word(bus, addr, data & 0xffff); break;
 	case RBT_SIZE_LONG: rbt_bus_write_long(bus, addr, data); break;
-	default:
+	default: //
 		break;
 	}
-	// clang-format on
 }
 
 u64 rbt_bus_fetch_imm(RBT_MemoryBus *bus, RBT_OperandSize size, u32 addr) {
