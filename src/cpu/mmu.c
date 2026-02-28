@@ -1,4 +1,4 @@
-#include "rbt/mmu.h"
+#include "rbt/cpu/mmu.h"
 
 #include "error.h"
 #include "mmu_internal.h"
@@ -50,7 +50,7 @@ static RBT_MMIODevice *_get_mmio_handler(RBT_MemoryBus *bus, u32 addr, u32 *offs
 	return nullptr;
 }
 
-RBT_MemoryBus *rbt_create_bus(u8 ram_slots) {
+[[nodiscard]] RBT_MemoryBus *rbt_create_bus(u8 ram_slots) {
 	if (ram_slots == 0 || ram_slots > RBT_MMU_SLOTS_COUNT) {
 		rbt_push_error(
 			RBT_ERR_INVALID_ARGS, "Invalid ram slots count. Expected: >0 and <=8, got %u",
@@ -202,12 +202,7 @@ RBT_ErrorCode rbt_bus_read_byte(RBT_MemoryBus *bus, u32 addr, u8 *out) {
 		return RBT_ERR_MEM_UNMAPPED;
 	}
 
-	if (mmio->read_byte(mmio->device, offset, out)) {
-		return RBT_ERR_SUCCESS;
-	}
-
-	rbt_push_error(RBT_ERR_MEM_BUS_ERROR, "Bus fault at: 0x%06x", addr);
-	return RBT_ERR_MEM_BUS_ERROR;
+	return mmio->read_byte(mmio->device, offset, out);
 }
 
 RBT_ErrorCode rbt_bus_read_word(RBT_MemoryBus *bus, u32 addr, u16 *out) {
@@ -249,12 +244,7 @@ RBT_ErrorCode rbt_bus_read_word(RBT_MemoryBus *bus, u32 addr, u16 *out) {
 		return RBT_ERR_MEM_UNMAPPED;
 	}
 
-	if (mmio->read_word(mmio->device, offset, out)) {
-		return RBT_ERR_SUCCESS;
-	}
-
-	rbt_push_error(RBT_ERR_MEM_BUS_ERROR, "Bus fault at: 0x%06x", addr);
-	return RBT_ERR_MEM_BUS_ERROR;
+	return mmio->read_word(mmio->device, offset, out);
 }
 
 RBT_ErrorCode rbt_bus_read_long(RBT_MemoryBus *bus, u32 addr, u32 *out) {
@@ -275,6 +265,7 @@ RBT_ErrorCode rbt_bus_read_long(RBT_MemoryBus *bus, u32 addr, u32 *out) {
 	RBT_ErrorCode err = rbt_bus_read_word(bus, addr, &high_word);
 	if (err)
 		return err;
+
 	err = rbt_bus_read_word(bus, addr + 2, &low_word);
 	if (err)
 		return err;
@@ -307,12 +298,7 @@ RBT_ErrorCode rbt_bus_write_byte(RBT_MemoryBus *bus, u32 addr, u8 byte) {
 		return RBT_ERR_MEM_UNMAPPED;
 	}
 
-	if (!mmio->write_byte(mmio->device, offset, byte)) {
-		rbt_push_error(RBT_ERR_MEM_BUS_ERROR, "Bus fault at: 0x%06x", addr);
-		return RBT_ERR_MEM_BUS_ERROR;
-	}
-
-	return RBT_ERR_SUCCESS;
+	return mmio->write_byte(mmio->device, offset, byte);
 }
 
 RBT_ErrorCode rbt_bus_write_word(RBT_MemoryBus *bus, u32 addr, u16 word) {
@@ -348,12 +334,7 @@ RBT_ErrorCode rbt_bus_write_word(RBT_MemoryBus *bus, u32 addr, u16 word) {
 		return RBT_ERR_MEM_UNMAPPED;
 	}
 
-	if (!mmio->write_word(mmio->device, offset, word)) {
-		rbt_push_error(RBT_ERR_MEM_BUS_ERROR, "Bus fault at: 0x%06x", addr);
-		return RBT_ERR_MEM_BUS_ERROR;
-	}
-
-	return RBT_ERR_SUCCESS;
+	return mmio->write_word(mmio->device, offset, word);
 }
 
 RBT_ErrorCode rbt_bus_write_long(RBT_MemoryBus *bus, u32 addr, u32 long_) {
@@ -370,9 +351,8 @@ RBT_ErrorCode rbt_bus_write_long(RBT_MemoryBus *bus, u32 addr, u32 long_) {
 	RBT_ErrorCode err = rbt_bus_write_word(bus, addr, (long_ >> 16) & 0xffff);
 	if (err)
 		return err;
-	err = rbt_bus_write_word(bus, addr + 2, long_ & 0xffff);
 
-	return err;
+	return rbt_bus_write_word(bus, addr + 2, long_ & 0xffff);
 }
 
 RBT_ErrorCode rbt_bus_load(RBT_MemoryBus *bus, RBT_OperandSize size, u32 addr, u32 *out) {

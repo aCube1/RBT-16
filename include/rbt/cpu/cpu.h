@@ -1,6 +1,10 @@
 #pragma once
 
-#include "rbt/mmu.h"
+#include "rbt/basic_types.h"
+#include "rbt/cpu/mmu.h"
+#include "rbt/error_codes.h"
+
+typedef RBT_ErrorCode (*RBT_CpuTraceHook)(void *userdata, u32 pc, u16 opcode);
 
 // F  E  D C B A  9  8  7 6 5 4 3 2 1 0
 // T0 T1 S M 0 I2 I1 I0 0 0 0 X N Z V C
@@ -30,7 +34,7 @@ typedef union RBT_GeneralRegisters {
 	};
 } RBT_GeneralRegisters;
 
-typedef struct RBT_Registers {
+typedef struct RBT_CpuState {
 	u32 pc;	 // Current Program Counter
 	u32 usp; // User Stack Pointer
 	u32 ssp; // System Stack Pointer
@@ -42,15 +46,19 @@ typedef struct RBT_Registers {
 	u32 vbr; // Vector Base Register
 	u8 dfc;	 // Destination Function Code
 	u8 sfc;	 // Source Function Code
-} RBT_Registers;
+} RBT_CpuState;
 
-typedef struct RBT_Cpu {
-	RBT_GeneralRegisters regs;
-	RBT_MemoryBus *bus;
-} RBT_Cpu;
+typedef struct RBT_CpuConfig {
+	void *userdata;
+	RBT_CpuTraceHook hook;
+} RBT_CpuConfig;
 
-RBT_ErrorCode rbt_init_cpu(RBT_Cpu *cpu);
-void rbt_deinit_cpu(RBT_Cpu *cpu);
+typedef struct RBT_Cpu RBT_Cpu;
 
-[[nodiscard]] u16 rbt_pack_sr(const RBT_StatusRegister *sr);
-void rbt_unpack_sr(RBT_StatusRegister *sr, u16 word);
+[[nodiscard]] RBT_Cpu *rbt_create_cpu(const RBT_CpuConfig *config);
+void rbt_destroy_cpu(RBT_Cpu *cpu);
+
+void rbt_cpu_attach_bus(RBT_Cpu *cpu, RBT_MemoryBus *bus);
+
+RBT_ErrorCode rbt_cpu_reset(RBT_Cpu *cpu);
+RBT_ErrorCode rbt_cpu_step(RBT_Cpu *cpu, u16 *out_cycles);

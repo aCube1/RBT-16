@@ -1,4 +1,4 @@
-#include "rbt/cpu/effective_address.h"
+#include "cpu/effective_address.h"
 #include "rbt/cpu/mmu.h"
 
 #include <unity.h>

@@ -1,9 +1,9 @@
 #pragma once
 
 #include "rbt/basic_types.h"
+#include "rbt/cpu/mmu.h"
 #include "rbt/error_codes.h"
 #include "rbt/helpers.h"
-#include "rbt/mmu.h"
 
 enum {
 	RBT_MMU_SLOT_SIZE = 512 * 1024, // 512KB per RAM chip

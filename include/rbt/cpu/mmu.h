@@ -15,10 +15,10 @@ typedef enum RBT_BusDevice {
 	RBT_BUSDEV_EXT3,
 } RBT_BusDevice;
 
-typedef bool (*RBT_MMIOReadByteCallback)(void *device, u32 addr, u8 *byte);
-typedef bool (*RBT_MMIOReadWordCallback)(void *device, u32 addr, u16 *word);
-typedef bool (*RBT_MMIOWriteByteCallback)(void *device, u32 addr, u8 byte);
-typedef bool (*RBT_MMIOWriteWordCallback)(void *device, u32 addr, u16 word);
+typedef RBT_ErrorCode (*RBT_MMIOReadByteCallback)(void *device, u32 addr, u8 *byte);
+typedef RBT_ErrorCode (*RBT_MMIOReadWordCallback)(void *device, u32 addr, u16 *word);
+typedef RBT_ErrorCode (*RBT_MMIOWriteByteCallback)(void *device, u32 addr, u8 byte);
+typedef RBT_ErrorCode (*RBT_MMIOWriteWordCallback)(void *device, u32 addr, u16 word);
 
 typedef struct RBT_MMIODevice {
 	void *device;
@@ -30,7 +30,7 @@ typedef struct RBT_MMIODevice {
 
 typedef struct RBT_MemoryBus RBT_MemoryBus;
 
-RBT_MemoryBus *rbt_create_bus(u8 ram_slots);
+[[nodiscard]] RBT_MemoryBus *rbt_create_bus(u8 ram_slots);
 void rbt_destroy_bus(RBT_MemoryBus *bus);
 void rbt_bus_reset(RBT_MemoryBus *bus);
 
