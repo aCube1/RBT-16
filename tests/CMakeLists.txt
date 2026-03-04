@@ -32,6 +32,8 @@ function(add_test_executable test)
 	if(TEST_INCLUDE_DIRS)
 		target_include_directories(${test} PRIVATE ${TEST_INCLUDE_DIRS})
 	endif()
+	target_include_directories(${test} PRIVATE "../src")
+
 	target_sources(${test} PRIVATE ${TEST_SOURCES})
 
 	# Enable code sanitizers
