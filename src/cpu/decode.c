@@ -901,8 +901,8 @@ static u8 _decode_misc(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	// MOVEC: 0100 1110 0111 101d [..L] (M68010+)
 	//        ARRR CTRL_REGISTER
 	if (rbt_bits(opcode, 3, 1) == 0b101) {
-		u16 data;
-		if (rbt_bus_read_word(bus, curr_pc, &data)) {
+		u16 aux;
+		if (rbt_bus_read_word(bus, curr_pc, &aux)) {
 			return rbt_query_last_error()->code;
 		}
 
@@ -913,15 +913,16 @@ static u8 _decode_misc(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		instr->aux.type = RBT_OPERAND_EA;
 		instr->aux.size = RBT_SIZE_WORD;
 		instr->aux.ea.mode = RBT_EA_IMMEDIATE;
-		instr->aux.ea.imm = data;
+		instr->aux.ea.imm = aux;
 
-		bool to_ctrl = RBT_BIT(opcode, 0); // 0: Rc->Rn; 1: Rn->Rc
-		u8 reg = rbt_bits(opcode, 14, 12);
-		u8 ctrl = rbt_bits(opcode, 12, 0);
+		u8 ctrl = rbt_bits(aux, 12, 0);
+		u8 reg = rbt_bits(aux, 14, 12);
+		bool is_addr = RBT_BIT(aux, 15);
+
+		bool to_ctrl = RBT_BIT(opcode, 0); // 1: Rn->Rc; 0: Rc->Rn
 		if (to_ctrl) {
 			instr->src.type = RBT_OPERAND_EA;
-			instr->src.ea.mode = RBT_BIT(opcode, 15) ? RBT_EA_DIRECT_ADDR
-													 : RBT_EA_DIRECT_DATA;
+			instr->src.ea.mode = is_addr ? RBT_EA_DIRECT_ADDR : RBT_EA_DIRECT_DATA;
 			instr->src.ea.reg = reg;
 
 			instr->dst.type = RBT_OPERAND_EA;
@@ -935,8 +936,7 @@ static u8 _decode_misc(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 			instr->src.ea.imm = ctrl;
 
 			instr->dst.type = RBT_OPERAND_EA;
-			instr->dst.ea.mode = RBT_BIT(opcode, 15) ? RBT_EA_DIRECT_ADDR
-													 : RBT_EA_DIRECT_DATA;
+			instr->dst.ea.mode = is_addr ? RBT_EA_DIRECT_ADDR : RBT_EA_DIRECT_DATA;
 			instr->dst.ea.reg = reg;
 		}
 

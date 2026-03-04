@@ -11,12 +11,17 @@
 #include <stdio.h>
 #include <unity.h>
 
-#define _PRINT_PC (1)
+#define _PRINT_PC (0)
 
 enum {
+#if (_PRINT_PC)
 	_ALIGN_PC = 0,
+#else
+	_ALIGN_PC = -36,
+#endif
+
 	_ALIGN_MNEMONIC = _ALIGN_PC + 40,
-	_ALIGN_OPERATORS = _ALIGN_PC + 48,
+	_ALIGN_OPERATORS = _ALIGN_MNEMONIC + 8,
 };
 
 static RBT_MemoryBus *_bus;
@@ -72,12 +77,11 @@ static const char *_mnemonics[] = {
 };
 
 static const char *_conditions[] = {
-	"f", "t", "hi", "ls",
+	"t", "f", "hi", "ls",
 	"cc", "cs", "ne", "eq",
 	"vc", "vs", "pl", "mi",
 	"ge", "lt", "gt", "le",
 };
-
 // clang-format on
 
 static i32 _stringfy_effective_address(const RBT_EffectiveAddress *ea, char *out) {
@@ -193,10 +197,33 @@ static void test_opcodes(void) {
 		}
 
 		len = _align_text(len, _ALIGN_OPERATORS, out);
-		len += _stringfy_operand(&instr.src, &out[len]);
-		if (instr.src.type != RBT_OPERAND_NONE && instr.dst.type != RBT_OPERAND_NONE)
-			len += sprintf(&out[len], ", ");
-		len += _stringfy_operand(&instr.dst, &out[len]);
+		if (instr.mnemonic == RBT_OP_MOVEC) {
+			char *reg;
+			u32 ctrl = rbt_bits(instr.aux.ea.imm, 12, 0);
+
+			switch (ctrl) {
+			case 0x000: reg = "%sfc"; break;
+			case 0x001: reg = "%dfc"; break;
+			case 0x800: reg = "%usp"; break;
+			case 0x801: reg = "%vbr"; break;
+			default:	reg = ""; break;
+			}
+
+			if (instr.src.ea.mode == RBT_EA_IMMEDIATE) {
+				// movec Rc,Rn
+				len += sprintf(&out[len], "%s, ", reg);
+				len += _stringfy_operand(&instr.dst, &out[len]);
+			} else {
+				// movec Rn,Rc
+				len += _stringfy_operand(&instr.src, &out[len]);
+				len += sprintf(&out[len], ", %s", reg);
+			}
+		} else {
+			len += _stringfy_operand(&instr.src, &out[len]);
+			if (instr.src.type != RBT_OPERAND_NONE && instr.dst.type != RBT_OPERAND_NONE)
+				len += sprintf(&out[len], ", ");
+			len += _stringfy_operand(&instr.dst, &out[len]);
+		}
 
 		fprintf(stdout, "%s\n", out);
 
@@ -208,7 +235,9 @@ void setUp(void) {
 	_bus = rbt_create_bus(1);
 	TEST_ASSERT_NOT_NULL(_bus);
 
-	TEST_ASSERT_TRUE(rbt_bus_init(_bus, opcodes_data_size, opcodes_data));
+	TEST_ASSERT_EQUAL(
+		RBT_ERR_SUCCESS, rbt_bus_init(_bus, opcodes_data_size, opcodes_data)
+	);
 }
 
 void tearDown(void) {
