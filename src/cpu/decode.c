@@ -65,7 +65,7 @@
 	if (invalid_modes & RBT_EA_INDIRECT_PREDEC)
 		pos += snprintf(buf + pos, sizeof(buf) - pos, "%s-(An)", pos > 0 ? "|" : "");
 
-	rbt_push_warn(
+	_push_warn(
 		"%s: %s EA(%s) isn't allowed, at: 0x%06x", instr_name, operand_name, buf, pc
 	);
 	return false;
@@ -163,7 +163,7 @@ static u8 _decode_bit(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		instr->src.ea.mode = RBT_EA_DIRECT_DATA;
 		instr->src.ea.reg = dreg;
 	} else {
-		rbt_push_error(
+		_push_error(
 			RBT_ERR_DECODE_ILLEGAL, "BIT: Unknown enconding at 0x%06x", instr->start_pc
 		);
 		return RBT_ERR_DECODE_ILLEGAL;
@@ -206,7 +206,7 @@ static u8 _decode_imm(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 	instr->size = _decode_size(size);
 	if (instr->size == RBT_SIZE_NONE) {
-		rbt_push_warn("IMM: Invalid operand size at: 0x%06x", instr->start_pc);
+		_push_warn("IMM: Invalid operand size at: 0x%06x", instr->start_pc);
 		return RBT_ERR_DECODE_ILLEGAL;
 	}
 
@@ -218,7 +218,7 @@ static u8 _decode_imm(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	case 0b101: instr->mnemonic = RBT_OP_EORI; break;
 	case 0b110: instr->mnemonic = RBT_OP_CMPI; break;
 	default:
-		rbt_push_warn(
+		_push_warn(
 			"IMM: Unknown immediate type 0x%02x at: 0x%06x", type, instr->start_pc
 		);
 		return RBT_ERR_DECODE_ILLEGAL;
@@ -239,12 +239,12 @@ static u8 _decode_imm(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	if (ea_mode == 0b111 && ea_reg == 0b100) {
 		if (instr->mnemonic != RBT_OP_ORI && instr->mnemonic != RBT_OP_ANDI
 			&& instr->mnemonic != RBT_OP_EORI) {
-			rbt_push_warn("IMM: Illegal CCR/SR destination at: 0x%06x", instr->start_pc);
+			_push_warn("IMM: Illegal CCR/SR destination at: 0x%06x", instr->start_pc);
 			return RBT_ERR_DECODE_ILLEGAL;
 		}
 
 		if (instr->size == RBT_SIZE_LONG || instr->size == RBT_SIZE_NONE) {
-			rbt_push_warn("IMM: Illegal implied register at: 0x%06x", instr->start_pc);
+			_push_warn("IMM: Illegal implied register at: 0x%06x", instr->start_pc);
 			return RBT_ERR_DECODE_ILLEGAL;
 		}
 
@@ -290,7 +290,7 @@ static u8 _decode_moves_movep(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	// Is MOVEP?
 	if (RBT_BIT(opcode, 8)) {
 		if (ea_mode != 0b001) {
-			rbt_push_warn("MOVEP: Invalid encoding at: 0x%06x", instr->start_pc);
+			_push_warn("MOVEP: Invalid encoding at: 0x%06x", instr->start_pc);
 			return RBT_ERR_DECODE_ILLEGAL;
 		}
 		instr->mnemonic = RBT_OP_MOVEP;
@@ -331,13 +331,13 @@ static u8 _decode_moves_movep(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		}
 	} else {
 		if (rbt_bits(opcode, 11, 9) != 0b111) {
-			rbt_push_warn("MOVES: Invalid encoding at: 0x%06x", instr->start_pc);
+			_push_warn("MOVES: Invalid encoding at: 0x%06x", instr->start_pc);
 			return RBT_ERR_DECODE_ILLEGAL;
 		}
 		instr->mnemonic = RBT_OP_MOVES;
 		instr->size = _decode_size(_OP_SIZE(opcode));
 		if (instr->size == RBT_SIZE_NONE) {
-			rbt_push_warn("Invalid operand size at: 0x%06x", instr->start_pc);
+			_push_warn("Invalid operand size at: 0x%06x", instr->start_pc);
 			return RBT_ERR_DECODE_ILLEGAL;
 		}
 
@@ -418,12 +418,12 @@ static u8 _decode_move_movea(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	case 0b11: instr->size = RBT_SIZE_WORD; break;
 	case 0b10: instr->size = RBT_SIZE_LONG; break;
 	default:
-		rbt_push_warn("MOVE/MOVEA: Invalid operand size at: 0x%06x", instr->start_pc);
+		_push_warn("MOVE/MOVEA: Invalid operand size at: 0x%06x", instr->start_pc);
 		return RBT_ERR_DECODE_ILLEGAL;
 	}
 
 	if (instr->mnemonic == RBT_OP_MOVEA && instr->size == RBT_SIZE_BYTE) {
-		rbt_push_warn("MOVEA: Cannot be byte-sized, at: 0x%06x", instr->start_pc);
+		_push_warn("MOVEA: Cannot be byte-sized, at: 0x%06x", instr->start_pc);
 		return RBT_ERR_DECODE_ILLEGAL_EA;
 	}
 
@@ -453,7 +453,7 @@ static u8 _decode_move_movea(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 	// An is Word/Long only
 	if (instr->src.ea.mode == RBT_EA_DIRECT_ADDR && instr->size == RBT_SIZE_BYTE) {
-		rbt_push_warn(
+		_push_warn(
 			"MOVE/MOVEA: Source EA(An) cannot be byte-sized, at: 0x%06x", instr->start_pc
 		);
 		return RBT_ERR_DECODE_ILLEGAL_EA;
@@ -471,7 +471,7 @@ static u8 _decode_move_reg(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	u32 curr_pc = instr->start_pc + 2;
 
 	if (rbt_bits(opcode, 8, 6) != 0b011) {
-		rbt_push_warn(
+		_push_warn(
 			"MOVE <> SR/CCR: Invalid register encoding at: 0x%06x", instr->start_pc
 		);
 		return RBT_ERR_DECODE_ILLEGAL;
@@ -489,7 +489,7 @@ static u8 _decode_move_reg(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	case 0b010: instr->dst.type = RBT_OPERAND_CCR; break; // TO CCR
 	case 0b011: instr->dst.type = RBT_OPERAND_SR; break;  // TO SR
 	default:
-		rbt_push_warn("MOVE <> SR/CCR: Unknown register at: 0x%06x", instr->start_pc);
+		_push_warn("MOVE <> SR/CCR: Unknown register at: 0x%06x", instr->start_pc);
 		return RBT_ERR_DECODE_ILLEGAL;
 	}
 
@@ -550,13 +550,13 @@ static u8 _decode_negx_clr_not(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	case 0b0010: instr->mnemonic = RBT_OP_CLR; break;
 	case 0b0110: instr->mnemonic = RBT_OP_NOT; break;
 	default:
-		rbt_push_warn("MISC: Unknown opcode encoding at: 0x%06x", instr->start_pc);
+		_push_warn("MISC: Unknown opcode encoding at: 0x%06x", instr->start_pc);
 		return RBT_ERR_DECODE_ILLEGAL;
 	}
 
 	instr->size = _decode_size(size);
 	if (instr->size == RBT_SIZE_NONE) {
-		rbt_push_warn("MISC: Invalid operand size at: 0x%06x", instr->start_pc);
+		_push_warn("MISC: Invalid operand size at: 0x%06x", instr->start_pc);
 		return RBT_ERR_DECODE_ILLEGAL;
 	}
 
@@ -733,7 +733,7 @@ static u8 _decode_ext_nbcd_swap_bkpt_pea(RBT_Instruction *instr, RBT_MemoryBus *
 		return RBT_ERR_SUCCESS;
 	}
 
-	rbt_push_warn("MISC: Unknown opcode encoding at: 0x%06x", instr->start_pc);
+	_push_warn("MISC: Unknown opcode encoding at: 0x%06x", instr->start_pc);
 	return RBT_ERR_DECODE_ILLEGAL;
 }
 
@@ -760,7 +760,7 @@ static u8 _decode_illegal_tas_tst(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		instr->size = _decode_size(size);
 	}
 	if (instr->size == RBT_SIZE_NONE) {
-		rbt_push_warn("TAS/TST: Invalid operand size at: 0x%06x", instr->start_pc);
+		_push_warn("TAS/TST: Invalid operand size at: 0x%06x", instr->start_pc);
 		return RBT_ERR_DECODE_ILLEGAL;
 	}
 
@@ -1103,7 +1103,7 @@ static u8 _decode_addq_subq(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	instr->mnemonic = RBT_BIT(opcode, 8) ? RBT_OP_SUBQ : RBT_OP_ADDQ;
 	instr->size = _decode_size(size);
 	if (instr->size == RBT_SIZE_NONE) {
-		rbt_push_warn("ADDQ/SUBQ: Invalid operand size at: 0x%06x", instr->start_pc);
+		_push_warn("ADDQ/SUBQ: Invalid operand size at: 0x%06x", instr->start_pc);
 		return RBT_ERR_DECODE_ILLEGAL;
 	}
 
@@ -1123,7 +1123,7 @@ static u8 _decode_addq_subq(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 	// An is Word/Long only
 	if (instr->dst.ea.mode == RBT_EA_DIRECT_ADDR && instr->size == RBT_SIZE_BYTE) {
-		rbt_push_warn(
+		_push_warn(
 			"ADDQ/SUBQ: Source EA(An) cannot be byte-sized, at: 0x%06x", instr->start_pc
 		);
 		return RBT_ERR_DECODE_ILLEGAL;
@@ -1246,7 +1246,7 @@ static u8 _decode_ordiv(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	instr->mnemonic = RBT_OP_OR;
 	instr->size = _decode_size(size);
 	if (instr->size == RBT_SIZE_NONE) {
-		rbt_push_warn("OR: Invalid operand size at: 0x%06x", instr->start_pc);
+		_push_warn("OR: Invalid operand size at: 0x%06x", instr->start_pc);
 		return RBT_ERR_DECODE_ILLEGAL;
 	}
 
@@ -1329,7 +1329,7 @@ static u8 _decode_subsubx(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		instr->mnemonic = RBT_OP_SUBX;
 		instr->size = _decode_size(size);
 		if (instr->size == RBT_SIZE_NONE) {
-			rbt_push_warn("SUBX: Invalid operand size at: 0x%06x", instr->start_pc);
+			_push_warn("SUBX: Invalid operand size at: 0x%06x", instr->start_pc);
 			return RBT_ERR_DECODE_ILLEGAL;
 		}
 
@@ -1360,7 +1360,7 @@ static u8 _decode_subsubx(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	instr->mnemonic = RBT_OP_SUB;
 	instr->size = _decode_size(size);
 	if (instr->size == RBT_SIZE_NONE) {
-		rbt_push_warn("SUB: Invalid operand size at: 0x%06x", instr->start_pc);
+		_push_warn("SUB: Invalid operand size at: 0x%06x", instr->start_pc);
 		return RBT_ERR_DECODE_ILLEGAL;
 	}
 
@@ -1386,7 +1386,7 @@ static u8 _decode_subsubx(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		);
 
 		if (instr->dst.ea.mode == RBT_EA_DIRECT_ADDR && instr->size == RBT_SIZE_BYTE) {
-			rbt_push_warn(
+			_push_warn(
 				"SUB: Dest EA(An) cannot be byte-sized, at: 0x%06x", instr->start_pc
 			);
 			return RBT_ERR_DECODE_ILLEGAL_EA;
@@ -1481,7 +1481,7 @@ static u8 _decode_cmp_eor(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		instr->mnemonic = RBT_OP_CMP;
 		instr->size = _decode_size(size);
 		if (instr->size == RBT_SIZE_NONE) {
-			rbt_push_warn("CMP: Invalid operand size at: 0x%06x", instr->start_pc);
+			_push_warn("CMP: Invalid operand size at: 0x%06x", instr->start_pc);
 			return RBT_ERR_DECODE_ILLEGAL;
 		}
 	}
@@ -1506,7 +1506,7 @@ static u8 _decode_cmp_eor(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	}
 
 	if (instr->src.ea.mode == RBT_EA_DIRECT_ADDR && instr->size == RBT_SIZE_BYTE) {
-		rbt_push_warn(
+		_push_warn(
 			"CMP: Source EA(An) cannot be byte-sized, at: 0x%06x", instr->start_pc
 		);
 		return RBT_ERR_DECODE_ILLEGAL_EA;
@@ -1616,7 +1616,7 @@ static u8 _decode_and_mul(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	instr->mnemonic = RBT_OP_AND;
 	instr->size = _decode_size(size);
 	if (instr->size == RBT_SIZE_NONE) {
-		rbt_push_warn("AND: Invalid operand size at: 0x%06x", instr->start_pc);
+		_push_warn("AND: Invalid operand size at: 0x%06x", instr->start_pc);
 		return RBT_ERR_DECODE_ILLEGAL;
 	}
 
@@ -1699,7 +1699,7 @@ static u8 _decode_addaddx(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		instr->mnemonic = RBT_OP_ADDX;
 		instr->size = _decode_size(size);
 		if (instr->size == RBT_SIZE_NONE) {
-			rbt_push_warn("ADDX: Invalid operand size at: 0x%06x", instr->start_pc);
+			_push_warn("ADDX: Invalid operand size at: 0x%06x", instr->start_pc);
 			return RBT_ERR_DECODE_ILLEGAL;
 		}
 
@@ -1730,7 +1730,7 @@ static u8 _decode_addaddx(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	instr->mnemonic = RBT_OP_ADD;
 	instr->size = _decode_size(size);
 	if (instr->size == RBT_SIZE_NONE) {
-		rbt_push_warn("ADD: Invalid operand size at: 0x%06x", instr->start_pc);
+		_push_warn("ADD: Invalid operand size at: 0x%06x", instr->start_pc);
 		return RBT_ERR_DECODE_ILLEGAL;
 	}
 
@@ -1756,7 +1756,7 @@ static u8 _decode_addaddx(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		);
 
 		if (instr->dst.ea.mode == RBT_EA_DIRECT_ADDR && instr->size == RBT_SIZE_BYTE) {
-			rbt_push_warn(
+			_push_warn(
 				"ADD: Dest EA(An) cannot be byte-sized, at: 0x%06x", instr->start_pc
 			);
 			return RBT_ERR_DECODE_ILLEGAL_EA;
@@ -1815,7 +1815,7 @@ static u8 _decode_shift(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		case 0b0110: instr->mnemonic = RBT_OP_ROR; break;
 		case 0b0111: instr->mnemonic = RBT_OP_ROL; break;
 		default:
-			rbt_push_warn(
+			_push_warn(
 				"SHIFT: Illegal decoding for memory shift, at: 0x%06x", instr->start_pc
 			);
 			return RBT_ERR_DECODE_ILLEGAL;
@@ -1853,7 +1853,7 @@ static u8 _decode_shift(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 	instr->size = _decode_size(size);
 	if (instr->size == RBT_SIZE_NONE) {
-		rbt_push_warn("SHIFT: Invalid operand size at: 0x%06x", instr->start_pc);
+		_push_warn("SHIFT: Invalid operand size at: 0x%06x", instr->start_pc);
 		return RBT_ERR_DECODE_ILLEGAL;
 	}
 
@@ -1885,7 +1885,7 @@ RBT_ErrorCode rbt_decode_instruction(RBT_MemoryBus *bus, u32 pc, RBT_Instruction
 	instr->word_count = 1;
 
 	if (rbt_bus_read_word(bus, instr->start_pc, &instr->words[0])) {
-		rbt_push_error(RBT_ERR_MEM_BUS_ERROR, "Failed to fetch instruction word");
+		_push_error(RBT_ERR_MEM_BUS_ERROR, "Failed to fetch instruction word");
 		return RBT_ERR_MEM_BUS_ERROR;
 	}
 
@@ -2023,7 +2023,7 @@ RBT_ErrorCode rbt_decode_instruction(RBT_MemoryBus *bus, u32 pc, RBT_Instruction
 		u16 opcode = instr->words[0];
 
 		if (RBT_BIT(opcode, 8)) {
-			rbt_push_error(
+			_push_error(
 				RBT_ERR_DECODE_ILLEGAL, "MOVEQ: Unknown encoding at 0x%06x",
 				instr->start_pc
 			);

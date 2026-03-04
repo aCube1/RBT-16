@@ -36,7 +36,7 @@ static const char *const _severity_color[] = {
 	"\x1b[35m",
 };
 
-void rbt_err_push(
+void _err_push(
 	RBT_ErrorSeverity severity,
 	RBT_ErrorCode code,
 	const char *func,

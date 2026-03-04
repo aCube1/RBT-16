@@ -2,6 +2,8 @@
 
 #include "cpu/mmu_internal.h"
 #include "error.h"
+#include "rbt/basic_types.h"
+#include "rbt/cpu/mmu.h"
 #include "rbt/error_codes.h"
 #include "rbt/helpers.h"
 
@@ -17,7 +19,7 @@ bool rbt_indexext_from_word(u16 ext, RBT_IndexExtension *ix) {
 	// A/D |  REG  | W/L | SCALE | 0 |  DISPLACEMENT
 
 	if (rbt_bits(ext, 10, 9) != 0) {
-		rbt_push_error(RBT_ERR_DECODE_INVALID_EA, "Extension word's scale bit is set");
+		_push_error(RBT_ERR_DECODE_INVALID_EA, "Extension word's scale bit is set");
 		return false;
 	}
 
@@ -169,7 +171,7 @@ u32 rbt_decode_effective_address(
 	return ea->start_pc + bytes;
 
 decoding_error:
-	rbt_push_error(
+	_push_error(
 		RBT_ERR_DECODE_INVALID_EA, "Failed to decode effective address at: 0x%06x", pc
 	);
 	return UINT32_MAX;

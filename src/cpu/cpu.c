@@ -2,6 +2,9 @@
 
 #include "cpu/cpu_internal.h"
 #include "error.h"
+#include "rbt/basic_types.h"
+#include "rbt/cpu/mmu.h"
+#include "rbt/error_codes.h"
 
 #include <assert.h>
 #include <stdlib.h>
@@ -10,7 +13,7 @@
 RBT_Cpu *rbt_create_cpu(const RBT_CpuConfig *config) {
 	RBT_Cpu *cpu = malloc(sizeof(RBT_Cpu));
 	if (!cpu) {
-		rbt_push_fatal(
+		_push_fatal(
 			RBT_ERR_SYS_OUT_OF_MEMORY, "Failed to allocate memory for CPU object"
 		);
 		return nullptr;

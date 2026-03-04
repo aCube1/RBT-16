@@ -74,7 +74,7 @@ void test_decode_static_btst(void) {
 	TEST_ASSERT_EQUAL(0, instr.dst.ea.indirect);
 
 	for (int i = 0; i < 2; i += 1) {
-		rbt_push_info("0x%04x", instr.words[i]);
+		_push_info("0x%04x", instr.words[i]);
 	}
 
 	TEST_ASSERT_EQUAL(2, instr.word_count);
