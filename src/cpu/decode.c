@@ -3,8 +3,14 @@
 #include "cpu/effective_address.h"
 #include "cpu/mmu_internal.h"
 #include "error.h"
+#include "rbt/basic_types.h"
+#include "rbt/cpu/mmu.h"
+#include "rbt/error_codes.h"
+#include "rbt/helpers.h"
 
 #include <assert.h>
+#include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
 // Opcode field bits

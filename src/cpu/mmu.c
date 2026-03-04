@@ -2,6 +2,9 @@
 
 #include "error.h"
 #include "mmu_internal.h"
+#include "rbt/basic_types.h"
+#include "rbt/error_codes.h"
+#include "rbt/helpers.h"
 
 #include <assert.h>
 #include <stdio.h>

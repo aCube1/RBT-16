@@ -3,10 +3,9 @@
 #include "rbt/basic_types.h"
 #include "rbt/error_codes.h"
 
-#include <stdio.h>
-#include <time.h>
-
-#define RBT_ERR_STACK_MAX 64
+enum {
+	RBT_ERR_STACK_MAX = 64,
+};
 
 #define rbt_push_info(...)                                                     \
 	rbt_err_push(                                                              \

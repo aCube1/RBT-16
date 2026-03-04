@@ -2,9 +2,11 @@
 
 #include "cpu/mmu_internal.h"
 #include "error.h"
+#include "rbt/error_codes.h"
 #include "rbt/helpers.h"
 
 #include <assert.h>
+#include <stdint.h>
 #include <string.h>
 
 bool rbt_indexext_from_word(u16 ext, RBT_IndexExtension *ix) {

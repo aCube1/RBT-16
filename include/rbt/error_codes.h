@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 #include <time.h>
+
 #define RBT_ERR_MESSAGE_MAX 256
 
 typedef enum RBT_ErrorCode {

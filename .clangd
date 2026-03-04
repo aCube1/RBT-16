@@ -4,6 +4,7 @@ CompileFlags:
     Compiler: clang
 Diagnostics:
     UnusedIncludes: Strict
+    MissingIncludes: Strict
     ClangTidy:
         FastCheckFilter: Loose
         Add:

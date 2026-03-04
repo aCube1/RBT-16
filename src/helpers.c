@@ -1,6 +1,10 @@
 #include "rbt/helpers.h"
 
 #include "error.h"
+#include "rbt/basic_types.h"
+#include "rbt/error_codes.h"
+
+#include <assert.h>
 
 [[nodiscard]] u32 rbt_bits(u32 v, i32 hi, i32 lo) {
 	assert((hi >= lo) && "rbt_bits: High bit cannot be lower than low bit!");

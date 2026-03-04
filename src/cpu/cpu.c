@@ -3,6 +3,7 @@
 #include "cpu/cpu_internal.h"
 #include "error.h"
 
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -43,6 +44,8 @@ RBT_ErrorCode rbt_cpu_reset(RBT_Cpu *cpu) {
 
 RBT_ErrorCode rbt_cpu_step(RBT_Cpu *cpu, u16 *out_cycles) {
 	assert(cpu);
+
+	(void)out_cycles;
 
 	return RBT_ERR_SUCCESS;
 }

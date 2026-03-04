@@ -2,6 +2,9 @@
 
 #include "cpu/effective_address.h"
 #include "rbt/basic_types.h"
+#include "rbt/cpu/mmu.h"
+#include "rbt/error_codes.h"
+#include "rbt/helpers.h"
 
 enum {
 	RBT_MAX_INSTR_WORDS = 16,

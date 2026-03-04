@@ -2,8 +2,6 @@
 
 #include "rbt/basic_types.h"
 
-#include <assert.h>
-
 #if defined(__GNUC__) || defined(__clang__)
 #	define rbt_bswap_u16(x) __builtin_bswap16((x))
 #	define rbt_bswap_u32(x) __builtin_bswap32((x))
