@@ -18,12 +18,12 @@
 
 ---
 
-> APU_ADDR: 0xf9'0000
+> APU_ADDR: 0xf8'0100
 
 ---
 
 <!--
-	(YAN) - Use the YM2413 OPLL FM chip as the secondary audio chip
+	(YAN) - Use the YM2413 OPLL FM chip as an alternative audio chip
 	(aCube) - Find a cheap 64K SRAM chip, current options: A625308AM,
 WS62256, AS6C1008-55PCN.
 -->

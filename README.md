@@ -33,26 +33,42 @@ Commodore and IBM.<br>
 
 - The RBT-16 is shipped with 512KB SRAM, but can be expanded up to 4MB.
 
-|    Address Range    | Size  | Description                                |
-| :-----------------: | :---: | ------------------------------------------ |
-| 0x00'0000-0x07'ffff | 512KB | Default 512KB RAM chip (Slot 0)            |
-| 0x08'0000-0x3f'ffff | 3.5MB | RAM Expansion slots (Slots 1-7)            |
-| 0x40'0000-0xef'ffff | 11MB  | Reserved (Triggers /BERR)                  |
-| 0xf0'0000-0xf7'ffff | 512KB | Kernel ROM (BIOS)                          |
-| 0xf8'0000-0xf8'ffff | 64KB  | Video MMIO (VDP)                           |
-| 0xf9'0000-0xf9'ffff | 64KB  | Audio MMIO RAM                             |
-| 0xfa'0000-0xfa'7fff | 32KB  | I/O registers (Controllers, PS/2, GPIO)    |
-| 0xfa'8000-0xfa'ffff | 32KB  | microSD Card MMIO                          |
-| 0xfb'0000-0xfb'ffff | 64KB  | Reserved / Debug IO (Does nothing, /DTACK) |
-| 0xfc'0000-0xfc'ffff | 64KB  | Expansion Card 0                           |
-| 0xfd'0000-0xfd'ffff | 64KB  | Expansion Card 1                           |
-| 0xfe'0000-0xfe'ffff | 64KB  | Expansion Card 2                           |
-| 0xff'0000-0xff'ffff | 64KB  | Expansion Card 3                           |
+#### Main Memory Map
 
-> Disabled Expansion Cards triggers /BERR if accessed
+|    Address Range    | Size  | Description                     |
+| :-----------------: | :---: | ------------------------------- |
+| 0x00'0000-0x07'ffff | 512KB | Default 512KB RAM chip (Slot 0) |
+| 0x08'0000-0x3f'ffff | 3.5MB | RAM Expansion slots (Slots 1-7) |
+| 0x40'0000-0xef'ffff | 11MB  | Reserved (Triggers /BERR)       |
+| 0xf0'0000-0xf7'ffff | 512KB | Kernel ROM (BIOS)               |
+| 0xf8'0000-0xf8'ffff | 64KB  | MMIO (See Table Below)          |
+| 0xf9'0000-0xf9'ffff | 64KB  | Audio Processor RAM             |
+| 0xfa'0000-0xfb'ffff | 64KB  | Reserved (Does nothing, /DTACK) |
+| 0xfc'0000-0xfc'ffff | 64KB  | Expansion Card 0                |
+| 0xfd'0000-0xfd'ffff | 64KB  | Expansion Card 1                |
+| 0xfe'0000-0xfe'ffff | 64KB  | Expansion Card 2                |
+| 0xff'0000-0xff'ffff | 64KB  | Expansion Card 3                |
 
 > RAM is mirrored on disabled expansion slots. It wraps around at
 > invalid address range. Memory Map is subject to changes
+
+> Disabled Expansion Cards triggers /BERR if accessed
+
+#### MMIO Memory Map
+
+| Start Address | Description            |
+| :-----------: | ---------------------- |
+|    0x0000     | VDP Registers          |
+|    0x0100     | APU Registers          |
+|    0x0200     | I/O (SNES, PS/2, GPIO) |
+|    0x0300     | SD/SPI Controller      |
+|    0x0400     | System Control         |
+|    0x0500     | Debug I/O (/DTACK)     |
+| 0x0600-0xffff | Reserved               |
+
+> MMIO memory region starts at: 0xf8'0000
+
+> Each MMIO region is 256-bytes wide
 
 ### Chips references
 
