@@ -92,7 +92,7 @@
 			words[0] = ea->ind_disp.disp & 0xffff;
 			return 1;
 		case RBT_EA_INDIRECT_INDEXED:
-			words[0] = rbt_indexext_to_word(&ea->ind_idx.ix);
+			words[0] = _indexext_to_word(&ea->ind_idx.ix);
 			return 1;
 		case RBT_EA_ABSOLUTE_SHORT: //
 			words[0] = ea->absolute_short & 0xffff;
@@ -104,7 +104,7 @@
 		case RBT_EA_PC_DISPLACEMENT: //
 			words[0] = ea->pc_disp & 0xffff;
 			return 1;
-		case RBT_EA_PC_INDEXED: words[0] = rbt_indexext_to_word(&ea->pc_idx); return 1;
+		case RBT_EA_PC_INDEXED: words[0] = _indexext_to_word(&ea->pc_idx); return 1;
 		case RBT_EA_IMMEDIATE:
 			if (operand->size == RBT_SIZE_LONG) {
 				words[0] = (ea->imm >> 16) & 0xffff;
@@ -172,7 +172,7 @@ static u8 _decode_bit(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	// <ea> as Dn is long-only
 	instr->dst.type = RBT_OPERAND_EA;
 	instr->dst.size = instr->size;
-	curr_pc = rbt_decode_effective_address(
+	curr_pc = _decode_effective_address(
 		ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->dst.ea
 	);
 	if (curr_pc == UINT32_MAX) {
@@ -257,7 +257,7 @@ static u8 _decode_imm(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 	instr->dst.type = RBT_OPERAND_EA;
 	instr->dst.size = instr->size;
-	curr_pc = rbt_decode_effective_address(
+	curr_pc = _decode_effective_address(
 		ea_mode, ea_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
 	);
 	if (curr_pc == UINT32_MAX) {
@@ -365,7 +365,7 @@ static u8 _decode_moves_movep(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 			instr->dst.type = RBT_OPERAND_EA;
 			instr->dst.size = instr->size;
-			curr_pc = rbt_decode_effective_address(
+			curr_pc = _decode_effective_address(
 				ea_mode, ea_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
 			);
 		} else {
@@ -373,7 +373,7 @@ static u8 _decode_moves_movep(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 			instr->src.type = RBT_OPERAND_EA;
 			instr->src.size = instr->size;
-			curr_pc = rbt_decode_effective_address(
+			curr_pc = _decode_effective_address(
 				ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->src.ea
 			);
 
@@ -429,7 +429,7 @@ static u8 _decode_move_movea(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 	instr->src.type = RBT_OPERAND_EA;
 	instr->src.size = instr->size;
-	curr_pc = rbt_decode_effective_address(
+	curr_pc = _decode_effective_address(
 		ea_src_mode, ea_src_reg, instr->src.size, bus, curr_pc, &instr->src.ea
 	);
 	if (curr_pc == UINT32_MAX) {
@@ -438,7 +438,7 @@ static u8 _decode_move_movea(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 	instr->dst.type = RBT_OPERAND_EA;
 	instr->dst.size = instr->size;
-	curr_pc = rbt_decode_effective_address(
+	curr_pc = _decode_effective_address(
 		ea_dst_mode, ea_dst_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
 	);
 	if (curr_pc == UINT32_MAX) {
@@ -496,13 +496,13 @@ static u8 _decode_move_reg(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	if (instr->src.type == RBT_OPERAND_NONE) {
 		instr->src.type = RBT_OPERAND_EA;
 		instr->src.size = instr->size;
-		curr_pc = rbt_decode_effective_address(
+		curr_pc = _decode_effective_address(
 			ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->src.ea
 		);
 	} else {
 		instr->dst.type = RBT_OPERAND_EA;
 		instr->dst.size = instr->size;
-		curr_pc = rbt_decode_effective_address(
+		curr_pc = _decode_effective_address(
 			ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->dst.ea
 		);
 	}
@@ -562,7 +562,7 @@ static u8 _decode_negx_clr_not(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 	instr->dst.type = RBT_OPERAND_EA;
 	instr->dst.size = instr->size;
-	curr_pc = rbt_decode_effective_address(
+	curr_pc = _decode_effective_address(
 		ea_mode, ea_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
 	);
 	if (curr_pc == UINT32_MAX) {
@@ -608,7 +608,7 @@ static u8 _decode_movem(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 		instr->src.type = RBT_OPERAND_EA;
 		instr->src.size = instr->size;
-		curr_pc = rbt_decode_effective_address(
+		curr_pc = _decode_effective_address(
 			ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->src.ea
 		);
 
@@ -627,7 +627,7 @@ static u8 _decode_movem(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 		instr->dst.type = RBT_OPERAND_EA;
 		instr->dst.size = instr->size;
-		curr_pc = rbt_decode_effective_address(
+		curr_pc = _decode_effective_address(
 			ea_mode, ea_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
 		);
 	}
@@ -674,7 +674,7 @@ static u8 _decode_ext_nbcd_swap_bkpt_pea(RBT_Instruction *instr, RBT_MemoryBus *
 
 		instr->dst.type = RBT_OPERAND_EA;
 		instr->dst.size = instr->size;
-		curr_pc = rbt_decode_effective_address(
+		curr_pc = _decode_effective_address(
 			ea_mode, ea_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
 		);
 		if (curr_pc == UINT32_MAX) {
@@ -717,7 +717,7 @@ static u8 _decode_ext_nbcd_swap_bkpt_pea(RBT_Instruction *instr, RBT_MemoryBus *
 
 		instr->src.type = RBT_OPERAND_EA;
 		instr->src.size = instr->size;
-		curr_pc = rbt_decode_effective_address(
+		curr_pc = _decode_effective_address(
 			ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->src.ea
 		);
 		if (curr_pc == UINT32_MAX) {
@@ -766,7 +766,7 @@ static u8 _decode_illegal_tas_tst(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 	instr->dst.type = RBT_OPERAND_EA;
 	instr->dst.size = instr->size;
-	u32 new_pc = rbt_decode_effective_address(
+	u32 new_pc = _decode_effective_address(
 		ea_mode, ea_reg, instr->dst.size, bus, instr->start_pc + 2, &instr->dst.ea
 	);
 	if (new_pc == UINT32_MAX) {
@@ -817,7 +817,7 @@ static u8 _decode_misc(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 		instr->dst.type = RBT_OPERAND_EA;
 		instr->dst.size = instr->size;
-		curr_pc = rbt_decode_effective_address(
+		curr_pc = _decode_effective_address(
 			ea_mode, ea_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
 		);
 		if (curr_pc == UINT32_MAX) {
@@ -1015,7 +1015,7 @@ static u8 _decode_chk_lea(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 	instr->src.type = RBT_OPERAND_EA;
 	instr->src.size = instr->size;
-	curr_pc = rbt_decode_effective_address(
+	curr_pc = _decode_effective_address(
 		ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->src.ea
 	);
 	if (curr_pc == UINT32_MAX) {
@@ -1084,7 +1084,7 @@ static u8 _decode_addq_subq(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 		instr->dst.size = instr->size;
 		instr->dst.type = RBT_OPERAND_EA;
-		curr_pc = rbt_decode_effective_address(
+		curr_pc = _decode_effective_address(
 			ea_mode, ea_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
 		);
 		if (curr_pc == UINT32_MAX) {
@@ -1114,7 +1114,7 @@ static u8 _decode_addq_subq(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 	instr->dst.type = RBT_OPERAND_EA;
 	instr->dst.size = instr->size;
-	curr_pc = rbt_decode_effective_address(
+	curr_pc = _decode_effective_address(
 		ea_mode, ea_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
 	);
 	if (curr_pc == UINT32_MAX) {
@@ -1196,7 +1196,7 @@ static u8 _decode_ordiv(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 		instr->src.type = RBT_OPERAND_EA;
 		instr->src.size = instr->size;
-		curr_pc = rbt_decode_effective_address(
+		curr_pc = _decode_effective_address(
 			ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->src.ea
 		);
 		if (curr_pc == UINT32_MAX) {
@@ -1266,7 +1266,7 @@ static u8 _decode_ordiv(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 		instr->dst.type = RBT_OPERAND_EA;
 		instr->dst.size = instr->size;
-		curr_pc = rbt_decode_effective_address(
+		curr_pc = _decode_effective_address(
 			ea_mode, ea_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
 		);
 	} else {
@@ -1274,7 +1274,7 @@ static u8 _decode_ordiv(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 		instr->src.type = RBT_OPERAND_EA;
 		instr->src.size = instr->size;
-		curr_pc = rbt_decode_effective_address(
+		curr_pc = _decode_effective_address(
 			ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->src.ea
 		);
 
@@ -1311,7 +1311,7 @@ static u8 _decode_subsubx(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 		instr->src.type = RBT_OPERAND_EA;
 		instr->src.size = instr->size;
-		curr_pc = rbt_decode_effective_address(
+		curr_pc = _decode_effective_address(
 			ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->src.ea
 		);
 		if (curr_pc == UINT32_MAX) {
@@ -1381,7 +1381,7 @@ static u8 _decode_subsubx(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 		instr->dst.type = RBT_OPERAND_EA;
 		instr->dst.size = instr->size;
-		curr_pc = rbt_decode_effective_address(
+		curr_pc = _decode_effective_address(
 			ea_mode, ea_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
 		);
 
@@ -1396,7 +1396,7 @@ static u8 _decode_subsubx(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 		instr->src.type = RBT_OPERAND_EA;
 		instr->src.size = instr->size;
-		curr_pc = rbt_decode_effective_address(
+		curr_pc = _decode_effective_address(
 			ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->src.ea
 		);
 
@@ -1458,7 +1458,7 @@ static u8 _decode_cmp_eor(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 		instr->dst.type = RBT_OPERAND_EA;
 		instr->dst.size = instr->size;
-		curr_pc = rbt_decode_effective_address(
+		curr_pc = _decode_effective_address(
 			ea_mode, ea_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
 		);
 		if (curr_pc == UINT32_MAX) {
@@ -1488,7 +1488,7 @@ static u8 _decode_cmp_eor(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 	instr->src.type = RBT_OPERAND_EA;
 	instr->src.size = instr->size;
-	curr_pc = rbt_decode_effective_address(
+	curr_pc = _decode_effective_address(
 		ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->src.ea
 	);
 	if (curr_pc == UINT32_MAX) {
@@ -1535,7 +1535,7 @@ static u8 _decode_and_mul(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 		instr->src.type = RBT_OPERAND_EA;
 		instr->src.size = instr->size;
-		curr_pc = rbt_decode_effective_address(
+		curr_pc = _decode_effective_address(
 			ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->src.ea
 		);
 		if (curr_pc == UINT32_MAX) {
@@ -1636,7 +1636,7 @@ static u8 _decode_and_mul(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 		instr->dst.type = RBT_OPERAND_EA;
 		instr->dst.size = instr->size;
-		curr_pc = rbt_decode_effective_address(
+		curr_pc = _decode_effective_address(
 			ea_mode, ea_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
 		);
 	} else {
@@ -1644,7 +1644,7 @@ static u8 _decode_and_mul(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 		instr->src.type = RBT_OPERAND_EA;
 		instr->src.size = instr->size;
-		curr_pc = rbt_decode_effective_address(
+		curr_pc = _decode_effective_address(
 			ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->src.ea
 		);
 
@@ -1681,7 +1681,7 @@ static u8 _decode_addaddx(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 		instr->src.type = RBT_OPERAND_EA;
 		instr->src.size = instr->size;
-		curr_pc = rbt_decode_effective_address(
+		curr_pc = _decode_effective_address(
 			ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->src.ea
 		);
 		if (curr_pc == UINT32_MAX) {
@@ -1751,7 +1751,7 @@ static u8 _decode_addaddx(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 		instr->dst.type = RBT_OPERAND_EA;
 		instr->dst.size = instr->size;
-		curr_pc = rbt_decode_effective_address(
+		curr_pc = _decode_effective_address(
 			ea_mode, ea_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
 		);
 
@@ -1766,7 +1766,7 @@ static u8 _decode_addaddx(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 		instr->src.type = RBT_OPERAND_EA;
 		instr->src.size = instr->size;
-		curr_pc = rbt_decode_effective_address(
+		curr_pc = _decode_effective_address(
 			ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->src.ea
 		);
 
@@ -1825,7 +1825,7 @@ static u8 _decode_shift(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 		instr->dst.type = RBT_OPERAND_EA;
 		instr->dst.size = instr->size;
-		curr_pc = rbt_decode_effective_address(
+		curr_pc = _decode_effective_address(
 			ea_mode, ea_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
 		);
 		if (curr_pc == UINT32_MAX) {

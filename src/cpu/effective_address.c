@@ -11,7 +11,7 @@
 #include <stdint.h>
 #include <string.h>
 
-bool rbt_indexext_from_word(u16 ext, RBT_IndexExtension *ix) {
+bool _indexext_from_word(u16 ext, RBT_IndexExtension *ix) {
 	assert(ix);
 
 	// Brief Extension Word
@@ -31,7 +31,7 @@ bool rbt_indexext_from_word(u16 ext, RBT_IndexExtension *ix) {
 	return true;
 }
 
-u16 rbt_indexext_to_word(const RBT_IndexExtension *ix) {
+u16 _indexext_to_word(const RBT_IndexExtension *ix) {
 	assert(ix);
 
 	u16 word = 0;
@@ -47,7 +47,7 @@ u16 rbt_indexext_to_word(const RBT_IndexExtension *ix) {
 	return word;
 }
 
-u32 rbt_decode_effective_address(
+u32 _decode_effective_address(
 	u8 mode,
 	u8 reg,
 	RBT_OperandSize size,
@@ -107,7 +107,7 @@ u32 rbt_decode_effective_address(
 
 		ea->mode = RBT_EA_INDIRECT_INDEXED;
 		ea->ind_idx.areg = reg;
-		if (!rbt_indexext_from_word(ext, &ea->ind_idx.ix)) {
+		if (!_indexext_from_word(ext, &ea->ind_idx.ix)) {
 			goto decoding_error;
 		}
 	} break;
@@ -151,7 +151,7 @@ u32 rbt_decode_effective_address(
 			bytes = 2;
 
 			ea->mode = RBT_EA_PC_INDEXED;
-			if (!rbt_indexext_from_word(ext, &ea->pc_idx)) {
+			if (!_indexext_from_word(ext, &ea->pc_idx)) {
 				goto decoding_error;
 			}
 		} break;
