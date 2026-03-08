@@ -3,7 +3,9 @@
 - Output: 3.5mm mono jack + 1 RCA mono
 - Chip: YM3812 (OPL2) + DAC
 - Coprocessor: Z80
-- RAM: 64KB of SRAM; Accessible by the CPU
+- APRAM: 64KB of SRAM; Accessible by the CPU
+    - APRAM starts at 0xfb'0000 in CPU RAM
+    - The last 256 bytes in APRAM are dedicated to APU registers
 
 ---
 
@@ -18,7 +20,7 @@
 
 ---
 
-> APU_ADDR: 0xf8'0100
+> APU_MMIO: 0xfb'ff00
 
 ---
 

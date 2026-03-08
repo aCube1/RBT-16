@@ -41,9 +41,9 @@ Commodore and IBM.<br>
 | 0x08'0000-0x3f'ffff | 3.5MB | RAM Expansion slots (Slots 1-7) |
 | 0x40'0000-0xef'ffff | 11MB  | Reserved (Triggers /BERR)       |
 | 0xf0'0000-0xf7'ffff | 512KB | Kernel ROM (BIOS)               |
-| 0xf8'0000-0xf8'ffff | 64KB  | MMIO (See Table Below)          |
-| 0xf9'0000-0xf9'ffff | 64KB  | Audio Processor RAM             |
-| 0xfa'0000-0xfb'ffff | 64KB  | Reserved (Does nothing, /DTACK) |
+| 0xf8'0000-0xf9'ffff | 64KB  | Reserved (Does nothing, /DTACK) |
+| 0xfa'0000-0xfa'ffff | 64KB  | MMIO (See Table Below)          |
+| 0xfb'0000-0xfb'ffff | 64KB  | Audio Processor RAM (APRAM)     |
 | 0xfc'0000-0xfc'ffff | 64KB  | Expansion Card 0                |
 | 0xfd'0000-0xfd'ffff | 64KB  | Expansion Card 1                |
 | 0xfe'0000-0xfe'ffff | 64KB  | Expansion Card 2                |
@@ -59,14 +59,12 @@ Commodore and IBM.<br>
 | Start Address | Description            |
 | :-----------: | ---------------------- |
 |    0x0000     | VDP Registers          |
-|    0x0100     | APU Registers          |
-|    0x0200     | I/O (SNES, PS/2, GPIO) |
-|    0x0300     | SD/SPI Controller      |
-|    0x0400     | System Control         |
-|    0x0500     | Debug I/O (/DTACK)     |
-| 0x0600-0xffff | Reserved               |
+|    0x0100     | I/O (SNES, PS/2, GPIO) |
+|    0x0200     | SD/SPI Controller      |
+|    0x0300     | Debug I/O (/DTACK)     |
+| 0x0400-0xffff | Reserved               |
 
-> MMIO memory region starts at: 0xf8'0000
+> MMIO memory region starts at: 0xfa'0000
 
 > Each MMIO region is 256-bytes wide
 
@@ -97,9 +95,10 @@ REFS:
 		- AS6C1008-55PCN -> 128Kx8 = 128K
 		- A625308AM -> 32Kx8 = 64K
 		- WS62256 -> 32Kx8 = 64K
-	ROM: SST39SF040 -> Flash 512KB
+	ROM: SST39SF040 -> Flash 512Kx8 = 512KB
 	ICs:
 		- 74HC138 -> Decoder
+		- 74HCT245 -> 8-bit buffer, 5V <-> 3.3V
 	PINs:
 		- 2x32 Card Edge Connectors
 -->

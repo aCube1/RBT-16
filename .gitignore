@@ -3,4 +3,4 @@ build/
 .cache/
 
 # Files
-assets/shaders/**/*.h
+.gdb_history
