@@ -3,6 +3,7 @@
 #include "rbt/basic_types.h"
 #include "rbt/cpu/cpu.h"
 #include "rbt/cpu/mmu.h"
+#include "rbt/cpu/types.h"
 #include "rbt/helpers.h"
 
 #include <assert.h>

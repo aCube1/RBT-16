@@ -4,6 +4,7 @@
 #include "error.h"
 #include "rbt/basic_types.h"
 #include "rbt/cpu/mmu.h"
+#include "rbt/cpu/types.h"
 #include "rbt/error_codes.h"
 #include "rbt/helpers.h"
 
@@ -68,23 +69,23 @@ u32 _decode_effective_address(
 	u32 bytes = 0;
 	switch (mode) {
 	case 0b000: // Dn
-		ea->mode = _EA_DIRECT_DATA;
+		ea->mode = RBT_EA_DIRECT_DATA;
 		ea->reg = reg;
 		break;
 	case 0b001: // An
-		ea->mode = _EA_DIRECT_ADDR;
+		ea->mode = RBT_EA_DIRECT_ADDR;
 		ea->reg = reg;
 		break;
 	case 0b010: // (An)
-		ea->mode = _EA_INDIRECT;
+		ea->mode = RBT_EA_INDIRECT;
 		ea->indirect = reg;
 		break;
 	case 0b011: // (An)+
-		ea->mode = _EA_INDIRECT_POSTINC;
+		ea->mode = RBT_EA_INDIRECT_POSTINC;
 		ea->indirect = reg;
 		break;
 	case 0b100: // -(An)
-		ea->mode = _EA_INDIRECT_PREDEC;
+		ea->mode = RBT_EA_INDIRECT_PREDEC;
 		ea->indirect = reg;
 		break;
 	case 0b101: { // (d16, An)
@@ -95,7 +96,7 @@ u32 _decode_effective_address(
 		}
 		bytes = 2;
 
-		ea->mode = _EA_INDIRECT_DISPLACEMENT;
+		ea->mode = RBT_EA_INDIRECT_DISPLACEMENT;
 		ea->ind_disp.areg = reg;
 		ea->ind_disp.disp = rbt_sign_extend(RBT_SIZE_WORD, disp);
 	} break;
@@ -106,7 +107,7 @@ u32 _decode_effective_address(
 		}
 		bytes = 2;
 
-		ea->mode = _EA_INDIRECT_INDEXED;
+		ea->mode = RBT_EA_INDIRECT_INDEXED;
 		ea->ind_idx.areg = reg;
 		if (!_indexext_from_word(ext, &ea->ind_idx.ix)) {
 			goto decoding_error;
@@ -121,7 +122,7 @@ u32 _decode_effective_address(
 			}
 			bytes = 2;
 
-			ea->mode = _EA_ABSOLUTE_SHORT;
+			ea->mode = RBT_EA_ABSOLUTE_SHORT;
 			ea->absolute_short = rbt_sign_extend(RBT_SIZE_WORD, abs);
 		} break;
 		case 0b001: { // (xxx).l
@@ -131,7 +132,7 @@ u32 _decode_effective_address(
 			}
 			bytes = 4;
 
-			ea->mode = _EA_ABSOLUTE_LONG;
+			ea->mode = RBT_EA_ABSOLUTE_LONG;
 			ea->absolute_long = abs;
 		} break;
 		case 0b010: { // (d16, PC)
@@ -141,7 +142,7 @@ u32 _decode_effective_address(
 			}
 			bytes = 2;
 
-			ea->mode = _EA_PC_DISPLACEMENT;
+			ea->mode = RBT_EA_PC_DISPLACEMENT;
 			ea->pc_disp = rbt_sign_extend(RBT_SIZE_WORD, disp);
 		} break;
 		case 0b011: { // (d8, Xi, PC)
@@ -151,13 +152,13 @@ u32 _decode_effective_address(
 			}
 			bytes = 2;
 
-			ea->mode = _EA_PC_INDEXED;
+			ea->mode = RBT_EA_PC_INDEXED;
 			if (!_indexext_from_word(ext, &ea->pc_idx)) {
 				goto decoding_error;
 			}
 		} break;
 		case 0b100: { // #imm
-			ea->mode = _EA_IMMEDIATE;
+			ea->mode = RBT_EA_IMMEDIATE;
 
 			if (_bus_fetch_imm(bus, size, pc, &ea->imm)) {
 				goto decoding_error;

@@ -1,9 +1,9 @@
 #include "cpu/decode.h"
-#include "cpu/effective_address.h"
 #include "cpu/mmu_internal.h"
 #include "opcodes.h"
 #include "rbt/basic_types.h"
 #include "rbt/cpu/mmu.h"
+#include "rbt/cpu/types.h"
 #include "rbt/error_codes.h"
 #include "rbt/helpers.h"
 #include "unity_internals.h"
@@ -86,14 +86,14 @@ static const char *_conditions[] = {
 
 static i32 _stringfy_effective_address(const RBT_EffectiveAddress *ea, char *out) {
 	switch (ea->mode) {
-	case _EA_DIRECT_DATA:	   return sprintf(out, "%%d%u", ea->reg);
-	case _EA_DIRECT_ADDR:	   return sprintf(out, "%%a%u", ea->reg);
-	case _EA_INDIRECT:		   return sprintf(out, "(%%a%u)", ea->indirect);
-	case _EA_INDIRECT_POSTINC: return sprintf(out, "(%%a%u)+", ea->indirect);
-	case _EA_INDIRECT_PREDEC:  return sprintf(out, "-(%%a%u)", ea->indirect);
-	case _EA_INDIRECT_DISPLACEMENT:
+	case RBT_EA_DIRECT_DATA:	  return sprintf(out, "%%d%u", ea->reg);
+	case RBT_EA_DIRECT_ADDR:	  return sprintf(out, "%%a%u", ea->reg);
+	case RBT_EA_INDIRECT:		  return sprintf(out, "(%%a%u)", ea->indirect);
+	case RBT_EA_INDIRECT_POSTINC: return sprintf(out, "(%%a%u)+", ea->indirect);
+	case RBT_EA_INDIRECT_PREDEC:  return sprintf(out, "-(%%a%u)", ea->indirect);
+	case RBT_EA_INDIRECT_DISPLACEMENT:
 		return sprintf(out, "%i(%%a%u)", ea->ind_disp.disp, ea->ind_disp.areg);
-	case _EA_INDIRECT_INDEXED: {
+	case RBT_EA_INDIRECT_INDEXED: {
 		const RBT_IndirectIndexed *ix = &ea->ind_idx;
 
 		char xreg = 'd';
@@ -108,10 +108,10 @@ static i32 _stringfy_effective_address(const RBT_EffectiveAddress *ea, char *out
 			out, "%i(%%a%u, %%%c%u.%c)", ix->ix.disp, ix->areg, xreg, ix->ix.xreg, size
 		);
 	};
-	case _EA_ABSOLUTE_SHORT:  return sprintf(out, "(0x%04x).w", ea->absolute_short);
-	case _EA_ABSOLUTE_LONG:	  return sprintf(out, "(0x%08x).l", ea->absolute_long);
-	case _EA_PC_DISPLACEMENT: return sprintf(out, "%i(%%pc)", ea->pc_disp);
-	case _EA_PC_INDEXED:	  {
+	case RBT_EA_ABSOLUTE_SHORT:	 return sprintf(out, "(0x%04x).w", ea->absolute_short);
+	case RBT_EA_ABSOLUTE_LONG:	 return sprintf(out, "(0x%08x).l", ea->absolute_long);
+	case RBT_EA_PC_DISPLACEMENT: return sprintf(out, "%i(%%pc)", ea->pc_disp);
+	case RBT_EA_PC_INDEXED:		 {
 		char xreg = 'd';
 		if (ea->pc_idx.is_addr)
 			xreg = 'a';
@@ -124,12 +124,12 @@ static i32 _stringfy_effective_address(const RBT_EffectiveAddress *ea, char *out
 			out, "%i(%%pc, %%%c%u.%c)", ea->pc_idx.disp, xreg, ea->pc_idx.xreg, size
 		);
 	};
-	case _EA_IMMEDIATE:	   return sprintf(out, "#0x%x", ea->imm);
-	case _EA_DISPLACEMENT: return sprintf(out, "%i", ea->disp);
-	case _EA_REGISTER_CCR: return sprintf(out, "%%ccr");
-	case _EA_REGISTER_SR:  return sprintf(out, "%%sr");
-	case _EA_REGISTER_USP: return sprintf(out, "%%usp");
-	default:			   return 0;
+	case RBT_EA_IMMEDIATE:	  return sprintf(out, "#0x%x", ea->imm);
+	case RBT_EA_DISPLACEMENT: return sprintf(out, "%i", ea->disp);
+	case RBT_EA_REGISTER_CCR: return sprintf(out, "%%ccr");
+	case RBT_EA_REGISTER_SR:  return sprintf(out, "%%sr");
+	case RBT_EA_REGISTER_USP: return sprintf(out, "%%usp");
+	default:				  return 0;
 	}
 
 	unreachable();
@@ -199,7 +199,7 @@ static void test_opcodes(void) {
 			default:	reg = ""; break;
 			}
 
-			if (instr.src.mode == _EA_IMMEDIATE) {
+			if (instr.src.mode == RBT_EA_IMMEDIATE) {
 				// movec Rc,Rn
 				len += sprintf(&out[len], "%s, ", reg);
 				len += _stringfy_effective_address(&instr.dst, &out[len]);
@@ -210,7 +210,7 @@ static void test_opcodes(void) {
 			}
 		} else {
 			len += _stringfy_effective_address(&instr.src, &out[len]);
-			if (instr.src.mode != _EA_NONE && instr.dst.mode != _EA_NONE)
+			if (instr.src.mode != RBT_EA_NONE && instr.dst.mode != RBT_EA_NONE)
 				len += sprintf(&out[len], ", ");
 			len += _stringfy_effective_address(&instr.dst, &out[len]);
 		}

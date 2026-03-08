@@ -1,10 +1,10 @@
 #include "cpu/decode.h"
-#include "cpu/effective_address.h"
 #include "cpu/mmu_internal.h"
 #include "cpu/timing.h"
 #include "error.h"
 #include "rbt/basic_types.h"
 #include "rbt/cpu/mmu.h"
+#include "rbt/cpu/types.h"
 #include "rbt/error_codes.h"
 #include "rbt/helpers.h"
 #include "unity_internals.h"
@@ -65,10 +65,10 @@ void test_decode_static_btst(void) {
 	TEST_ASSERT_EQUAL(RBT_OP_BTST, instr.mnemonic);
 	TEST_ASSERT_EQUAL(RBT_SIZE_BYTE, instr.size);
 
-	TEST_ASSERT_EQUAL(_EA_IMMEDIATE, instr.src.mode);
+	TEST_ASSERT_EQUAL(RBT_EA_IMMEDIATE, instr.src.mode);
 	TEST_ASSERT_EQUAL(5, instr.src.imm);
 
-	TEST_ASSERT_EQUAL(_EA_INDIRECT, instr.dst.mode);
+	TEST_ASSERT_EQUAL(RBT_EA_INDIRECT, instr.dst.mode);
 	TEST_ASSERT_EQUAL(0, instr.dst.indirect);
 
 	for (int i = 0; i < 2; i += 1) {
@@ -88,10 +88,10 @@ void test_decode_dynamic_bchg(void) {
 	TEST_ASSERT_EQUAL(RBT_OP_BCHG, instr.mnemonic);
 	TEST_ASSERT_EQUAL(RBT_SIZE_BYTE, instr.size);
 
-	TEST_ASSERT_EQUAL(_EA_IMMEDIATE, instr.src.mode);
+	TEST_ASSERT_EQUAL(RBT_EA_IMMEDIATE, instr.src.mode);
 	TEST_ASSERT_EQUAL(3, instr.src.reg);
 
-	TEST_ASSERT_EQUAL(_EA_INDIRECT_DISPLACEMENT, instr.dst.mode);
+	TEST_ASSERT_EQUAL(RBT_EA_INDIRECT_DISPLACEMENT, instr.dst.mode);
 	TEST_ASSERT_EQUAL(5, instr.dst.ind_disp.disp);
 	TEST_ASSERT_EQUAL(1, instr.dst.ind_disp.areg);
 
@@ -108,10 +108,10 @@ void test_decode_static_bset(void) {
 	TEST_ASSERT_EQUAL(RBT_OP_BSET, instr.mnemonic);
 	TEST_ASSERT_EQUAL(RBT_SIZE_BYTE, instr.size);
 
-	TEST_ASSERT_EQUAL(_EA_IMMEDIATE, instr.src.mode);
+	TEST_ASSERT_EQUAL(RBT_EA_IMMEDIATE, instr.src.mode);
 	TEST_ASSERT_EQUAL(5, instr.src.imm);
 
-	TEST_ASSERT_EQUAL(_EA_ABSOLUTE_SHORT, instr.dst.mode);
+	TEST_ASSERT_EQUAL(RBT_EA_ABSOLUTE_SHORT, instr.dst.mode);
 	TEST_ASSERT_EQUAL(9, instr.dst.absolute_short);
 
 	TEST_ASSERT_EQUAL(3, instr.word_count);
@@ -127,11 +127,11 @@ void test_decode_andi_w(void) {
 	TEST_ASSERT_EQUAL(RBT_OP_ANDI, instr.mnemonic);
 	TEST_ASSERT_EQUAL(RBT_SIZE_WORD, instr.size);
 
-	TEST_ASSERT_EQUAL(_EA_IMMEDIATE, instr.src.mode);
+	TEST_ASSERT_EQUAL(RBT_EA_IMMEDIATE, instr.src.mode);
 	TEST_ASSERT_EQUAL(5, instr.src.imm);
 	TEST_ASSERT_EQUAL(0x9abc, instr.src.imm);
 
-	TEST_ASSERT_EQUAL(_EA_ABSOLUTE_SHORT, instr.dst.mode);
+	TEST_ASSERT_EQUAL(RBT_EA_ABSOLUTE_SHORT, instr.dst.mode);
 	TEST_ASSERT_EQUAL(0x2442, instr.dst.absolute_short);
 
 	TEST_ASSERT_EQUAL(3, instr.word_count);
