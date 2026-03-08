@@ -102,34 +102,15 @@ typedef enum RBT_OpMnemonic {
 } RBT_OpMnemonic;
 // clang-format on
 
-typedef enum RBT_OperandType {
-	RBT_OPERAND_NONE,
-	RBT_OPERAND_EA,	  // Effective Address
-	RBT_OPERAND_DISP, // Displacement
-	// Implied registers
-	RBT_OPERAND_CCR,
-	RBT_OPERAND_SR,
-	RBT_OPERAND_USP,
-} RBT_OperandType;
-
-typedef struct RBT_Operand {
-	RBT_OperandType type;
-	RBT_OperandSize size; // Specific size of operation: Eg. BTST <#imm,Dn>, Dn is Long
-	union {
-		RBT_EffectiveAddress ea;
-		i32 disp;
-	};
-} RBT_Operand;
-
 typedef struct RBT_Instruction {
 	RBT_OpMnemonic mnemonic;
 	RBT_OperandSize size; // General size of instruction
 	u32 start_pc;
 	u8 len;
 
-	RBT_Operand aux;
-	RBT_Operand src;
-	RBT_Operand dst;
+	RBT_EffectiveAddress aux;
+	RBT_EffectiveAddress src;
+	RBT_EffectiveAddress dst;
 
 	// Raw instruction words (max: opcode + 15 extension words)
 	u16 words[RBT_MAX_INSTR_WORDS];

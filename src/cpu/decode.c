@@ -52,17 +52,17 @@
 	static char buf[128] = {};
 
 	i32 pos = 0;
-	if (invalid_modes & RBT_EA_DIRECT_DATA)
+	if (invalid_modes & _EA_DIRECT_DATA)
 		pos += snprintf(buf + pos, sizeof(buf) - pos, "%sDn", pos > 0 ? "|" : "");
-	if (invalid_modes & RBT_EA_DIRECT_ADDR)
+	if (invalid_modes & _EA_DIRECT_ADDR)
 		pos += snprintf(buf + pos, sizeof(buf) - pos, "%sAn", pos > 0 ? "|" : "");
-	if (invalid_modes & RBT_EA_IMMEDIATE)
+	if (invalid_modes & _EA_IMMEDIATE)
 		pos += snprintf(buf + pos, sizeof(buf) - pos, "%s#imm", pos > 0 ? "|" : "");
-	if (invalid_modes & RBT_EA_GROUP_PCR)
+	if (invalid_modes & _EA_GROUP_PCR)
 		pos += snprintf(buf + pos, sizeof(buf) - pos, "%sPC-rel", pos > 0 ? "|" : "");
-	if (invalid_modes & RBT_EA_INDIRECT_POSTINC)
+	if (invalid_modes & _EA_INDIRECT_POSTINC)
 		pos += snprintf(buf + pos, sizeof(buf) - pos, "%s(An)+", pos > 0 ? "|" : "");
-	if (invalid_modes & RBT_EA_INDIRECT_PREDEC)
+	if (invalid_modes & _EA_INDIRECT_PREDEC)
 		pos += snprintf(buf + pos, sizeof(buf) - pos, "%s-(An)", pos > 0 ? "|" : "");
 
 	_push_warn(
@@ -80,47 +80,44 @@
 	}
 }
 
-[[nodiscard]] static u8 _store_operand_as_words(const RBT_Operand *operand, u16 *words) {
-	assert(operand);
+[[nodiscard]] static u8 _store_operand_as_words(
+	const RBT_EffectiveAddress *ea, u16 *words
+) {
+	assert(ea);
 
-	switch (operand->type) {
-	case RBT_OPERAND_EA: {
-		const RBT_EffectiveAddress *ea = &operand->ea;
-
-		switch (ea->mode) {
-		case RBT_EA_INDIRECT_DISPLACEMENT:
-			words[0] = ea->ind_disp.disp & 0xffff;
-			return 1;
-		case RBT_EA_INDIRECT_INDEXED:
-			words[0] = _indexext_to_word(&ea->ind_idx.ix);
-			return 1;
-		case RBT_EA_ABSOLUTE_SHORT: //
-			words[0] = ea->absolute_short & 0xffff;
-			return 1;
-		case RBT_EA_ABSOLUTE_LONG:
-			words[0] = (ea->absolute_long >> 16) & 0xffff;
-			words[1] = ea->absolute_long & 0xffff;
+	switch (ea->mode) {
+	case _EA_INDIRECT_DISPLACEMENT: //
+		words[0] = ea->ind_disp.disp & 0xffff;
+		return 1;
+	case _EA_INDIRECT_INDEXED: //
+		words[0] = _indexext_to_word(&ea->ind_idx.ix);
+		return 1;
+	case _EA_ABSOLUTE_SHORT: //
+		words[0] = ea->absolute_short & 0xffff;
+		return 1;
+	case _EA_ABSOLUTE_LONG:
+		words[0] = (ea->absolute_long >> 16) & 0xffff;
+		words[1] = ea->absolute_long & 0xffff;
+		return 2;
+	case _EA_PC_DISPLACEMENT: //
+		words[0] = ea->pc_disp & 0xffff;
+		return 1;
+	case _EA_PC_INDEXED: //
+		words[0] = _indexext_to_word(&ea->pc_idx);
+		return 1;
+	case _EA_IMMEDIATE:
+		if (ea->size == RBT_SIZE_LONG) {
+			words[0] = (ea->imm >> 16) & 0xffff;
+			words[1] = ea->imm & 0xffff;
 			return 2;
-		case RBT_EA_PC_DISPLACEMENT: //
-			words[0] = ea->pc_disp & 0xffff;
-			return 1;
-		case RBT_EA_PC_INDEXED: words[0] = _indexext_to_word(&ea->pc_idx); return 1;
-		case RBT_EA_IMMEDIATE:
-			if (operand->size == RBT_SIZE_LONG) {
-				words[0] = (ea->imm >> 16) & 0xffff;
-				words[1] = ea->imm & 0xffff;
-				return 2;
-			}
-
-			words[0] = ea->imm & 0xffff;
-			return (operand->size == RBT_SIZE_NONE) ? 0 : 1;
-		default: return 0;
 		}
-	}
-	case RBT_OPERAND_DISP: //
-		words[0] = operand->disp & 0xffff;
-		return (operand->size == RBT_SIZE_NONE) ? 0 : 1;
+
+		words[0] = ea->imm & 0xffff;
+		return (ea->size == RBT_SIZE_NONE) ? 0 : 1;
 	default: return 0;
+	case _EA_DISPLACEMENT:
+		words[0] = ea->disp & 0xffff;
+		return (ea->size == RBT_SIZE_NONE) ? 0 : 1;
 	}
 
 	unreachable();
@@ -154,14 +151,12 @@ static u8 _decode_bit(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		}
 		curr_pc += 2;
 
-		instr->src.type = RBT_OPERAND_EA;
+		instr->src.mode = _EA_IMMEDIATE;
 		instr->src.size = RBT_SIZE_WORD;
-		instr->src.ea.mode = RBT_EA_IMMEDIATE;
-		instr->src.ea.imm = bits;
+		instr->src.imm = bits;
 	} else if (RBT_BIT(opcode, 8)) {
-		instr->src.type = RBT_OPERAND_EA;
-		instr->src.ea.mode = RBT_EA_DIRECT_DATA;
-		instr->src.ea.reg = dreg;
+		instr->src.mode = _EA_DIRECT_DATA;
+		instr->src.reg = dreg;
 	} else {
 		_push_error(
 			RBT_ERR_DECODE_ILLEGAL, "BIT: Unknown enconding at 0x%06x", instr->start_pc
@@ -170,24 +165,22 @@ static u8 _decode_bit(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	}
 
 	// <ea> as Dn is long-only
-	instr->dst.type = RBT_OPERAND_EA;
-	instr->dst.size = instr->size;
 	curr_pc = _decode_effective_address(
-		ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->dst.ea
+		ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->dst
 	);
 	if (curr_pc == UINT32_MAX) {
 		return RBT_ERR_DECODE_INVALID_EA;
 	}
 
 	// EA invalid: An, [PC-relative](if BTST), [#imm](if BTST and not dyn)
-	u16 ea_invalid = RBT_EA_DIRECT_ADDR;
+	u16 ea_invalid = _EA_DIRECT_ADDR;
 	if (instr->mnemonic != RBT_OP_BTST) {
-		ea_invalid |= RBT_EA_GROUP_PCR;
-	} else if (instr->src.ea.mode == RBT_EA_IMMEDIATE) {
-		ea_invalid |= RBT_EA_IMMEDIATE;
+		ea_invalid |= _EA_GROUP_PCR;
+	} else if (instr->src.mode == _EA_IMMEDIATE) {
+		ea_invalid |= _EA_IMMEDIATE;
 	}
 
-	if (!_validate_ea(&instr->dst.ea, ea_invalid, "BIT", "Target", instr->start_pc)) {
+	if (!_validate_ea(&instr->dst, ea_invalid, "BIT", "Target", instr->start_pc)) {
 		return RBT_ERR_DECODE_ILLEGAL_EA;
 	}
 
@@ -224,11 +217,10 @@ static u8 _decode_imm(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		return RBT_ERR_DECODE_ILLEGAL;
 	}
 
-	instr->src.type = RBT_OPERAND_EA;
+	instr->src.mode = _EA_IMMEDIATE;
 	instr->src.size = instr->size;
-	instr->src.ea.mode = RBT_EA_IMMEDIATE;
 
-	if (_bus_fetch_imm(bus, instr->size, curr_pc, &instr->src.ea.imm)) {
+	if (_bus_fetch_imm(bus, instr->size, curr_pc, &instr->src.imm)) {
 		return rbt_query_last_error()->code;
 	}
 
@@ -248,28 +240,27 @@ static u8 _decode_imm(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 			return RBT_ERR_DECODE_ILLEGAL;
 		}
 
-		instr->dst.type = RBT_OPERAND_SR;
 		if (instr->size == RBT_SIZE_BYTE)
-			instr->dst.type = RBT_OPERAND_CCR;
+			instr->dst.mode = _EA_REGISTER_CCR;
+		else
+			instr->dst.mode = _EA_REGISTER_SR;
 
 		return RBT_ERR_SUCCESS;
 	}
 
-	instr->dst.type = RBT_OPERAND_EA;
-	instr->dst.size = instr->size;
 	curr_pc = _decode_effective_address(
-		ea_mode, ea_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
+		ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->dst
 	);
 	if (curr_pc == UINT32_MAX) {
 		return RBT_ERR_DECODE_INVALID_EA;
 	}
 
 	// EA invalid: An, #imm, [PC-relative](if not CMPI)
-	u16 ea_invalid = RBT_EA_DIRECT_ADDR | RBT_EA_IMMEDIATE;
+	u16 ea_invalid = _EA_DIRECT_ADDR | _EA_IMMEDIATE;
 	if (instr->mnemonic != RBT_OP_CMPI)
-		ea_invalid |= RBT_EA_GROUP_PCR;
+		ea_invalid |= _EA_GROUP_PCR;
 
-	if (!_validate_ea(&instr->dst.ea, ea_invalid, "IMM", "Dest", instr->start_pc)) {
+	if (!_validate_ea(&instr->dst, ea_invalid, "IMM", "Dest", instr->start_pc)) {
 		return RBT_ERR_DECODE_ILLEGAL_EA;
 	}
 
@@ -311,23 +302,19 @@ static u8 _decode_moves_movep(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 		instr->size = RBT_BIT(op, 0) ? RBT_SIZE_LONG : RBT_SIZE_WORD;
 		if (to_mem) {
-			instr->src.type = RBT_OPERAND_EA;
-			instr->src.ea.mode = RBT_EA_DIRECT_DATA;
-			instr->src.ea.reg = _OP_REG(opcode);
+			instr->src.mode = _EA_DIRECT_DATA;
+			instr->src.reg = _OP_REG(opcode);
 
-			instr->dst.type = RBT_OPERAND_EA;
-			instr->dst.ea.mode = RBT_EA_INDIRECT_DISPLACEMENT;
-			instr->dst.ea.ind_disp.areg = ea_reg;
-			instr->dst.ea.ind_disp.disp = rbt_sign_extend(RBT_SIZE_WORD, disp);
+			instr->dst.mode = _EA_INDIRECT_DISPLACEMENT;
+			instr->dst.ind_disp.areg = ea_reg;
+			instr->dst.ind_disp.disp = rbt_sign_extend(RBT_SIZE_WORD, disp);
 		} else {
-			instr->src.type = RBT_OPERAND_EA;
-			instr->src.ea.mode = RBT_EA_INDIRECT_DISPLACEMENT;
-			instr->src.ea.ind_disp.areg = ea_reg;
-			instr->src.ea.ind_disp.disp = rbt_sign_extend(RBT_SIZE_WORD, disp);
+			instr->src.mode = _EA_INDIRECT_DISPLACEMENT;
+			instr->src.ind_disp.areg = ea_reg;
+			instr->src.ind_disp.disp = rbt_sign_extend(RBT_SIZE_WORD, disp);
 
-			instr->dst.type = RBT_OPERAND_EA;
-			instr->dst.ea.mode = RBT_EA_DIRECT_DATA;
-			instr->dst.ea.reg = _OP_REG(opcode);
+			instr->dst.mode = _EA_DIRECT_DATA;
+			instr->dst.reg = _OP_REG(opcode);
 		}
 	} else {
 		if (rbt_bits(opcode, 11, 9) != 0b111) {
@@ -348,39 +335,30 @@ static u8 _decode_moves_movep(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		curr_pc += 2;
 
 		// Store extension word as auxiliar operand
-		instr->aux.type = RBT_OPERAND_EA;
 		instr->aux.size = RBT_SIZE_WORD;
-		instr->aux.ea.mode = RBT_EA_IMMEDIATE;
-		instr->aux.ea.imm = ext;
+		instr->aux.mode = _EA_IMMEDIATE;
+		instr->aux.imm = ext;
 
 		// 0: mem->reg; 1: reg->mem
 		const RBT_EffectiveAddress *target_ea;
 		if (RBT_BIT(ext, 11)) {
-			target_ea = &instr->dst.ea;
+			target_ea = &instr->dst;
 
-			instr->src.type = RBT_OPERAND_EA;
-			instr->src.ea.mode = RBT_BIT(ext, 15) ? RBT_EA_DIRECT_ADDR
-												  : RBT_EA_DIRECT_DATA;
-			instr->src.ea.reg = rbt_bits(ext, 14, 12);
+			instr->src.mode = RBT_BIT(ext, 15) ? _EA_DIRECT_ADDR : _EA_DIRECT_DATA;
+			instr->src.reg = rbt_bits(ext, 14, 12);
 
-			instr->dst.type = RBT_OPERAND_EA;
-			instr->dst.size = instr->size;
 			curr_pc = _decode_effective_address(
-				ea_mode, ea_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
+				ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->dst
 			);
 		} else {
-			target_ea = &instr->src.ea;
+			target_ea = &instr->src;
 
-			instr->src.type = RBT_OPERAND_EA;
-			instr->src.size = instr->size;
 			curr_pc = _decode_effective_address(
-				ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->src.ea
+				ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->src
 			);
 
-			instr->dst.type = RBT_OPERAND_EA;
-			instr->dst.ea.mode = RBT_BIT(ext, 15) ? RBT_EA_DIRECT_ADDR
-												  : RBT_EA_DIRECT_DATA;
-			instr->dst.ea.reg = rbt_bits(ext, 14, 12);
+			instr->dst.mode = RBT_BIT(ext, 15) ? _EA_DIRECT_ADDR : _EA_DIRECT_DATA;
+			instr->dst.reg = rbt_bits(ext, 14, 12);
 		}
 
 		if (curr_pc == UINT32_MAX) {
@@ -388,8 +366,8 @@ static u8 _decode_moves_movep(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		}
 
 		// EA invalid: Dn, An, #imm, PC-relative
-		u16 ea_invalid = RBT_EA_DIRECT_DATA | RBT_EA_DIRECT_ADDR | RBT_EA_IMMEDIATE
-					   | RBT_EA_GROUP_PCR;
+		u16 ea_invalid = _EA_DIRECT_DATA | _EA_DIRECT_ADDR | _EA_IMMEDIATE
+					   | _EA_GROUP_PCR;
 		if (!_validate_ea(target_ea, ea_invalid, "MOVES", "Target", instr->start_pc)) {
 			return RBT_ERR_DECODE_ILLEGAL_EA;
 		}
@@ -427,32 +405,28 @@ static u8 _decode_move_movea(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		return RBT_ERR_DECODE_ILLEGAL_EA;
 	}
 
-	instr->src.type = RBT_OPERAND_EA;
-	instr->src.size = instr->size;
 	curr_pc = _decode_effective_address(
-		ea_src_mode, ea_src_reg, instr->src.size, bus, curr_pc, &instr->src.ea
+		ea_src_mode, ea_src_reg, instr->size, bus, curr_pc, &instr->src
 	);
 	if (curr_pc == UINT32_MAX) {
 		return RBT_ERR_DECODE_INVALID_EA;
 	}
 
-	instr->dst.type = RBT_OPERAND_EA;
-	instr->dst.size = instr->size;
 	curr_pc = _decode_effective_address(
-		ea_dst_mode, ea_dst_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
+		ea_dst_mode, ea_dst_reg, instr->size, bus, curr_pc, &instr->dst
 	);
 	if (curr_pc == UINT32_MAX) {
 		return RBT_ERR_DECODE_INVALID_EA;
 	}
 
 	// EA invalid: #imm, PC-relative
-	u16 ea_invalid = RBT_EA_IMMEDIATE | RBT_EA_GROUP_PCR;
-	if (!_validate_ea(&instr->dst.ea, ea_invalid, "MOVE", "Source", instr->start_pc)) {
+	u16 ea_invalid = _EA_IMMEDIATE | _EA_GROUP_PCR;
+	if (!_validate_ea(&instr->dst, ea_invalid, "MOVE", "Source", instr->start_pc)) {
 		return RBT_ERR_DECODE_ILLEGAL_EA;
 	}
 
 	// An is Word/Long only
-	if (instr->src.ea.mode == RBT_EA_DIRECT_ADDR && instr->size == RBT_SIZE_BYTE) {
+	if (instr->src.mode == _EA_DIRECT_ADDR && instr->size == RBT_SIZE_BYTE) {
 		_push_warn(
 			"MOVE/MOVEA: Source EA(An) cannot be byte-sized, at: 0x%06x", instr->start_pc
 		);
@@ -484,42 +458,31 @@ static u8 _decode_move_reg(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	instr->size = RBT_SIZE_WORD;
 
 	switch (rbt_bits(opcode, 11, 9)) {
-	case 0b000: instr->src.type = RBT_OPERAND_SR; break;  // FROM SR
-	case 0b001: instr->src.type = RBT_OPERAND_CCR; break; // FROM CCR
-	case 0b010: instr->dst.type = RBT_OPERAND_CCR; break; // TO CCR
-	case 0b011: instr->dst.type = RBT_OPERAND_SR; break;  // TO SR
+	case 0b000: instr->src.mode = _EA_REGISTER_SR; break;  // FROM SR
+	case 0b001: instr->src.mode = _EA_REGISTER_CCR; break; // FROM CCR
+	case 0b010: instr->dst.mode = _EA_REGISTER_CCR; break; // TO CCR
+	case 0b011: instr->dst.mode = _EA_REGISTER_SR; break;  // TO SR
 	default:
 		_push_warn("MOVE <> SR/CCR: Unknown register at: 0x%06x", instr->start_pc);
 		return RBT_ERR_DECODE_ILLEGAL;
 	}
 
-	if (instr->src.type == RBT_OPERAND_NONE) {
-		instr->src.type = RBT_OPERAND_EA;
-		instr->src.size = instr->size;
-		curr_pc = _decode_effective_address(
-			ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->src.ea
-		);
-	} else {
-		instr->dst.type = RBT_OPERAND_EA;
-		instr->dst.size = instr->size;
-		curr_pc = _decode_effective_address(
-			ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->dst.ea
-		);
-	}
-
-	if (curr_pc == UINT32_MAX) {
-		return RBT_ERR_DECODE_INVALID_EA;
-	}
-
 	// EA invalid: An, [#imm, PC-relative](if from CCR/SR)
 	u16 ea_invalid;
 	RBT_EffectiveAddress *target_ea;
-	if (instr->src.type == RBT_OPERAND_EA) {
-		target_ea = &instr->src.ea;
-		ea_invalid = RBT_EA_DIRECT_ADDR | RBT_EA_IMMEDIATE | RBT_EA_GROUP_PCR;
+	if (instr->src.mode == _EA_NONE) {
+		target_ea = &instr->src;
+		ea_invalid = _EA_DIRECT_ADDR;
 	} else {
-		target_ea = &instr->dst.ea;
-		ea_invalid = RBT_EA_DIRECT_ADDR;
+		target_ea = &instr->dst;
+		ea_invalid = _EA_DIRECT_ADDR | _EA_IMMEDIATE | _EA_GROUP_PCR;
+	}
+
+	curr_pc = _decode_effective_address(
+		ea_mode, ea_reg, instr->size, bus, curr_pc, target_ea
+	);
+	if (curr_pc == UINT32_MAX) {
+		return RBT_ERR_DECODE_INVALID_EA;
 	}
 
 	if (!_validate_ea(
@@ -560,18 +523,16 @@ static u8 _decode_negx_clr_not(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		return RBT_ERR_DECODE_ILLEGAL;
 	}
 
-	instr->dst.type = RBT_OPERAND_EA;
-	instr->dst.size = instr->size;
 	curr_pc = _decode_effective_address(
-		ea_mode, ea_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
+		ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->dst
 	);
 	if (curr_pc == UINT32_MAX) {
 		return RBT_ERR_DECODE_INVALID_EA;
 	}
 
 	// EA invalid: An, PC-relative, #imm
-	u16 ea_invalid = RBT_EA_DIRECT_ADDR | RBT_EA_IMMEDIATE | RBT_EA_GROUP_PCR;
-	if (!_validate_ea(&instr->dst.ea, ea_invalid, "MISC", "Dest", instr->start_pc)) {
+	u16 ea_invalid = _EA_DIRECT_ADDR | _EA_IMMEDIATE | _EA_GROUP_PCR;
+	if (!_validate_ea(&instr->dst, ea_invalid, "MISC", "Dest", instr->start_pc)) {
 		return RBT_ERR_DECODE_ILLEGAL_EA;
 	}
 
@@ -598,37 +559,31 @@ static u8 _decode_movem(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 	// If mem->reg: EA invalid: Dn, An, -(An), #imm
 	// If reg->mem: EA invalid: Dn, An, (An)+, PC-relative, #imm
-	u16 ea_invalid = RBT_EA_DIRECT_DATA | RBT_EA_DIRECT_ADDR | RBT_EA_IMMEDIATE;
+	u16 ea_invalid = _EA_DIRECT_DATA | _EA_DIRECT_ADDR | _EA_IMMEDIATE;
 	const RBT_EffectiveAddress *target_ea;
 
 	// 0: regs->mem; 1: mem->regs
 	if (RBT_BIT(opcode, 10)) {
-		target_ea = &instr->src.ea;
-		ea_invalid |= RBT_EA_INDIRECT_PREDEC;
+		target_ea = &instr->src;
+		ea_invalid |= _EA_INDIRECT_PREDEC;
 
-		instr->src.type = RBT_OPERAND_EA;
-		instr->src.size = instr->size;
 		curr_pc = _decode_effective_address(
-			ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->src.ea
+			ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->src
 		);
 
-		instr->dst.type = RBT_OPERAND_EA;
+		instr->dst.mode = _EA_IMMEDIATE;
 		instr->dst.size = RBT_SIZE_WORD;
-		instr->dst.ea.mode = RBT_EA_IMMEDIATE;
-		instr->dst.ea.imm = regs;
+		instr->dst.imm = regs;
 	} else {
-		target_ea = &instr->dst.ea;
-		ea_invalid |= RBT_EA_INDIRECT_POSTINC | RBT_EA_GROUP_PCR;
+		target_ea = &instr->dst;
+		ea_invalid |= _EA_INDIRECT_POSTINC | _EA_GROUP_PCR;
 
-		instr->src.type = RBT_OPERAND_EA;
+		instr->src.mode = _EA_IMMEDIATE;
 		instr->src.size = RBT_SIZE_WORD;
-		instr->src.ea.mode = RBT_EA_IMMEDIATE;
-		instr->src.ea.imm = regs;
+		instr->src.imm = regs;
 
-		instr->dst.type = RBT_OPERAND_EA;
-		instr->dst.size = instr->size;
 		curr_pc = _decode_effective_address(
-			ea_mode, ea_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
+			ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->dst
 		);
 	}
 
@@ -661,9 +616,8 @@ static u8 _decode_ext_nbcd_swap_bkpt_pea(RBT_Instruction *instr, RBT_MemoryBus *
 		instr->mnemonic = RBT_OP_EXT;
 		instr->size = RBT_BIT(op, 0) ? RBT_SIZE_LONG : RBT_SIZE_WORD;
 
-		instr->dst.type = RBT_OPERAND_EA;
-		instr->dst.ea.mode = RBT_EA_DIRECT_DATA;
-		instr->dst.ea.reg = ea_reg;
+		instr->dst.mode = _EA_DIRECT_DATA;
+		instr->dst.reg = ea_reg;
 
 		return RBT_ERR_SUCCESS;
 	}
@@ -672,18 +626,16 @@ static u8 _decode_ext_nbcd_swap_bkpt_pea(RBT_Instruction *instr, RBT_MemoryBus *
 		instr->mnemonic = RBT_OP_NBCD;
 		instr->size = RBT_SIZE_BYTE;
 
-		instr->dst.type = RBT_OPERAND_EA;
-		instr->dst.size = instr->size;
 		curr_pc = _decode_effective_address(
-			ea_mode, ea_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
+			ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->dst
 		);
 		if (curr_pc == UINT32_MAX) {
 			return RBT_ERR_DECODE_INVALID_EA;
 		}
 
 		// EA invalid: An, #imm, PC-relative
-		u16 ea_invalid = RBT_EA_DIRECT_ADDR | RBT_EA_IMMEDIATE | RBT_EA_GROUP_PCR;
-		if (!_validate_ea(&instr->dst.ea, ea_invalid, "NBCD", "Dest", instr->start_pc)) {
+		u16 ea_invalid = _EA_DIRECT_ADDR | _EA_IMMEDIATE | _EA_GROUP_PCR;
+		if (!_validate_ea(&instr->dst, ea_invalid, "NBCD", "Dest", instr->start_pc)) {
 			return RBT_ERR_DECODE_ILLEGAL_EA;
 		}
 
@@ -695,9 +647,8 @@ static u8 _decode_ext_nbcd_swap_bkpt_pea(RBT_Instruction *instr, RBT_MemoryBus *
 			instr->mnemonic = RBT_OP_SWAP;
 			instr->size = RBT_SIZE_WORD;
 
-			instr->dst.type = RBT_OPERAND_EA;
-			instr->dst.ea.mode = RBT_EA_DIRECT_DATA;
-			instr->dst.ea.reg = ea_reg;
+			instr->dst.mode = _EA_DIRECT_DATA;
+			instr->dst.reg = ea_reg;
 			return RBT_ERR_SUCCESS;
 		}
 
@@ -705,28 +656,25 @@ static u8 _decode_ext_nbcd_swap_bkpt_pea(RBT_Instruction *instr, RBT_MemoryBus *
 			instr->mnemonic = RBT_OP_BKPT;
 			instr->size = RBT_SIZE_NONE;
 
-			instr->src.type = RBT_OPERAND_EA;
 			instr->src.size = RBT_SIZE_NONE;
-			instr->src.ea.mode = RBT_EA_IMMEDIATE;
-			instr->src.ea.imm = rbt_bits(opcode, 2, 0);
+			instr->src.mode = _EA_IMMEDIATE;
+			instr->src.imm = rbt_bits(opcode, 2, 0);
 			return RBT_ERR_SUCCESS;
 		}
 
 		instr->mnemonic = RBT_OP_PEA;
 		instr->size = RBT_SIZE_LONG;
 
-		instr->src.type = RBT_OPERAND_EA;
-		instr->src.size = instr->size;
 		curr_pc = _decode_effective_address(
-			ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->src.ea
+			ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->src
 		);
 		if (curr_pc == UINT32_MAX) {
 			return RBT_ERR_DECODE_INVALID_EA;
 		}
 
 		// EA invalid: Dn, An, (An)+, -(An), #imm
-		u16 ea_invalid = RBT_EA_DIRECT_DATA | RBT_EA_DIRECT_ADDR | RBT_EA_GROUP_REL;
-		if (!_validate_ea(&instr->src.ea, ea_invalid, "PEA", "Source", instr->start_pc)) {
+		u16 ea_invalid = _EA_DIRECT_DATA | _EA_DIRECT_ADDR | _EA_GROUP_REL;
+		if (!_validate_ea(&instr->src, ea_invalid, "PEA", "Source", instr->start_pc)) {
 			return RBT_ERR_DECODE_ILLEGAL_EA;
 		}
 
@@ -764,21 +712,19 @@ static u8 _decode_illegal_tas_tst(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		return RBT_ERR_DECODE_ILLEGAL;
 	}
 
-	instr->dst.type = RBT_OPERAND_EA;
-	instr->dst.size = instr->size;
 	u32 new_pc = _decode_effective_address(
-		ea_mode, ea_reg, instr->dst.size, bus, instr->start_pc + 2, &instr->dst.ea
+		ea_mode, ea_reg, instr->size, bus, instr->start_pc + 2, &instr->dst
 	);
 	if (new_pc == UINT32_MAX) {
 		return RBT_ERR_DECODE_INVALID_EA;
 	}
 
 	// EA invalid: Dn, An, #imm, [PC-relative](if TAS)
-	u16 ea_invalid = RBT_EA_DIRECT_ADDR | RBT_EA_IMMEDIATE;
+	u16 ea_invalid = _EA_DIRECT_ADDR | _EA_IMMEDIATE;
 	if (instr->mnemonic == RBT_OP_TAS)
-		ea_invalid |= RBT_EA_GROUP_PCR;
+		ea_invalid |= _EA_GROUP_PCR;
 
-	if (!_validate_ea(&instr->dst.ea, ea_invalid, "TAS/TST", "Dest", instr->start_pc)) {
+	if (!_validate_ea(&instr->dst, ea_invalid, "TAS/TST", "Dest", instr->start_pc)) {
 		return RBT_ERR_DECODE_ILLEGAL_EA;
 	}
 
@@ -815,21 +761,17 @@ static u8 _decode_misc(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		instr->mnemonic = RBT_BIT(opcode, 6) ? RBT_OP_JMP : RBT_OP_JSR;
 		instr->size = RBT_SIZE_NONE;
 
-		instr->dst.type = RBT_OPERAND_EA;
-		instr->dst.size = instr->size;
 		curr_pc = _decode_effective_address(
-			ea_mode, ea_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
+			ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->dst
 		);
 		if (curr_pc == UINT32_MAX) {
 			return RBT_ERR_DECODE_INVALID_EA;
 		}
 
 		// EA invalid: Dn, An, #imm, (An)+, -(An)
-		u16 ea_invalid = RBT_EA_DIRECT_DATA | RBT_EA_DIRECT_ADDR | RBT_EA_IMMEDIATE
-					   | RBT_EA_GROUP_REL;
-		if (!_validate_ea(
-				&instr->dst.ea, ea_invalid, "JMP/JSR", "Dest", instr->start_pc
-			)) {
+		u16 ea_invalid = _EA_DIRECT_DATA | _EA_DIRECT_ADDR | _EA_IMMEDIATE
+					   | _EA_GROUP_REL;
+		if (!_validate_ea(&instr->dst, ea_invalid, "JMP/JSR", "Dest", instr->start_pc)) {
 			return RBT_ERR_DECODE_ILLEGAL_EA;
 		}
 
@@ -843,10 +785,9 @@ static u8 _decode_misc(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		instr->mnemonic = RBT_OP_TRAP;
 		instr->size = RBT_SIZE_NONE;
 
-		instr->src.type = RBT_OPERAND_EA;
 		instr->src.size = instr->size;
-		instr->src.ea.mode = RBT_EA_IMMEDIATE;
-		instr->src.ea.imm = rbt_bits(opcode, 3, 0);
+		instr->src.mode = _EA_IMMEDIATE;
+		instr->src.imm = rbt_bits(opcode, 3, 0);
 		return RBT_ERR_SUCCESS;
 	}
 
@@ -856,9 +797,8 @@ static u8 _decode_misc(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	if (subtype == 0b0101) {
 		instr->mnemonic = RBT_BIT(opcode, 3) ? RBT_OP_UNLK : RBT_OP_LINK;
 
-		instr->src.type = RBT_OPERAND_EA;
-		instr->src.ea.mode = RBT_EA_DIRECT_ADDR;
-		instr->src.ea.reg = rbt_bits(opcode, 2, 0);
+		instr->src.mode = _EA_DIRECT_ADDR;
+		instr->src.reg = rbt_bits(opcode, 2, 0);
 
 		if (instr->mnemonic == RBT_OP_LINK) {
 			u16 offset;
@@ -867,7 +807,7 @@ static u8 _decode_misc(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 			}
 
 			instr->size = RBT_SIZE_WORD;
-			instr->dst.type = RBT_OPERAND_DISP;
+			instr->dst.mode = _EA_DISPLACEMENT;
 			instr->dst.size = instr->size;
 			instr->dst.disp = rbt_sign_extend(RBT_SIZE_WORD, offset);
 		}
@@ -882,17 +822,15 @@ static u8 _decode_misc(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		instr->size = RBT_SIZE_LONG;
 
 		if (RBT_BIT(opcode, 3) == 0) {
-			instr->src.type = RBT_OPERAND_EA;
-			instr->src.ea.mode = RBT_EA_DIRECT_ADDR;
-			instr->src.ea.reg = _OP_EA_REG(opcode);
+			instr->src.mode = _EA_DIRECT_ADDR;
+			instr->src.reg = _OP_EA_REG(opcode);
 
-			instr->dst.type = RBT_OPERAND_USP;
+			instr->dst.mode = _EA_REGISTER_USP;
 		} else {
-			instr->src.type = RBT_OPERAND_USP;
+			instr->src.mode = _EA_REGISTER_USP;
 
-			instr->dst.type = RBT_OPERAND_EA;
-			instr->dst.ea.mode = RBT_EA_DIRECT_ADDR;
-			instr->dst.ea.reg = _OP_EA_REG(opcode);
+			instr->dst.mode = _EA_DIRECT_ADDR;
+			instr->dst.reg = _OP_EA_REG(opcode);
 		}
 
 		return RBT_ERR_SUCCESS;
@@ -910,10 +848,9 @@ static u8 _decode_misc(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		instr->size = RBT_SIZE_LONG;
 
 		// Store extension word as auxiliar operand
-		instr->aux.type = RBT_OPERAND_EA;
 		instr->aux.size = RBT_SIZE_WORD;
-		instr->aux.ea.mode = RBT_EA_IMMEDIATE;
-		instr->aux.ea.imm = aux;
+		instr->aux.mode = _EA_IMMEDIATE;
+		instr->aux.imm = aux;
 
 		u8 ctrl = rbt_bits(aux, 12, 0);
 		u8 reg = rbt_bits(aux, 14, 12);
@@ -921,23 +858,19 @@ static u8 _decode_misc(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 		bool to_ctrl = RBT_BIT(opcode, 0); // 1: Rn->Rc; 0: Rc->Rn
 		if (to_ctrl) {
-			instr->src.type = RBT_OPERAND_EA;
-			instr->src.ea.mode = is_addr ? RBT_EA_DIRECT_ADDR : RBT_EA_DIRECT_DATA;
-			instr->src.ea.reg = reg;
+			instr->src.mode = is_addr ? _EA_DIRECT_ADDR : _EA_DIRECT_DATA;
+			instr->src.reg = reg;
 
-			instr->dst.type = RBT_OPERAND_EA;
 			instr->dst.size = RBT_SIZE_NONE;
-			instr->dst.ea.mode = RBT_EA_IMMEDIATE;
-			instr->dst.ea.imm = ctrl;
+			instr->dst.mode = _EA_IMMEDIATE;
+			instr->dst.imm = ctrl;
 		} else {
-			instr->src.type = RBT_OPERAND_EA;
 			instr->src.size = RBT_SIZE_NONE;
-			instr->src.ea.mode = RBT_EA_IMMEDIATE;
-			instr->src.ea.imm = ctrl;
+			instr->src.mode = _EA_IMMEDIATE;
+			instr->src.imm = ctrl;
 
-			instr->dst.type = RBT_OPERAND_EA;
-			instr->dst.ea.mode = is_addr ? RBT_EA_DIRECT_ADDR : RBT_EA_DIRECT_DATA;
-			instr->dst.ea.reg = reg;
+			instr->dst.mode = is_addr ? _EA_DIRECT_ADDR : _EA_DIRECT_DATA;
+			instr->dst.reg = reg;
 		}
 
 		return RBT_ERR_SUCCESS;
@@ -966,11 +899,10 @@ static u8 _decode_misc(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	}
 
 	if (instr->mnemonic == RBT_OP_STOP) {
-		instr->src.type = RBT_OPERAND_EA;
 		instr->src.size = RBT_SIZE_WORD;
-		instr->src.ea.mode = RBT_EA_IMMEDIATE;
+		instr->src.mode = _EA_IMMEDIATE;
 
-		if (_bus_fetch_imm(bus, instr->src.size, curr_pc, &instr->src.ea.imm)) {
+		if (_bus_fetch_imm(bus, instr->src.size, curr_pc, &instr->src.imm)) {
 			return rbt_query_last_error()->code;
 		}
 	}
@@ -981,7 +913,7 @@ static u8 _decode_misc(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 			return rbt_query_last_error()->code;
 		}
 
-		instr->src.type = RBT_OPERAND_DISP;
+		instr->src.mode = _EA_DISPLACEMENT;
 		instr->src.size = RBT_SIZE_WORD;
 		instr->src.disp = rbt_sign_extend(RBT_SIZE_WORD, disp);
 	}
@@ -1003,31 +935,27 @@ static u8 _decode_chk_lea(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	instr->mnemonic = RBT_BIT(subtype, 0) ? RBT_OP_LEA : RBT_OP_CHK;
 	if (instr->mnemonic == RBT_OP_CHK) {
 		instr->size = RBT_SIZE_WORD;
-		instr->dst.type = RBT_OPERAND_EA;
-		instr->dst.ea.mode = RBT_EA_DIRECT_DATA;
-		instr->dst.ea.reg = reg;
+		instr->dst.mode = _EA_DIRECT_DATA;
+		instr->dst.reg = reg;
 	} else {
 		instr->size = RBT_SIZE_LONG;
-		instr->dst.type = RBT_OPERAND_EA;
-		instr->dst.ea.mode = RBT_EA_DIRECT_ADDR;
-		instr->dst.ea.reg = reg;
+		instr->dst.mode = _EA_DIRECT_ADDR;
+		instr->dst.reg = reg;
 	}
 
-	instr->src.type = RBT_OPERAND_EA;
-	instr->src.size = instr->size;
 	curr_pc = _decode_effective_address(
-		ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->src.ea
+		ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->src
 	);
 	if (curr_pc == UINT32_MAX) {
 		return RBT_ERR_DECODE_INVALID_EA;
 	}
 
 	// EA invalid: An, [Dn, (An)+, -(An), #imm](Only LEA)
-	u16 ea_invalid = RBT_EA_DIRECT_ADDR;
+	u16 ea_invalid = _EA_DIRECT_ADDR;
 	if (instr->mnemonic == RBT_OP_LEA)
-		ea_invalid |= RBT_EA_DIRECT_DATA | RBT_EA_IMMEDIATE | RBT_EA_GROUP_REL;
+		ea_invalid |= _EA_DIRECT_DATA | _EA_IMMEDIATE | _EA_GROUP_REL;
 
-	if (!_validate_ea(&instr->src.ea, ea_invalid, "LEA/CHK", "Source", instr->start_pc)) {
+	if (!_validate_ea(&instr->src, ea_invalid, "LEA/CHK", "Source", instr->start_pc)) {
 		return RBT_ERR_DECODE_ILLEGAL_EA;
 	}
 
@@ -1058,18 +986,16 @@ static u8 _decode_addq_subq(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 			instr->mnemonic = RBT_OP_DBcc;
 			instr->size = RBT_SIZE_WORD;
 
-			instr->src.type = RBT_OPERAND_EA;
-			instr->src.ea.mode = RBT_EA_DIRECT_DATA;
-			instr->src.ea.reg = ea_reg;
+			instr->src.mode = _EA_DIRECT_DATA;
+			instr->src.reg = ea_reg;
 
-			instr->dst.type = RBT_OPERAND_DISP;
+			instr->dst.mode = _EA_DISPLACEMENT;
 			instr->dst.size = RBT_SIZE_WORD;
 			instr->dst.disp = rbt_sign_extend(RBT_SIZE_WORD, offset);
 
-			instr->aux.type = RBT_OPERAND_EA;
 			instr->aux.size = RBT_SIZE_NONE;
-			instr->aux.ea.mode = RBT_EA_IMMEDIATE;
-			instr->aux.ea.imm = cond;
+			instr->aux.mode = _EA_IMMEDIATE;
+			instr->aux.imm = cond;
 
 			return RBT_ERR_SUCCESS;
 		}
@@ -1077,23 +1003,20 @@ static u8 _decode_addq_subq(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		instr->mnemonic = RBT_OP_Scc;
 		instr->size = RBT_SIZE_BYTE;
 
-		instr->aux.type = RBT_OPERAND_EA;
+		instr->aux.mode = _EA_IMMEDIATE;
 		instr->aux.size = RBT_SIZE_NONE;
-		instr->aux.ea.mode = RBT_EA_IMMEDIATE;
-		instr->aux.ea.imm = cond;
+		instr->aux.imm = cond;
 
-		instr->dst.size = instr->size;
-		instr->dst.type = RBT_OPERAND_EA;
 		curr_pc = _decode_effective_address(
-			ea_mode, ea_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
+			ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->dst
 		);
 		if (curr_pc == UINT32_MAX) {
 			return RBT_ERR_DECODE_INVALID_EA;
 		}
 
 		// EA invalid: An, PC-relative, #imm
-		u16 ea_invalid = RBT_EA_DIRECT_ADDR | RBT_EA_GROUP_PCR | RBT_EA_IMMEDIATE;
-		if (!_validate_ea(&instr->dst.ea, ea_invalid, "Scc", "Target", instr->start_pc)) {
+		u16 ea_invalid = _EA_DIRECT_ADDR | _EA_GROUP_PCR | _EA_IMMEDIATE;
+		if (!_validate_ea(&instr->dst, ea_invalid, "Scc", "Target", instr->start_pc)) {
 			return RBT_ERR_DECODE_ILLEGAL_EA;
 		}
 
@@ -1107,22 +1030,19 @@ static u8 _decode_addq_subq(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		return RBT_ERR_DECODE_ILLEGAL;
 	}
 
-	instr->src.type = RBT_OPERAND_EA;
+	instr->src.mode = _EA_IMMEDIATE;
 	instr->src.size = RBT_SIZE_NONE;
-	instr->src.ea.mode = RBT_EA_IMMEDIATE;
-	instr->src.ea.imm = _OP_QUICK(opcode);
+	instr->src.imm = _OP_QUICK(opcode);
 
-	instr->dst.type = RBT_OPERAND_EA;
-	instr->dst.size = instr->size;
 	curr_pc = _decode_effective_address(
-		ea_mode, ea_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
+		ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->dst
 	);
 	if (curr_pc == UINT32_MAX) {
 		return RBT_ERR_DECODE_INVALID_EA;
 	}
 
 	// An is Word/Long only
-	if (instr->dst.ea.mode == RBT_EA_DIRECT_ADDR && instr->size == RBT_SIZE_BYTE) {
+	if (instr->dst.mode == _EA_DIRECT_ADDR && instr->size == RBT_SIZE_BYTE) {
 		_push_warn(
 			"ADDQ/SUBQ: Source EA(An) cannot be byte-sized, at: 0x%06x", instr->start_pc
 		);
@@ -1130,8 +1050,8 @@ static u8 _decode_addq_subq(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	}
 
 	// EA invalid: PC-relative, #imm
-	u16 ea_invalid = RBT_EA_GROUP_PCR | RBT_EA_IMMEDIATE;
-	if (!_validate_ea(&instr->dst.ea, ea_invalid, "ADDQ/SUBQ", "Dest", instr->start_pc)) {
+	u16 ea_invalid = _EA_GROUP_PCR | _EA_IMMEDIATE;
+	if (!_validate_ea(&instr->dst, ea_invalid, "ADDQ/SUBQ", "Dest", instr->start_pc)) {
 		return RBT_ERR_DECODE_ILLEGAL_EA;
 	}
 
@@ -1165,12 +1085,11 @@ static u8 _decode_branch(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		instr->mnemonic = RBT_OP_Bcc;
 	}
 
-	instr->aux.type = RBT_OPERAND_EA;
+	instr->aux.mode = _EA_IMMEDIATE;
 	instr->aux.size = RBT_SIZE_NONE;
-	instr->aux.ea.mode = RBT_EA_IMMEDIATE;
-	instr->aux.ea.imm = cond;
+	instr->aux.imm = cond;
 
-	instr->dst.type = RBT_OPERAND_DISP;
+	instr->dst.mode = _EA_DISPLACEMENT;
 	instr->dst.size = (instr->size == RBT_SIZE_BYTE) ? RBT_SIZE_NONE : RBT_SIZE_WORD;
 	instr->dst.disp = rbt_sign_extend(instr->size, offset);
 
@@ -1194,23 +1113,20 @@ static u8 _decode_ordiv(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		instr->mnemonic = RBT_BIT(opcode, 8) ? RBT_OP_DIVS : RBT_OP_DIVU;
 		instr->size = RBT_SIZE_WORD;
 
-		instr->src.type = RBT_OPERAND_EA;
-		instr->src.size = instr->size;
 		curr_pc = _decode_effective_address(
-			ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->src.ea
+			ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->src
 		);
 		if (curr_pc == UINT32_MAX) {
 			return RBT_ERR_DECODE_INVALID_EA;
 		}
 
-		instr->dst.type = RBT_OPERAND_EA;
-		instr->dst.ea.mode = RBT_EA_DIRECT_DATA;
-		instr->dst.ea.reg = dreg;
+		instr->dst.mode = _EA_DIRECT_DATA;
+		instr->dst.reg = dreg;
 
 		// EA invalid: An
-		u16 ea_invalid = RBT_EA_DIRECT_ADDR;
+		u16 ea_invalid = _EA_DIRECT_ADDR;
 		if (!_validate_ea(
-				&instr->src.ea, ea_invalid, "DIVU/DIVS", "Source", instr->start_pc
+				&instr->src, ea_invalid, "DIVU/DIVS", "Source", instr->start_pc
 			)) {
 			return RBT_ERR_DECODE_ILLEGAL_EA;
 		}
@@ -1222,22 +1138,19 @@ static u8 _decode_ordiv(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		instr->mnemonic = RBT_OP_SBCD;
 		instr->size = RBT_SIZE_BYTE;
 
-		instr->src.type = RBT_OPERAND_EA;
-		instr->dst.type = RBT_OPERAND_EA;
-
 		// 1: -(Ay)->-(Ax); 0: Dy->Dx
 		if (RBT_BIT(opcode, 3)) {
-			instr->src.ea.mode = RBT_EA_INDIRECT_PREDEC;
-			instr->src.ea.indirect = _OP_REGY(opcode);
+			instr->src.mode = _EA_INDIRECT_PREDEC;
+			instr->src.indirect = _OP_REGY(opcode);
 
-			instr->dst.ea.mode = RBT_EA_INDIRECT_PREDEC;
-			instr->dst.ea.indirect = _OP_REGX(opcode);
+			instr->dst.mode = _EA_INDIRECT_PREDEC;
+			instr->dst.indirect = _OP_REGX(opcode);
 		} else {
-			instr->src.ea.mode = RBT_EA_DIRECT_DATA;
-			instr->src.ea.reg = _OP_REGY(opcode);
+			instr->src.mode = _EA_DIRECT_DATA;
+			instr->src.reg = _OP_REGY(opcode);
 
-			instr->dst.ea.mode = RBT_EA_DIRECT_DATA;
-			instr->dst.ea.reg = _OP_REGX(opcode);
+			instr->dst.mode = _EA_DIRECT_DATA;
+			instr->dst.reg = _OP_REGX(opcode);
 		}
 
 		return RBT_ERR_SUCCESS;
@@ -1251,36 +1164,30 @@ static u8 _decode_ordiv(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	}
 
 	// EA invalid: An, [Dn, PC-rel, #imm](if <ea> is dest)
-	u16 ea_invalid = RBT_EA_DIRECT_ADDR;
+	u16 ea_invalid = _EA_DIRECT_ADDR;
 	RBT_EffectiveAddress *target_ea;
 
 	// 1: <ea> or Dn -> <ea>
 	// 0: Dn or <ea> -> Dn
 	if (RBT_BIT(opcode, 8)) {
-		target_ea = &instr->dst.ea;
-		ea_invalid |= RBT_EA_DIRECT_DATA | RBT_EA_GROUP_PCR | RBT_EA_IMMEDIATE;
+		target_ea = &instr->dst;
+		ea_invalid |= _EA_DIRECT_DATA | _EA_GROUP_PCR | _EA_IMMEDIATE;
 
-		instr->src.type = RBT_OPERAND_EA;
-		instr->src.ea.mode = RBT_EA_DIRECT_DATA;
-		instr->src.ea.reg = dreg;
+		instr->src.mode = _EA_DIRECT_DATA;
+		instr->src.reg = dreg;
 
-		instr->dst.type = RBT_OPERAND_EA;
-		instr->dst.size = instr->size;
 		curr_pc = _decode_effective_address(
-			ea_mode, ea_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
+			ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->dst
 		);
 	} else {
-		target_ea = &instr->src.ea;
+		target_ea = &instr->src;
 
-		instr->src.type = RBT_OPERAND_EA;
-		instr->src.size = instr->size;
 		curr_pc = _decode_effective_address(
-			ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->src.ea
+			ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->src
 		);
 
-		instr->dst.type = RBT_OPERAND_EA;
-		instr->dst.ea.mode = RBT_EA_DIRECT_DATA;
-		instr->dst.ea.reg = dreg;
+		instr->dst.mode = _EA_DIRECT_DATA;
+		instr->dst.reg = dreg;
 	}
 
 	if (curr_pc == UINT32_MAX) {
@@ -1309,18 +1216,15 @@ static u8 _decode_subsubx(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		instr->mnemonic = RBT_OP_SUBA;
 		instr->size = RBT_BIT(opcode, 8) ? RBT_SIZE_LONG : RBT_SIZE_WORD;
 
-		instr->src.type = RBT_OPERAND_EA;
-		instr->src.size = instr->size;
 		curr_pc = _decode_effective_address(
-			ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->src.ea
+			ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->src
 		);
 		if (curr_pc == UINT32_MAX) {
 			return RBT_ERR_DECODE_INVALID_EA;
 		}
 
-		instr->dst.type = RBT_OPERAND_EA;
-		instr->dst.ea.mode = RBT_EA_DIRECT_ADDR;
-		instr->dst.ea.reg = _OP_REG(opcode);
+		instr->dst.mode = _EA_DIRECT_ADDR;
+		instr->dst.reg = _OP_REG(opcode);
 
 		return RBT_ERR_SUCCESS;
 	}
@@ -1336,22 +1240,19 @@ static u8 _decode_subsubx(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		u8 reg_y = _OP_EA_REG(opcode); // Source
 		u8 reg_x = _OP_REG(opcode);	   // Dest
 
-		instr->src.type = RBT_OPERAND_EA;
-		instr->dst.type = RBT_OPERAND_EA;
-
 		// 1: -(An)->-(An); 0: Dn -> Dn
 		if (RBT_BIT(opcode, 3)) {
-			instr->src.ea.mode = RBT_EA_INDIRECT_PREDEC;
-			instr->src.ea.indirect = reg_y;
+			instr->src.mode = _EA_INDIRECT_PREDEC;
+			instr->src.indirect = reg_y;
 
-			instr->dst.ea.mode = RBT_EA_INDIRECT_PREDEC;
-			instr->dst.ea.indirect = reg_x;
+			instr->dst.mode = _EA_INDIRECT_PREDEC;
+			instr->dst.indirect = reg_x;
 		} else {
-			instr->src.ea.mode = RBT_EA_DIRECT_DATA;
-			instr->src.ea.reg = reg_y;
+			instr->src.mode = _EA_DIRECT_DATA;
+			instr->src.reg = reg_y;
 
-			instr->dst.ea.mode = RBT_EA_DIRECT_DATA;
-			instr->dst.ea.reg = reg_x;
+			instr->dst.mode = _EA_DIRECT_DATA;
+			instr->dst.reg = reg_x;
 		}
 
 		return RBT_ERR_SUCCESS;
@@ -1371,38 +1272,31 @@ static u8 _decode_subsubx(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	// 1: <ea> - Dn -> <ea>
 	// 0: Dn - <ea> -> Dn
 	if (RBT_BIT(opcode, 8)) {
-		target_ea = &instr->dst.ea;
-		ea_invalid = RBT_EA_DIRECT_DATA | RBT_EA_DIRECT_ADDR | RBT_EA_GROUP_PCR
-				   | RBT_EA_IMMEDIATE;
+		target_ea = &instr->dst;
+		ea_invalid = _EA_DIRECT_DATA | _EA_DIRECT_ADDR | _EA_GROUP_PCR | _EA_IMMEDIATE;
 
-		instr->src.type = RBT_OPERAND_EA;
-		instr->src.ea.mode = RBT_EA_DIRECT_DATA;
-		instr->src.ea.reg = _OP_REG(opcode);
+		instr->src.mode = _EA_DIRECT_DATA;
+		instr->src.reg = _OP_REG(opcode);
 
-		instr->dst.type = RBT_OPERAND_EA;
-		instr->dst.size = instr->size;
 		curr_pc = _decode_effective_address(
-			ea_mode, ea_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
+			ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->dst
 		);
 
-		if (instr->dst.ea.mode == RBT_EA_DIRECT_ADDR && instr->size == RBT_SIZE_BYTE) {
+		if (instr->dst.mode == _EA_DIRECT_ADDR && instr->size == RBT_SIZE_BYTE) {
 			_push_warn(
 				"SUB: Dest EA(An) cannot be byte-sized, at: 0x%06x", instr->start_pc
 			);
 			return RBT_ERR_DECODE_ILLEGAL_EA;
 		}
 	} else {
-		target_ea = &instr->src.ea;
+		target_ea = &instr->src;
 
-		instr->src.type = RBT_OPERAND_EA;
-		instr->src.size = instr->size;
 		curr_pc = _decode_effective_address(
-			ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->src.ea
+			ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->src
 		);
 
-		instr->dst.type = RBT_OPERAND_EA;
-		instr->dst.ea.mode = RBT_EA_DIRECT_DATA;
-		instr->dst.ea.reg = _OP_REG(opcode);
+		instr->dst.mode = _EA_DIRECT_DATA;
+		instr->dst.reg = _OP_REG(opcode);
 	}
 
 	if (curr_pc == UINT32_MAX) {
@@ -1438,13 +1332,11 @@ static u8 _decode_cmp_eor(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 			u8 reg_y = _OP_EA_REG(opcode); // Source
 			u8 reg_x = _OP_REG(opcode);	   // Dest
 
-			instr->src.type = RBT_OPERAND_EA;
-			instr->src.ea.mode = RBT_EA_INDIRECT_POSTINC;
-			instr->src.ea.indirect = reg_y;
+			instr->src.mode = _EA_INDIRECT_POSTINC;
+			instr->src.indirect = reg_y;
 
-			instr->dst.type = RBT_OPERAND_EA;
-			instr->dst.ea.mode = RBT_EA_INDIRECT_POSTINC;
-			instr->dst.ea.indirect = reg_x;
+			instr->dst.mode = _EA_INDIRECT_POSTINC;
+			instr->dst.indirect = reg_x;
 
 			return RBT_ERR_SUCCESS;
 		}
@@ -1452,22 +1344,19 @@ static u8 _decode_cmp_eor(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		instr->mnemonic = RBT_OP_EOR;
 		instr->size = op_size;
 
-		instr->src.type = RBT_OPERAND_EA;
-		instr->src.ea.mode = RBT_EA_DIRECT_DATA;
-		instr->src.ea.reg = _OP_REG(opcode);
+		instr->src.mode = _EA_DIRECT_DATA;
+		instr->src.reg = _OP_REG(opcode);
 
-		instr->dst.type = RBT_OPERAND_EA;
-		instr->dst.size = instr->size;
 		curr_pc = _decode_effective_address(
-			ea_mode, ea_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
+			ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->dst
 		);
 		if (curr_pc == UINT32_MAX) {
 			return RBT_ERR_DECODE_INVALID_EA;
 		}
 
 		// EA invalid: An, PC-relative, #imm
-		u16 ea_invalid = RBT_EA_DIRECT_ADDR | RBT_EA_GROUP_PCR | RBT_EA_IMMEDIATE;
-		if (!_validate_ea(&instr->dst.ea, ea_invalid, "EOR", "Dest", instr->start_pc)) {
+		u16 ea_invalid = _EA_DIRECT_ADDR | _EA_GROUP_PCR | _EA_IMMEDIATE;
+		if (!_validate_ea(&instr->dst, ea_invalid, "EOR", "Dest", instr->start_pc)) {
 			return RBT_ERR_DECODE_ILLEGAL_EA;
 		}
 
@@ -1486,26 +1375,22 @@ static u8 _decode_cmp_eor(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		}
 	}
 
-	instr->src.type = RBT_OPERAND_EA;
-	instr->src.size = instr->size;
 	curr_pc = _decode_effective_address(
-		ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->src.ea
+		ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->src
 	);
 	if (curr_pc == UINT32_MAX) {
 		return RBT_ERR_DECODE_INVALID_EA;
 	}
 
 	if (instr->mnemonic == RBT_OP_CMPA) {
-		instr->dst.type = RBT_OPERAND_EA;
-		instr->dst.ea.mode = RBT_EA_DIRECT_ADDR;
-		instr->dst.ea.reg = _OP_REG(opcode);
+		instr->dst.mode = _EA_DIRECT_ADDR;
+		instr->dst.reg = _OP_REG(opcode);
 	} else {
-		instr->dst.type = RBT_OPERAND_EA;
-		instr->dst.ea.mode = RBT_EA_DIRECT_DATA;
-		instr->dst.ea.reg = _OP_REG(opcode);
+		instr->dst.mode = _EA_DIRECT_DATA;
+		instr->dst.reg = _OP_REG(opcode);
 	}
 
-	if (instr->src.ea.mode == RBT_EA_DIRECT_ADDR && instr->size == RBT_SIZE_BYTE) {
+	if (instr->src.mode == _EA_DIRECT_ADDR && instr->size == RBT_SIZE_BYTE) {
 		_push_warn(
 			"CMP: Source EA(An) cannot be byte-sized, at: 0x%06x", instr->start_pc
 		);
@@ -1533,23 +1418,20 @@ static u8 _decode_and_mul(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		instr->mnemonic = RBT_BIT(opcode, 8) ? RBT_OP_MULS : RBT_OP_MULU;
 		instr->size = RBT_SIZE_WORD;
 
-		instr->src.type = RBT_OPERAND_EA;
-		instr->src.size = instr->size;
 		curr_pc = _decode_effective_address(
-			ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->src.ea
+			ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->src
 		);
 		if (curr_pc == UINT32_MAX) {
 			return RBT_ERR_DECODE_INVALID_EA;
 		}
 
-		instr->dst.type = RBT_OPERAND_EA;
-		instr->dst.ea.mode = RBT_EA_DIRECT_DATA;
-		instr->dst.ea.reg = dreg;
+		instr->dst.mode = _EA_DIRECT_DATA;
+		instr->dst.reg = dreg;
 
 		// EA invalid: An
-		u16 ea_invalid = RBT_EA_DIRECT_ADDR;
+		u16 ea_invalid = _EA_DIRECT_ADDR;
 		if (!_validate_ea(
-				&instr->src.ea, ea_invalid, "MULU/MULS", "Source", instr->start_pc
+				&instr->src, ea_invalid, "MULU/MULS", "Source", instr->start_pc
 			)) {
 			return RBT_ERR_DECODE_ILLEGAL_EA;
 		}
@@ -1564,22 +1446,19 @@ static u8 _decode_and_mul(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		u8 reg_y = _OP_EA_REG(opcode); // Source
 		u8 reg_x = _OP_REG(opcode);	   // Dest
 
-		instr->src.type = RBT_OPERAND_EA;
-		instr->dst.type = RBT_OPERAND_EA;
-
 		// 1: -(Ay)->-(Ax); 0: Dy->Dx
 		if (RBT_BIT(opcode, 3)) {
-			instr->src.ea.mode = RBT_EA_INDIRECT_PREDEC;
-			instr->src.ea.indirect = reg_y;
+			instr->src.mode = _EA_INDIRECT_PREDEC;
+			instr->src.indirect = reg_y;
 
-			instr->dst.ea.mode = RBT_EA_INDIRECT_PREDEC;
-			instr->dst.ea.indirect = reg_x;
+			instr->dst.mode = _EA_INDIRECT_PREDEC;
+			instr->dst.indirect = reg_x;
 		} else {
-			instr->src.ea.mode = RBT_EA_DIRECT_DATA;
-			instr->src.ea.reg = reg_y;
+			instr->src.mode = _EA_DIRECT_DATA;
+			instr->src.reg = reg_y;
 
-			instr->dst.ea.mode = RBT_EA_DIRECT_DATA;
-			instr->dst.ea.reg = reg_x;
+			instr->dst.mode = _EA_DIRECT_DATA;
+			instr->dst.reg = reg_x;
 		}
 
 		return RBT_ERR_SUCCESS;
@@ -1590,24 +1469,21 @@ static u8 _decode_and_mul(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		instr->mnemonic = RBT_OP_EXG;
 		instr->size = RBT_SIZE_LONG;
 
-		instr->src.type = RBT_OPERAND_EA;
-		instr->dst.type = RBT_OPERAND_EA;
-
-		instr->src.ea.reg = _OP_REGX(opcode);
-		instr->dst.ea.reg = _OP_REGY(opcode);
+		instr->src.reg = _OP_REGX(opcode);
+		instr->dst.reg = _OP_REGY(opcode);
 
 		// 0b01000: Dy <-> Dx
 		// 0b01001: Ay <-> Ax
 		// 0b10001: Ay <-> Dx
 		if (op == 0b01000) {
-			instr->src.ea.mode = RBT_EA_DIRECT_DATA;
-			instr->dst.ea.mode = RBT_EA_DIRECT_DATA;
+			instr->src.mode = _EA_DIRECT_DATA;
+			instr->dst.mode = _EA_DIRECT_DATA;
 		} else if (op == 0b01001) {
-			instr->src.ea.mode = RBT_EA_DIRECT_ADDR;
-			instr->dst.ea.mode = RBT_EA_DIRECT_ADDR;
+			instr->src.mode = _EA_DIRECT_ADDR;
+			instr->dst.mode = _EA_DIRECT_ADDR;
 		} else if (op == 0b10001) {
-			instr->src.ea.mode = RBT_EA_DIRECT_DATA;
-			instr->dst.ea.mode = RBT_EA_DIRECT_ADDR;
+			instr->src.mode = _EA_DIRECT_DATA;
+			instr->dst.mode = _EA_DIRECT_ADDR;
 		}
 
 		return RBT_ERR_SUCCESS;
@@ -1621,36 +1497,30 @@ static u8 _decode_and_mul(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	}
 
 	// EA invalid: An, [Dn, PC-rel, #imm](if <ea> is dest)
-	u16 ea_invalid = RBT_EA_DIRECT_ADDR;
+	u16 ea_invalid = _EA_DIRECT_ADDR;
 	RBT_EffectiveAddress *target_ea;
 
 	// 1: <ea> and Dn -> <ea>
 	// 0: Dn and <ea> -> Dn
 	if (RBT_BIT(opcode, 8)) {
-		target_ea = &instr->dst.ea;
-		ea_invalid |= RBT_EA_DIRECT_DATA | RBT_EA_GROUP_PCR | RBT_EA_IMMEDIATE;
+		target_ea = &instr->dst;
+		ea_invalid |= _EA_DIRECT_DATA | _EA_GROUP_PCR | _EA_IMMEDIATE;
 
-		instr->src.type = RBT_OPERAND_EA;
-		instr->src.ea.mode = RBT_EA_DIRECT_DATA;
-		instr->src.ea.reg = dreg;
+		instr->src.mode = _EA_DIRECT_DATA;
+		instr->src.reg = dreg;
 
-		instr->dst.type = RBT_OPERAND_EA;
-		instr->dst.size = instr->size;
 		curr_pc = _decode_effective_address(
-			ea_mode, ea_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
+			ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->dst
 		);
 	} else {
-		target_ea = &instr->src.ea;
+		target_ea = &instr->src;
 
-		instr->src.type = RBT_OPERAND_EA;
-		instr->src.size = instr->size;
 		curr_pc = _decode_effective_address(
-			ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->src.ea
+			ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->src
 		);
 
-		instr->dst.type = RBT_OPERAND_EA;
-		instr->dst.ea.mode = RBT_EA_DIRECT_DATA;
-		instr->dst.ea.reg = dreg;
+		instr->dst.mode = _EA_DIRECT_DATA;
+		instr->dst.reg = dreg;
 	}
 
 	if (curr_pc == UINT32_MAX) {
@@ -1679,18 +1549,15 @@ static u8 _decode_addaddx(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		instr->mnemonic = RBT_OP_ADDA;
 		instr->size = RBT_BIT(opcode, 8) ? RBT_SIZE_LONG : RBT_SIZE_WORD;
 
-		instr->src.type = RBT_OPERAND_EA;
-		instr->src.size = instr->size;
 		curr_pc = _decode_effective_address(
-			ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->src.ea
+			ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->src
 		);
 		if (curr_pc == UINT32_MAX) {
 			return RBT_ERR_DECODE_INVALID_EA;
 		}
 
-		instr->dst.type = RBT_OPERAND_EA;
-		instr->dst.ea.mode = RBT_EA_DIRECT_ADDR;
-		instr->dst.ea.reg = _OP_REG(opcode);
+		instr->dst.mode = _EA_DIRECT_ADDR;
+		instr->dst.reg = _OP_REG(opcode);
 
 		return RBT_ERR_SUCCESS;
 	}
@@ -1706,22 +1573,19 @@ static u8 _decode_addaddx(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		u8 reg_y = _OP_EA_REG(opcode); // Source
 		u8 reg_x = _OP_REG(opcode);	   // Dest
 
-		instr->src.type = RBT_OPERAND_EA;
-		instr->dst.type = RBT_OPERAND_EA;
-
 		// 1: -(Ay)->-(Ax); 0: Dy->Dx
 		if (RBT_BIT(opcode, 3)) {
-			instr->src.ea.mode = RBT_EA_INDIRECT_PREDEC;
-			instr->src.ea.indirect = reg_y;
+			instr->src.mode = _EA_INDIRECT_PREDEC;
+			instr->src.indirect = reg_y;
 
-			instr->dst.ea.mode = RBT_EA_INDIRECT_PREDEC;
-			instr->dst.ea.indirect = reg_x;
+			instr->dst.mode = _EA_INDIRECT_PREDEC;
+			instr->dst.indirect = reg_x;
 		} else {
-			instr->src.ea.mode = RBT_EA_DIRECT_DATA;
-			instr->src.ea.reg = reg_y;
+			instr->src.mode = _EA_DIRECT_DATA;
+			instr->src.reg = reg_y;
 
-			instr->dst.ea.mode = RBT_EA_DIRECT_DATA;
-			instr->dst.ea.reg = reg_x;
+			instr->dst.mode = _EA_DIRECT_DATA;
+			instr->dst.reg = reg_x;
 		}
 
 		return RBT_ERR_SUCCESS;
@@ -1741,38 +1605,32 @@ static u8 _decode_addaddx(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	// 1: <ea> + Dn -> <ea>
 	// 0: Dn + <ea> -> Dn
 	if (RBT_BIT(opcode, 8)) {
-		target_ea = &instr->dst.ea;
-		ea_invalid = RBT_EA_DIRECT_DATA | RBT_EA_DIRECT_ADDR | RBT_EA_GROUP_PCR
-				   | RBT_EA_IMMEDIATE;
+		target_ea = &instr->dst;
+		ea_invalid = _EA_DIRECT_DATA | _EA_DIRECT_ADDR | _EA_GROUP_PCR | _EA_IMMEDIATE;
 
-		instr->src.type = RBT_OPERAND_EA;
-		instr->src.ea.mode = RBT_EA_DIRECT_DATA;
-		instr->src.ea.reg = _OP_REG(opcode);
+		instr->src.mode = _EA_DIRECT_DATA;
+		instr->src.reg = _OP_REG(opcode);
 
-		instr->dst.type = RBT_OPERAND_EA;
-		instr->dst.size = instr->size;
 		curr_pc = _decode_effective_address(
-			ea_mode, ea_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
+			ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->dst
 		);
 
-		if (instr->dst.ea.mode == RBT_EA_DIRECT_ADDR && instr->size == RBT_SIZE_BYTE) {
+		if (instr->dst.mode == _EA_DIRECT_ADDR && instr->size == RBT_SIZE_BYTE) {
 			_push_warn(
 				"ADD: Dest EA(An) cannot be byte-sized, at: 0x%06x", instr->start_pc
 			);
 			return RBT_ERR_DECODE_ILLEGAL_EA;
 		}
 	} else {
-		target_ea = &instr->src.ea;
+		target_ea = &instr->src;
 
-		instr->src.type = RBT_OPERAND_EA;
 		instr->src.size = instr->size;
 		curr_pc = _decode_effective_address(
-			ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->src.ea
+			ea_mode, ea_reg, instr->src.size, bus, curr_pc, &instr->src
 		);
 
-		instr->dst.type = RBT_OPERAND_EA;
-		instr->dst.ea.mode = RBT_EA_DIRECT_DATA;
-		instr->dst.ea.reg = _OP_REG(opcode);
+		instr->dst.mode = _EA_DIRECT_DATA;
+		instr->dst.reg = _OP_REG(opcode);
 	}
 
 	if (curr_pc == UINT32_MAX) {
@@ -1823,19 +1681,17 @@ static u8 _decode_shift(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 		instr->size = RBT_SIZE_WORD;
 
-		instr->dst.type = RBT_OPERAND_EA;
-		instr->dst.size = instr->size;
 		curr_pc = _decode_effective_address(
-			ea_mode, ea_reg, instr->dst.size, bus, curr_pc, &instr->dst.ea
+			ea_mode, ea_reg, instr->size, bus, curr_pc, &instr->dst
 		);
 		if (curr_pc == UINT32_MAX) {
 			return RBT_ERR_DECODE_INVALID_EA;
 		}
 
 		// EA invalid: Dn, An, PC-relative, #imm
-		u16 ea_invalid = RBT_EA_DIRECT_DATA | RBT_EA_DIRECT_ADDR | RBT_EA_IMMEDIATE
-					   | RBT_EA_GROUP_PCR;
-		if (!_validate_ea(&instr->dst.ea, ea_invalid, "SHIFT", "Dest", instr->start_pc)) {
+		u16 ea_invalid = _EA_DIRECT_DATA | _EA_DIRECT_ADDR | _EA_IMMEDIATE
+					   | _EA_GROUP_PCR;
+		if (!_validate_ea(&instr->dst, ea_invalid, "SHIFT", "Dest", instr->start_pc)) {
 			return RBT_ERR_DECODE_ILLEGAL_EA;
 		}
 
@@ -1857,20 +1713,17 @@ static u8 _decode_shift(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		return RBT_ERR_DECODE_ILLEGAL;
 	}
 
-	instr->dst.type = RBT_OPERAND_EA;
-	instr->dst.ea.mode = RBT_EA_DIRECT_DATA;
-	instr->dst.ea.reg = _OP_REGY(opcode);
+	instr->dst.mode = _EA_DIRECT_DATA;
+	instr->dst.reg = _OP_REGY(opcode);
 
 	// 1: Dn; 0: #imm
 	if (RBT_BIT(opcode, 5)) {
-		instr->src.type = RBT_OPERAND_EA;
-		instr->src.ea.mode = RBT_EA_DIRECT_DATA;
-		instr->src.ea.reg = _OP_REG(opcode);
+		instr->src.mode = _EA_DIRECT_DATA;
+		instr->src.reg = _OP_REG(opcode);
 	} else {
-		instr->src.type = RBT_OPERAND_EA;
+		instr->src.mode = _EA_IMMEDIATE;
 		instr->src.size = RBT_SIZE_NONE;
-		instr->src.ea.mode = RBT_EA_IMMEDIATE;
-		instr->src.ea.imm = _OP_SHIFT(opcode);
+		instr->src.imm = _OP_SHIFT(opcode);
 	}
 
 	return RBT_ERR_SUCCESS;
@@ -2037,14 +1890,12 @@ RBT_ErrorCode rbt_decode_instruction(RBT_MemoryBus *bus, u32 pc, RBT_Instruction
 		instr->mnemonic = RBT_OP_MOVEQ;
 		instr->size = RBT_SIZE_LONG;
 
-		instr->src.type = RBT_OPERAND_EA;
+		instr->src.mode = _EA_IMMEDIATE;
 		instr->src.size = RBT_SIZE_NONE;
-		instr->src.ea.mode = RBT_EA_IMMEDIATE;
-		instr->src.ea.imm = quick;
+		instr->src.imm = quick;
 
-		instr->dst.type = RBT_OPERAND_EA;
-		instr->dst.ea.mode = RBT_EA_DIRECT_DATA;
-		instr->dst.ea.reg = dreg;
+		instr->dst.mode = _EA_DIRECT_DATA;
+		instr->dst.reg = dreg;
 
 		status = RBT_ERR_SUCCESS;
 	} break;

@@ -65,13 +65,11 @@ void test_decode_static_btst(void) {
 	TEST_ASSERT_EQUAL(RBT_OP_BTST, instr.mnemonic);
 	TEST_ASSERT_EQUAL(RBT_SIZE_BYTE, instr.size);
 
-	TEST_ASSERT_EQUAL(RBT_OPERAND_EA, instr.src.type);
-	TEST_ASSERT_EQUAL(RBT_EA_IMMEDIATE, instr.src.ea.mode);
-	TEST_ASSERT_EQUAL(5, instr.src.ea.imm);
+	TEST_ASSERT_EQUAL(_EA_IMMEDIATE, instr.src.mode);
+	TEST_ASSERT_EQUAL(5, instr.src.imm);
 
-	TEST_ASSERT_EQUAL(RBT_OPERAND_EA, instr.dst.type);
-	TEST_ASSERT_EQUAL(RBT_EA_INDIRECT, instr.dst.ea.mode);
-	TEST_ASSERT_EQUAL(0, instr.dst.ea.indirect);
+	TEST_ASSERT_EQUAL(_EA_INDIRECT, instr.dst.mode);
+	TEST_ASSERT_EQUAL(0, instr.dst.indirect);
 
 	for (int i = 0; i < 2; i += 1) {
 		_push_info("0x%04x", instr.words[i]);
@@ -90,14 +88,12 @@ void test_decode_dynamic_bchg(void) {
 	TEST_ASSERT_EQUAL(RBT_OP_BCHG, instr.mnemonic);
 	TEST_ASSERT_EQUAL(RBT_SIZE_BYTE, instr.size);
 
-	TEST_ASSERT_EQUAL(RBT_OPERAND_EA, instr.src.type);
-	TEST_ASSERT_EQUAL(RBT_EA_IMMEDIATE, instr.src.ea.mode);
-	TEST_ASSERT_EQUAL(3, instr.src.ea.reg);
+	TEST_ASSERT_EQUAL(_EA_IMMEDIATE, instr.src.mode);
+	TEST_ASSERT_EQUAL(3, instr.src.reg);
 
-	TEST_ASSERT_EQUAL(RBT_OPERAND_EA, instr.dst.type);
-	TEST_ASSERT_EQUAL(RBT_EA_INDIRECT_DISPLACEMENT, instr.dst.ea.mode);
-	TEST_ASSERT_EQUAL(5, instr.dst.ea.ind_disp.disp);
-	TEST_ASSERT_EQUAL(1, instr.dst.ea.ind_disp.areg);
+	TEST_ASSERT_EQUAL(_EA_INDIRECT_DISPLACEMENT, instr.dst.mode);
+	TEST_ASSERT_EQUAL(5, instr.dst.ind_disp.disp);
+	TEST_ASSERT_EQUAL(1, instr.dst.ind_disp.areg);
 
 	TEST_ASSERT_EQUAL(2, instr.word_count);
 	TEST_ASSERT_EQUAL_HEX16_ARRAY(&rom_words[(pc - _MMU_ROM_ADDR) / 2], instr.words, 2);
@@ -112,13 +108,11 @@ void test_decode_static_bset(void) {
 	TEST_ASSERT_EQUAL(RBT_OP_BSET, instr.mnemonic);
 	TEST_ASSERT_EQUAL(RBT_SIZE_BYTE, instr.size);
 
-	TEST_ASSERT_EQUAL(RBT_OPERAND_EA, instr.src.type);
-	TEST_ASSERT_EQUAL(RBT_EA_IMMEDIATE, instr.src.ea.mode);
-	TEST_ASSERT_EQUAL(5, instr.src.ea.imm);
+	TEST_ASSERT_EQUAL(_EA_IMMEDIATE, instr.src.mode);
+	TEST_ASSERT_EQUAL(5, instr.src.imm);
 
-	TEST_ASSERT_EQUAL(RBT_OPERAND_EA, instr.dst.type);
-	TEST_ASSERT_EQUAL(RBT_EA_ABSOLUTE_SHORT, instr.dst.ea.mode);
-	TEST_ASSERT_EQUAL(9, instr.dst.ea.absolute_short);
+	TEST_ASSERT_EQUAL(_EA_ABSOLUTE_SHORT, instr.dst.mode);
+	TEST_ASSERT_EQUAL(9, instr.dst.absolute_short);
 
 	TEST_ASSERT_EQUAL(3, instr.word_count);
 	TEST_ASSERT_EQUAL_HEX16_ARRAY(&rom_words[(pc - _MMU_ROM_ADDR) / 2], instr.words, 3);
@@ -133,14 +127,12 @@ void test_decode_andi_w(void) {
 	TEST_ASSERT_EQUAL(RBT_OP_ANDI, instr.mnemonic);
 	TEST_ASSERT_EQUAL(RBT_SIZE_WORD, instr.size);
 
-	TEST_ASSERT_EQUAL(RBT_OPERAND_EA, instr.src.type);
-	TEST_ASSERT_EQUAL(RBT_EA_IMMEDIATE, instr.src.ea.mode);
-	TEST_ASSERT_EQUAL(5, instr.src.ea.imm);
-	TEST_ASSERT_EQUAL(0x9abc, instr.src.ea.imm);
+	TEST_ASSERT_EQUAL(_EA_IMMEDIATE, instr.src.mode);
+	TEST_ASSERT_EQUAL(5, instr.src.imm);
+	TEST_ASSERT_EQUAL(0x9abc, instr.src.imm);
 
-	TEST_ASSERT_EQUAL(RBT_OPERAND_EA, instr.dst.type);
-	TEST_ASSERT_EQUAL(RBT_EA_ABSOLUTE_SHORT, instr.dst.ea.mode);
-	TEST_ASSERT_EQUAL(0x2442, instr.dst.ea.absolute_short);
+	TEST_ASSERT_EQUAL(_EA_ABSOLUTE_SHORT, instr.dst.mode);
+	TEST_ASSERT_EQUAL(0x2442, instr.dst.absolute_short);
 
 	TEST_ASSERT_EQUAL(3, instr.word_count);
 	TEST_ASSERT_EQUAL_HEX16_ARRAY(&rom_words[(pc - _MMU_ROM_ADDR) / 2], instr.words, 3);

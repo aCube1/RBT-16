@@ -57,7 +57,7 @@ void test_decode_absolute_short_sign_extend(void) {
 	TEST_ASSERT_EQUAL(
 		pc + 2, _decode_effective_address(0b111, 0b000, RBT_SIZE_WORD, bus, pc, &ea)
 	);
-	TEST_ASSERT_EQUAL(RBT_EA_ABSOLUTE_SHORT, ea.mode);
+	TEST_ASSERT_EQUAL(_EA_ABSOLUTE_SHORT, ea.mode);
 	TEST_ASSERT_EQUAL_INT32((int32_t)(int16_t)0xff00, ea.absolute_short);
 }
 
@@ -70,7 +70,7 @@ void test_decode_immediate_long(void) {
 	TEST_ASSERT_EQUAL(
 		pc + 4, _decode_effective_address(0b111, 0b100, RBT_SIZE_LONG, bus, pc, &ea)
 	);
-	TEST_ASSERT_EQUAL(RBT_EA_IMMEDIATE, ea.mode);
+	TEST_ASSERT_EQUAL(_EA_IMMEDIATE, ea.mode);
 	TEST_ASSERT_EQUAL_UINT32(imm, ea.imm);
 }
 
