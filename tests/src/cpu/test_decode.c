@@ -12,7 +12,7 @@
 #include <unity.h>
 
 static RBT_MemoryBus *bus;
-static u32 pc = RBT_MMU_ROM_ADDR;
+static u32 pc = _MMU_ROM_ADDR;
 
 // clang-format off
 static u8 rom[] = {
@@ -78,9 +78,7 @@ void test_decode_static_btst(void) {
 	}
 
 	TEST_ASSERT_EQUAL(2, instr.word_count);
-	TEST_ASSERT_EQUAL_HEX16_ARRAY(
-		&rom_words[(pc - RBT_MMU_ROM_ADDR) / 2], instr.words, 2
-	);
+	TEST_ASSERT_EQUAL_HEX16_ARRAY(&rom_words[(pc - _MMU_ROM_ADDR) / 2], instr.words, 2);
 
 	pc += 4;
 }
@@ -102,9 +100,7 @@ void test_decode_dynamic_bchg(void) {
 	TEST_ASSERT_EQUAL(1, instr.dst.ea.ind_disp.areg);
 
 	TEST_ASSERT_EQUAL(2, instr.word_count);
-	TEST_ASSERT_EQUAL_HEX16_ARRAY(
-		&rom_words[(pc - RBT_MMU_ROM_ADDR) / 2], instr.words, 2
-	);
+	TEST_ASSERT_EQUAL_HEX16_ARRAY(&rom_words[(pc - _MMU_ROM_ADDR) / 2], instr.words, 2);
 
 	pc += 4;
 }
@@ -125,9 +121,7 @@ void test_decode_static_bset(void) {
 	TEST_ASSERT_EQUAL(9, instr.dst.ea.absolute_short);
 
 	TEST_ASSERT_EQUAL(3, instr.word_count);
-	TEST_ASSERT_EQUAL_HEX16_ARRAY(
-		&rom_words[(pc - RBT_MMU_ROM_ADDR) / 2], instr.words, 3
-	);
+	TEST_ASSERT_EQUAL_HEX16_ARRAY(&rom_words[(pc - _MMU_ROM_ADDR) / 2], instr.words, 3);
 
 	pc += 6;
 }
@@ -149,9 +143,7 @@ void test_decode_andi_w(void) {
 	TEST_ASSERT_EQUAL(0x2442, instr.dst.ea.absolute_short);
 
 	TEST_ASSERT_EQUAL(3, instr.word_count);
-	TEST_ASSERT_EQUAL_HEX16_ARRAY(
-		&rom_words[(pc - RBT_MMU_ROM_ADDR) / 2], instr.words, 3
-	);
+	TEST_ASSERT_EQUAL_HEX16_ARRAY(&rom_words[(pc - _MMU_ROM_ADDR) / 2], instr.words, 3);
 
 	pc += 6;
 }

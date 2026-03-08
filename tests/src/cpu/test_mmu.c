@@ -19,7 +19,7 @@ void test_create_bus_valid(void) {
 	RBT_MemoryBus *bus = rbt_create_bus(2);
 	TEST_ASSERT_NOT_NULL(bus);
 	TEST_ASSERT_NOT_NULL(bus->ram);
-	TEST_ASSERT_EQUAL(RBT_MMU_SLOT_SIZE * 2, bus->ram_size);
+	TEST_ASSERT_EQUAL(_MMU_SLOT_SIZE * 2, bus->ram_size);
 	rbt_destroy_bus(bus);
 }
 
@@ -27,7 +27,7 @@ void test_read_write_wraparound(void) {
 	RBT_MemoryBus *bus = rbt_create_bus(1);
 	TEST_ASSERT_NOT_NULL(bus);
 
-	u32 last_addr = RBT_MMU_SLOT_SIZE - 1;
+	u32 last_addr = _MMU_SLOT_SIZE - 1;
 	rbt_bus_write_byte(bus, last_addr, 0xAA);
 	u8 byte;
 	TEST_ASSERT_TRUE(rbt_bus_read_byte(bus, last_addr, &byte));

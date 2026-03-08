@@ -154,13 +154,13 @@ static i32 _align_text(i32 len, i32 alignment, char *out) {
 }
 
 static void test_opcodes(void) {
-	u32 pc = RBT_MMU_ROM_ADDR;
+	u32 pc = _MMU_ROM_ADDR;
 
 	while (true) {
 		RBT_Instruction instr;
 		RBT_ErrorCode err = rbt_decode_instruction(_bus, pc, &instr);
 
-		if ((pc - RBT_MMU_ROM_ADDR) >= opcodes_data_size)
+		if ((pc - _MMU_ROM_ADDR) >= opcodes_data_size)
 			break;
 
 		pc += instr.len;
