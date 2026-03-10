@@ -7,10 +7,10 @@ enum {
 	RBT_MAX_INSTR_WORDS = 16,
 };
 
-typedef enum RBT_CpuType {
+typedef enum RBT_CpuModel {
 	RBT_CPU_M68000 = 1 << 0,
 	RBT_CPU_M68010 = 1 << 1,
-} RBT_CpuType;
+} RBT_CpuModel;
 
 typedef enum RBT_AddressMode : u16 {
 	RBT_EA_NONE = 0,

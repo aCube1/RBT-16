@@ -4,6 +4,7 @@
 #include "error.h"
 #include "rbt/basic_types.h"
 #include "rbt/cpu/mmu.h"
+#include "rbt/cpu/types.h"
 #include "rbt/error_codes.h"
 
 #include <assert.h>
@@ -19,9 +20,9 @@ RBT_Cpu *rbt_create_cpu(const RBT_CpuConfig *config) {
 		return nullptr;
 	}
 	memset(cpu, 0, sizeof(RBT_Cpu));
-
-	if (config)
-		cpu->conf = *config;
+	cpu->cfg.model = config ? config->model : RBT_CPU_M68000;
+	cpu->cfg.hook = config ? config->hook : nullptr;
+	cpu->cfg.userdata = config ? config->userdata : nullptr;
 
 	return cpu;
 }

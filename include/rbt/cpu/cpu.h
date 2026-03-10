@@ -8,8 +8,10 @@
 typedef RBT_ErrorCode (*RBT_CpuDebugHook)(void *userdata, const RBT_Instruction *instr);
 
 typedef struct RBT_CpuConfig {
-	void *userdata;
+	RBT_CpuModel model;
+
 	RBT_CpuDebugHook hook;
+	void *userdata;
 } RBT_CpuConfig;
 
 typedef struct RBT_Cpu RBT_Cpu;

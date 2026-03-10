@@ -9,10 +9,10 @@
 #include <assert.h>
 
 typedef struct RBT_Cpu {
-	RBT_CpuConfig conf;
-
 	RBT_CpuState state;
 	RBT_MemoryBus *bus;
+
+	RBT_CpuConfig cfg; // General CPU configuration
 } RBT_Cpu;
 
 [[nodiscard]] static inline u16 _pack_status_register(const RBT_StatusRegister *sr) {
