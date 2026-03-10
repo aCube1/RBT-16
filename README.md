@@ -12,7 +12,7 @@ Commodore and IBM.<br>
 
 ## Hardware Specifications
 
-- CPU: Motorola 68010 at ~8/12MHz
+- CPU: Motorola 68000 at ~8/12MHz
 - RAM: Shipped with 512KB of Static RAM. Eight SRAM slots of 512KB, up to 4MB max RAM
 - ROM: 512KB Flash; BIOS/Kernel
 
@@ -87,7 +87,7 @@ the /BERR exception.
 simplify implementation.
 
 REFS:
-	CPU: MC68010P12
+	CPU: MC68000P12 | MC68010P12
 	APU: Z84C0020PEG
 	FPGA: Tang Nano 9K
 	SRAM:
