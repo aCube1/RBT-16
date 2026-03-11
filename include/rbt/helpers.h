@@ -5,7 +5,7 @@
 #if defined(__GNUC__) || defined(__clang__)
 #	define rbt_bswap_u16(x) __builtin_bswap16((x))
 #	define rbt_bswap_u32(x) __builtin_bswap32((x))
-#	define rbt_bswap_u64(x) __buildin_bswap64((x))
+#	define rbt_bswap_u64(x) __builtin_bswap64((x))
 #elif defined(_MSC_VER)
 #	include <stdlib.h>
 #	define rbt_bswap_u16(x) _byteswap_ushort((x))
