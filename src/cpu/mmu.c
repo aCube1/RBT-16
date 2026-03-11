@@ -26,8 +26,8 @@ static RBT_MMIODevice *_get_mmio_handler(RBT_MemoryBus *bus, u32 addr, u32 *offs
 	}
 
 	// APU (Audio Processor Unit)
-	if (_is_address_in_range(addr, _MMU_APRAM_ADDR, _MMU_APRAM_SIZE)) {
-		*offset = addr - _MMU_APRAM_ADDR;
+	if (_is_address_in_range(addr, _MMU_MMIO_APU_ADDR, _MMU_MMIO_REGION_SIZE)) {
+		*offset = addr - _MMU_MMIO_APU_ADDR;
 		return &bus->apu;
 	}
 
@@ -334,7 +334,7 @@ RBT_ErrorCode rbt_bus_write_byte(RBT_MemoryBus *bus, u32 addr, u8 byte) {
 
 	// ROM region
 	if (_is_address_in_range(addr, _MMU_ROM_ADDR, _MMU_ROM_SIZE)) {
-		_push_warn("Attempted write to ROM at: 0x%06x", addr);
+		_push_warn("Write attempt on ROM at: 0x%06x", addr);
 		return RBT_ERR_MEM_READONLY;
 	}
 
@@ -381,7 +381,7 @@ RBT_ErrorCode rbt_bus_write_word(RBT_MemoryBus *bus, u32 addr, u16 word) {
 
 	// ROM region
 	if (_is_address_in_range(addr, _MMU_ROM_ADDR, _MMU_ROM_SIZE)) {
-		_push_warn("Attempted write to ROM at: 0x%06x", addr);
+		_push_warn("Write attempt on ROM at: 0x%06x", addr);
 		return RBT_ERR_MEM_READONLY;
 	}
 
