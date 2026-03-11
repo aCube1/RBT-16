@@ -13,6 +13,8 @@ Commodore and IBM.<br>
 ## Hardware Specifications
 
 - CPU: Motorola 68000 at ~8/12MHz
+- VDP: Tang Nano 9K. Codename - Killy
+- APU: YM3812 (OPL2) + DAC
 - RAM: Shipped with 512KB of Static RAM. Eight SRAM slots of 512KB, up to 4MB max RAM
 - ROM: 512KB Flash; BIOS/Kernel
 
@@ -41,9 +43,8 @@ Commodore and IBM.<br>
 | 0x08'0000-0x3f'ffff | 3.5MB | RAM Expansion slots (Slots 1-7) |
 | 0x40'0000-0xef'ffff | 11MB  | Reserved (Triggers /BERR)       |
 | 0xf0'0000-0xf7'ffff | 512KB | Kernel ROM (BIOS)               |
-| 0xf8'0000-0xf9'ffff | 64KB  | Reserved (Does nothing, /DTACK) |
-| 0xfa'0000-0xfa'ffff | 64KB  | MMIO (See Table Below)          |
-| 0xfb'0000-0xfb'ffff | 64KB  | Audio Processor RAM (APRAM)     |
+| 0xf8'0000-0xfa'ffff | 64KB  | Reserved (Does nothing, /DTACK) |
+| 0xfb'0000-0xfb'ffff | 64KB  | MMIO (See Table Below)          |
 | 0xfc'0000-0xfc'ffff | 64KB  | Expansion Card 0                |
 | 0xfd'0000-0xfd'ffff | 64KB  | Expansion Card 1                |
 | 0xfe'0000-0xfe'ffff | 64KB  | Expansion Card 2                |
@@ -59,10 +60,11 @@ Commodore and IBM.<br>
 | Start Address | Description            |
 | :-----------: | ---------------------- |
 |    0x0000     | VDP Registers          |
-|    0x0100     | I/O (SNES, PS/2, GPIO) |
-|    0x0200     | SD/SPI Controller      |
-|    0x0300     | Debug I/O (/DTACK)     |
-| 0x0400-0xffff | Reserved               |
+|    0x0100     | APU Registers          |
+|    0x0200     | I/O (SNES, PS/2, GPIO) |
+|    0x0300     | SD/SPI Controller      |
+|    0x0400     | Debug I/O (/DTACK)     |
+| 0x0500-0xffff | Reserved (/DTACK)      |
 
 > MMIO memory region starts at: 0xfa'0000
 
@@ -83,6 +85,7 @@ require a read-only bootloader section.
 	(aCube) - RAM: Mirroring is more expensive? ICs decoders are cheap today,
 a 74HC138 should do. Accessing a reserved memory region should trigger
 the /BERR exception.
+	(YAN) - APU: Use the YM2413 OPLL FM chip as an alternative audio chip
 	(aCube) - SD Card: SPI controller should reside inside the VDP. This
 simplify implementation.
 
