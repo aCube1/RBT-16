@@ -43,7 +43,7 @@ Commodore and IBM.<br>
 | 0x08'0000-0x3f'ffff | 3.5MB | RAM Expansion slots (Slots 1-7) |
 | 0x40'0000-0xef'ffff | 11MB  | Reserved (Triggers /BERR)       |
 | 0xf0'0000-0xf7'ffff | 512KB | Kernel ROM (BIOS)               |
-| 0xf8'0000-0xfa'ffff | 64KB  | Reserved (Does nothing, /DTACK) |
+| 0xf8'0000-0xfa'ffff | 192KB | Reserved (Does nothing, /DTACK) |
 | 0xfb'0000-0xfb'ffff | 64KB  | MMIO (See Table Below)          |
 | 0xfc'0000-0xfc'ffff | 64KB  | Expansion Card 0                |
 | 0xfd'0000-0xfd'ffff | 64KB  | Expansion Card 1                |
@@ -66,7 +66,7 @@ Commodore and IBM.<br>
 |    0x0400     | Debug I/O (/DTACK)     |
 | 0x0500-0xffff | Reserved (/DTACK)      |
 
-> MMIO memory region starts at: 0xfa'0000
+> MMIO memory region starts at: 0xfb'0000
 
 > Each MMIO region is 256-bytes wide
 
