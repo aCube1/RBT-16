@@ -1,4 +1,6 @@
 ---
+If:
+    PathMatch: [.*\.c, .*\.h, .*\.inc]
 CompileFlags:
     Add: [-xc]
     Compiler: clang

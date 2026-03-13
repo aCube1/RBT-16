@@ -1,7 +1,7 @@
 #include "cpu/timing.h"
 
-#include "cpu/decode.h"
 #include "rbt/basic_types.h"
+#include "rbt/cpu/types.h"
 
 #include <assert.h>
 
@@ -10,10 +10,12 @@
 // accurate here, but for the future...
 // TODO: Improve cycle timing accuracy.
 
-u16 rbt_calculate_timing(const RBT_Instruction *instr) {
+u16 _calculate_timing(
+	const RBT_Instruction *instr, const RBT_TimingCtx *ctx, RBT_CpuModel cpu_model
+) {
 	assert(instr);
 
-	u16 cycles = 0;
+	u16 cycles = 4; // TODO: Calculate instruction cycles timing
 
 	return cycles;
 }

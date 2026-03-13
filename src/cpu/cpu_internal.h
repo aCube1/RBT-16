@@ -1,9 +1,11 @@
 #pragma once
 
+#include "cpu/timing.h"
 #include "rbt/basic_types.h"
 #include "rbt/cpu/cpu.h"
 #include "rbt/cpu/mmu.h"
 #include "rbt/cpu/types.h"
+#include "rbt/error_codes.h"
 #include "rbt/helpers.h"
 
 #include <assert.h>
@@ -18,11 +20,16 @@ typedef enum RBT_CpuVector {
 	_VEC_CHK = 6,		  // CHK Instruction
 	_VEC_TRAPV = 7,		  // TRAPV Instruction
 	_VEC_PRIVILEGE = 8,	  // Privilege Violation
-	_VEC_LINE_A = 9,	  // Line 1010 Emulator
-	_VEC_LINE_F = 10,	  // Line 1111 Emulator
+	_VEC_TRACE = 9,		  // Trace
+	_VEC_LINE_A = 10,	  // Line 1010 Emulator
+	_VEC_LINE_F = 11,	  // Line 1111 Emulator
+
+	// 12-13: (Unassigned, Reserved)
 
 	_VEC_FMT_ERROR = 14,  // Format Error
 	_VEC_IRQ_UNINIT = 15, // Unitialized Interrupt Vector
+
+	// 16-23: (Unassigned, Reserved)
 
 	_VEC_SPURIOUS = 24,	  // Spurious Interrupt
 	_VEC_AUTOVEC_L1 = 25, // Level 1 Interrupt Autovector
@@ -50,16 +57,31 @@ typedef enum RBT_CpuVector {
 	_VEC_TRAP_E = 46, // TRAP #$e
 	_VEC_TRAP_F = 47, // TRAP #$f
 
+	// 48-63: (Unassigned, Reserved)
+
 	_VEC_USER_FIRST = 64,
 	_VEC_USER_LAST = 255,
 } RBT_CpuVector;
 
+typedef struct RBT_CpuPendingException {
+	bool bus_error;
+	bool address_error;
+	bool interrupt;
+	u8 interrupt_level; // 1-7
+} RBT_CpuPendingException;
+
 typedef struct RBT_Cpu {
+	RBT_CpuConfig cfg; // General CPU configuration
+
 	RBT_CpuState state;
 	RBT_MemoryBus *bus;
 
-	RBT_CpuConfig cfg; // General CPU configuration
+	RBT_TimingCtx timing;
+	RBT_CpuPendingException pending;
+	bool is_halted;
 } RBT_Cpu;
+
+RBT_ErrorCode _cpu_raise_exception(RBT_Cpu *cpu, RBT_CpuVector vec);
 
 [[nodiscard]] static inline u32 _get_vector_address(
 	const RBT_CpuState *state, RBT_CpuVector vec
