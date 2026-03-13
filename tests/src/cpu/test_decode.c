@@ -60,7 +60,7 @@ void tearDown(void) {
 
 void test_decode_static_btst(void) {
 	RBT_Instruction instr;
-	TEST_ASSERT_EQUAL(RBT_ERR_SUCCESS, rbt_decode_instruction(bus, pc, &instr));
+	TEST_ASSERT_EQUAL(RBT_ERR_SUCCESS, _decode_instruction(bus, pc, &instr));
 
 	TEST_ASSERT_EQUAL(RBT_OP_BTST, instr.mnemonic);
 	TEST_ASSERT_EQUAL(RBT_SIZE_BYTE, instr.size);
@@ -83,7 +83,7 @@ void test_decode_static_btst(void) {
 
 void test_decode_dynamic_bchg(void) {
 	RBT_Instruction instr;
-	TEST_ASSERT_EQUAL(RBT_ERR_SUCCESS, rbt_decode_instruction(bus, pc, &instr));
+	TEST_ASSERT_EQUAL(RBT_ERR_SUCCESS, _decode_instruction(bus, pc, &instr));
 
 	TEST_ASSERT_EQUAL(RBT_OP_BCHG, instr.mnemonic);
 	TEST_ASSERT_EQUAL(RBT_SIZE_BYTE, instr.size);
@@ -103,7 +103,7 @@ void test_decode_dynamic_bchg(void) {
 
 void test_decode_static_bset(void) {
 	RBT_Instruction instr;
-	TEST_ASSERT_EQUAL(RBT_ERR_SUCCESS, rbt_decode_instruction(bus, pc, &instr));
+	TEST_ASSERT_EQUAL(RBT_ERR_SUCCESS, _decode_instruction(bus, pc, &instr));
 
 	TEST_ASSERT_EQUAL(RBT_OP_BSET, instr.mnemonic);
 	TEST_ASSERT_EQUAL(RBT_SIZE_BYTE, instr.size);
@@ -122,7 +122,7 @@ void test_decode_static_bset(void) {
 
 void test_decode_andi_w(void) {
 	RBT_Instruction instr;
-	TEST_ASSERT_EQUAL(RBT_ERR_SUCCESS, rbt_decode_instruction(bus, pc, &instr));
+	TEST_ASSERT_EQUAL(RBT_ERR_SUCCESS, _decode_instruction(bus, pc, &instr));
 
 	TEST_ASSERT_EQUAL(RBT_OP_ANDI, instr.mnemonic);
 	TEST_ASSERT_EQUAL(RBT_SIZE_WORD, instr.size);

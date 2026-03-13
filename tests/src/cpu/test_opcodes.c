@@ -148,7 +148,7 @@ static void test_opcodes(void) {
 
 	while (true) {
 		RBT_Instruction instr;
-		RBT_ErrorCode err = rbt_decode_instruction(_bus, pc, &instr);
+		RBT_ErrorCode err = _decode_instruction(_bus, pc, &instr);
 
 		if ((pc - _MMU_ROM_ADDR) >= opcodes_data_size)
 			break;

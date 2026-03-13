@@ -1,6 +1,7 @@
 #pragma once
 
 #include "rbt/basic_types.h"
+#include "rbt/cpu/types.h"
 
 #if defined(__GNUC__) || defined(__clang__)
 #	define rbt_bswap_u16(x) __builtin_bswap16((x))
@@ -14,13 +15,6 @@
 #endif
 
 #define RBT_BIT(v, bit) (((v) >> (bit)) & 1u)
-
-typedef enum RBT_OperandSize {
-	RBT_SIZE_BYTE = 1, // .b
-	RBT_SIZE_WORD = 2, // .w
-	RBT_SIZE_LONG = 4, // .l
-	RBT_SIZE_NONE = 0,
-} RBT_OperandSize;
 
 [[nodiscard]] u32 rbt_bits(u32 v, i32 hi, i32 lo);
 [[nodiscard]] u32 rbt_truncate(RBT_OperandSize size, u32 value);

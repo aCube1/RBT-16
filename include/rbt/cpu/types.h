@@ -1,7 +1,6 @@
 #pragma once
 
 #include "rbt/basic_types.h"
-#include "rbt/helpers.h"
 
 enum {
 	RBT_MAX_INSTR_WORDS = 16,
@@ -11,6 +10,13 @@ typedef enum RBT_CpuModel {
 	RBT_CPU_M68000 = 1 << 0,
 	RBT_CPU_M68010 = 1 << 1,
 } RBT_CpuModel;
+
+typedef enum RBT_OperandSize {
+	RBT_SIZE_BYTE = 1, // .b
+	RBT_SIZE_WORD = 2, // .w
+	RBT_SIZE_LONG = 4, // .l
+	RBT_SIZE_NONE = 0,
+} RBT_OperandSize;
 
 typedef enum RBT_AddressMode : u16 {
 	RBT_EA_NONE = 0,
@@ -43,43 +49,6 @@ typedef enum RBT_AddressMode : u16 {
 	RBT_EA_GROUP_DSP = RBT_EA_INDIRECT_DISPLACEMENT | RBT_EA_PC_DISPLACEMENT,
 	RBT_EA_GROUP_REL = RBT_EA_INDIRECT_POSTINC | RBT_EA_INDIRECT_PREDEC,
 } RBT_AddressMode;
-
-typedef struct RBT_IndexExtension {
-	bool is_addr;
-	bool is_long;
-	u8 xreg;
-	// u8 scale; // M68020+; Must always be 0 on M68000/MC68008/MC68010
-	i32 disp;
-} RBT_IndexExtension;
-
-typedef struct RBT_IndirectDisp {
-	u8 areg; // An
-	i32 disp;
-} RBT_IndirectDisp;
-
-typedef struct RBT_IndirectIndexed {
-	u8 areg; // An
-	RBT_IndexExtension ix;
-} RBT_IndirectIndexed;
-
-typedef struct RBT_EffectiveAddress {
-	RBT_AddressMode mode;
-	u32 start_pc;
-	RBT_OperandSize size;
-
-	union {
-		u8 reg;						 // EA = Dn or An
-		u8 indirect;				 // EA = (An) / (An) + SIZE / (An) - SIZE
-		RBT_IndirectDisp ind_disp;	 // EA = (An) + d16
-		RBT_IndirectIndexed ind_idx; // EA = (An) + (Xi) + d8
-		u32 absolute_short;			 // EA = (xxx).w | Sign Extended
-		u32 absolute_long;			 // EA = (xxx).l
-		i32 pc_disp;				 // EA = (PC) + d16
-		RBT_IndexExtension pc_idx;	 // EA = (PC) + (Xi) + d8
-		u32 imm;					 // EA = #imm, reg-list, conditions
-		i32 disp;					 // EA = d16
-	};
-} RBT_EffectiveAddress;
 
 typedef enum RBT_OpCondition {
 	RBT_COND_T = 0b0000,  // True
@@ -125,10 +94,49 @@ typedef enum RBT_OpMnemonic {
 	// M68010+
 	RBT_OP_BKPT, RBT_OP_MOVEC, RBT_OP_MOVES, RBT_OP_RTD,
 
+	_RBT_OP_COUNT,
+
 	// Unimplemeted lines
 	RBT_OP_LINEA, RBT_OP_LINEF,
 } RBT_OpMnemonic;
 // clang-format on
+
+typedef struct RBT_IndexExtension {
+	bool is_addr;
+	bool is_long;
+	u8 xreg;
+	// u8 scale; // M68020+; Must always be 0 on M68000/MC68008/MC68010
+	i32 disp;
+} RBT_IndexExtension;
+
+typedef struct RBT_IndirectDisp {
+	u8 areg; // An
+	i32 disp;
+} RBT_IndirectDisp;
+
+typedef struct RBT_IndirectIndexed {
+	u8 areg; // An
+	RBT_IndexExtension ix;
+} RBT_IndirectIndexed;
+
+typedef struct RBT_EffectiveAddress {
+	RBT_AddressMode mode;
+	u32 start_pc;
+	RBT_OperandSize size;
+
+	union {
+		u8 reg;						 // EA = Dn or An
+		u8 indirect;				 // EA = (An) / (An) + SIZE / (An) - SIZE
+		RBT_IndirectDisp ind_disp;	 // EA = (An) + d16
+		RBT_IndirectIndexed ind_idx; // EA = (An) + (Xi) + d8
+		u32 absolute_short;			 // EA = (xxx).w | Sign Extended
+		u32 absolute_long;			 // EA = (xxx).l
+		i32 pc_disp;				 // EA = (PC) + d16
+		RBT_IndexExtension pc_idx;	 // EA = (PC) + (Xi) + d8
+		u32 imm;					 // EA = #imm, reg-list, conditions
+		i32 disp;					 // EA = d16
+	};
+} RBT_EffectiveAddress;
 
 typedef struct RBT_Instruction {
 	RBT_OpMnemonic mnemonic;
