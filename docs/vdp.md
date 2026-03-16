@@ -607,3 +607,8 @@ VDP_MMIO + 0x00f8 -> VDP_BUILD_H | R
 TODO:
 	Improve video capabilities and learn more about what can be executed by the VDP.
 -->
+
+---
+
+> Documentation is licensed under CC BY-SA 4.0. <br>
+> See https://creativecommons.org/licenses/by-sa/4.0/
