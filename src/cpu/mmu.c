@@ -1,10 +1,27 @@
+// RBT-16 - Fantasy Retro-Computer Inspired by the Amiga 500 and Atari ST.
+// Copyright (C) 2026  aCube
+//
+// This library is free software; you can redistribute it and/or
+// modify it under the terms of the GNU Lesser General Public
+// License as published by the Free Software Foundation; either
+// version 2.1 of the License, or (at your option) any later version.
+//
+// This library is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+// Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public
+// License along with this library; if not, see
+// <https://www.gnu.org/licenses/>.
+
 #include "rbt/cpu/mmu.h"
 
 #include "error.h"
 #include "mmu_internal.h"
 #include "rbt/basic_types.h"
+#include "rbt/cpu/types.h"
 #include "rbt/error_codes.h"
-#include "rbt/helpers.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -55,8 +72,10 @@ static RBT_MMIODevice *_get_mmio_handler(RBT_MemoryBus *bus, u32 addr, u32 *offs
 
 [[nodiscard]] RBT_MemoryBus *rbt_create_bus(u8 ram_slots) {
 	if (ram_slots == 0 || ram_slots > _MMU_SLOTS_COUNT) {
-		_push_error(RBT_ERR_INVALID_ARGS,
-					"Invalid ram slots count. Expected: >0 and <=8, got %u", ram_slots);
+		_push_error(
+			RBT_ERR_INVALID_ARGS, "Invalid ram slots count. Expected: >0 and <=8, got %u",
+			ram_slots
+		);
 		return nullptr;
 	}
 
@@ -197,8 +216,9 @@ RBT_ErrorCode rbt_bus_read_byte(RBT_MemoryBus *bus, u32 addr, u8 *out) {
 	}
 
 	if (_is_address_in_range(addr, _MMU_RESERVED_BERR_ADDR, _MMU_RESERVED_BERR_SIZE)) {
-		_push_error(RBT_ERR_MEM_BUS_ERROR, "Tried to access invalid address at: 0x%06x",
-					addr);
+		_push_error(
+			RBT_ERR_MEM_BUS_ERROR, "Tried to access invalid address at: 0x%06x", addr
+		);
 		return RBT_ERR_MEM_BUS_ERROR;
 	}
 
@@ -236,8 +256,9 @@ RBT_ErrorCode rbt_bus_read_word(RBT_MemoryBus *bus, u32 addr, u16 *out) {
 	}
 
 	if (_is_address_in_range(addr, _MMU_RESERVED_BERR_ADDR, _MMU_RESERVED_BERR_SIZE)) {
-		_push_error(RBT_ERR_MEM_BUS_ERROR, "Tried to access invalid address at: 0x%06x",
-					addr);
+		_push_error(
+			RBT_ERR_MEM_BUS_ERROR, "Tried to access invalid address at: 0x%06x", addr
+		);
 		return RBT_ERR_MEM_BUS_ERROR;
 	}
 
@@ -288,8 +309,9 @@ RBT_ErrorCode rbt_bus_read_long(RBT_MemoryBus *bus, u32 addr, u32 *out) {
 	}
 
 	if (_is_address_in_range(addr, _MMU_RESERVED_BERR_ADDR, _MMU_RESERVED_BERR_SIZE)) {
-		_push_error(RBT_ERR_MEM_BUS_ERROR, "Tried to access invalid address at: 0x%06x",
-					addr);
+		_push_error(
+			RBT_ERR_MEM_BUS_ERROR, "Tried to access invalid address at: 0x%06x", addr
+		);
 		return RBT_ERR_MEM_BUS_ERROR;
 	}
 
@@ -324,8 +346,9 @@ RBT_ErrorCode rbt_bus_write_byte(RBT_MemoryBus *bus, u32 addr, u8 byte) {
 	}
 
 	if (_is_address_in_range(addr, _MMU_RESERVED_BERR_ADDR, _MMU_RESERVED_BERR_SIZE)) {
-		_push_error(RBT_ERR_MEM_BUS_ERROR, "Tried to access invalid address at: 0x%06x",
-					addr);
+		_push_error(
+			RBT_ERR_MEM_BUS_ERROR, "Tried to access invalid address at: 0x%06x", addr
+		);
 		return RBT_ERR_MEM_BUS_ERROR;
 	}
 
@@ -361,8 +384,9 @@ RBT_ErrorCode rbt_bus_write_word(RBT_MemoryBus *bus, u32 addr, u16 word) {
 	}
 
 	if (_is_address_in_range(addr, _MMU_RESERVED_BERR_ADDR, _MMU_RESERVED_BERR_SIZE)) {
-		_push_error(RBT_ERR_MEM_BUS_ERROR, "Tried to access invalid address at: 0x%06x",
-					addr);
+		_push_error(
+			RBT_ERR_MEM_BUS_ERROR, "Tried to access invalid address at: 0x%06x", addr
+		);
 		return RBT_ERR_MEM_BUS_ERROR;
 	}
 
@@ -407,8 +431,9 @@ RBT_ErrorCode rbt_bus_write_long(RBT_MemoryBus *bus, u32 addr, u32 long_) {
 	}
 
 	if (_is_address_in_range(addr, _MMU_RESERVED_BERR_ADDR, _MMU_RESERVED_BERR_SIZE)) {
-		_push_error(RBT_ERR_MEM_BUS_ERROR, "Tried to access invalid address at: 0x%06x",
-					addr);
+		_push_error(
+			RBT_ERR_MEM_BUS_ERROR, "Tried to access invalid address at: 0x%06x", addr
+		);
 		return RBT_ERR_MEM_BUS_ERROR;
 	}
 
@@ -450,10 +475,9 @@ RBT_ErrorCode rbt_bus_load(RBT_MemoryBus *bus, RBT_OperandSize size, u32 addr, u
 	unreachable();
 }
 
-RBT_ErrorCode rbt_bus_store(RBT_MemoryBus *bus,
-							RBT_OperandSize size,
-							u32 addr,
-							u32 data) {
+RBT_ErrorCode rbt_bus_store(
+	RBT_MemoryBus *bus, RBT_OperandSize size, u32 addr, u32 data
+) {
 	switch (size) {
 	case RBT_SIZE_BYTE: return rbt_bus_write_byte(bus, addr, data & 0x00ff);
 	case RBT_SIZE_WORD: return rbt_bus_write_word(bus, addr, data & 0xffff);
@@ -464,10 +488,9 @@ RBT_ErrorCode rbt_bus_store(RBT_MemoryBus *bus,
 	unreachable();
 }
 
-RBT_ErrorCode _bus_fetch_imm(RBT_MemoryBus *bus,
-							 RBT_OperandSize size,
-							 u32 addr,
-							 u32 *out) {
+RBT_ErrorCode _bus_fetch_imm(
+	RBT_MemoryBus *bus, RBT_OperandSize size, u32 addr, u32 *out
+) {
 	switch (size) {
 	case RBT_SIZE_BYTE:
 	case RBT_SIZE_WORD: {

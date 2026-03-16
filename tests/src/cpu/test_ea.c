@@ -1,9 +1,25 @@
+// RBT-16 - Fantasy Retro-Computer Inspired by the Amiga 500 and Atari ST.
+// Copyright (C) 2026  aCube
+//
+// This library is free software; you can redistribute it and/or
+// modify it under the terms of the GNU Lesser General Public
+// License as published by the Free Software Foundation; either
+// version 2.1 of the License, or (at your option) any later version.
+//
+// This library is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+// Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public
+// License along with this library; if not, see
+// <https://www.gnu.org/licenses/>.
+
 #include "cpu/effective_address.h"
 #include "rbt/basic_types.h"
 #include "rbt/cpu/mmu.h"
 #include "rbt/cpu/types.h"
 #include "rbt/error_codes.h"
-#include "rbt/helpers.h"
 #include "unity_internals.h"
 
 #include <stdint.h>
@@ -55,9 +71,7 @@ void test_decode_absolute_short_sign_extend(void) {
 	rbt_bus_write_word(bus, pc, word);
 
 	RBT_EffectiveAddress ea = { 0 };
-	TEST_ASSERT_EQUAL(
-		pc + 2, _decode_effective_address(0b111, 0b000, RBT_SIZE_WORD, bus, pc, &ea)
-	);
+	TEST_ASSERT_EQUAL(pc + 2, _ea_decode(0b111, 0b000, RBT_SIZE_WORD, bus, pc, &ea));
 	TEST_ASSERT_EQUAL(RBT_EA_ABSOLUTE_SHORT, ea.mode);
 	TEST_ASSERT_EQUAL_INT32((int32_t)(int16_t)0xff00, ea.absolute_short);
 }
@@ -68,18 +82,14 @@ void test_decode_immediate_long(void) {
 	rbt_bus_write_long(bus, pc, imm);
 
 	RBT_EffectiveAddress ea = { 0 };
-	TEST_ASSERT_EQUAL(
-		pc + 4, _decode_effective_address(0b111, 0b100, RBT_SIZE_LONG, bus, pc, &ea)
-	);
+	TEST_ASSERT_EQUAL(pc + 4, _ea_decode(0b111, 0b100, RBT_SIZE_LONG, bus, pc, &ea));
 	TEST_ASSERT_EQUAL(RBT_EA_IMMEDIATE, ea.mode);
 	TEST_ASSERT_EQUAL_UINT32(imm, ea.imm);
 }
 
 void test_decode_invalid_mode(void) {
 	RBT_EffectiveAddress ea = { 0 };
-	TEST_ASSERT_EQUAL(
-		UINT32_MAX, _decode_effective_address(0b111, 0b111, RBT_SIZE_WORD, bus, 0, &ea)
-	);
+	TEST_ASSERT_EQUAL(UINT32_MAX, _ea_decode(0b111, 0b111, RBT_SIZE_WORD, bus, 0, &ea));
 	TEST_ASSERT_EQUAL(RBT_ERR_DECODE_INVALID_EA, rbt_query_last_error()->code);
 }
 
