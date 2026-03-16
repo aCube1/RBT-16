@@ -91,17 +91,15 @@ simplify implementation.
 
 REFS:
 	CPU: MC68000P12 | MC68010P12
-	APU: Z84C0020PEG
+	APU: YM3812 | YM2413
 	FPGA: Tang Nano 9K
 	SRAM:
 		- AS6C4008-55PCN -> 512Kx8 = 512KB
 		- AS6C1008-55PCN -> 128Kx8 = 128K
-		- A625308AM -> 32Kx8 = 64K
-		- WS62256 -> 32Kx8 = 64K
 	ROM: SST39SF040 -> Flash 512Kx8 = 512KB
 	ICs:
 		- 74HC138 -> Decoder
 		- 74HCT245 -> 8-bit buffer, 5V <-> 3.3V
 	PINs:
-		- 2x32 Card Edge Connectors
+		- 2x50 Card Edge Connectors
 -->
