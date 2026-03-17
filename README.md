@@ -15,12 +15,18 @@ Commodore and IBM.<br>
 - CPU: Motorola 68000 at ~8/12MHz
 - VDP: Tang Nano 9K. Codename - Killy
 - APU: YM3812 (OPL2) + DAC
-- RAM: Shipped with 512KB of Static RAM. Eight SRAM slots of 512KB, up to 4MB max RAM
-- ROM: 512KB Flash; BIOS/Kernel
+- RAM: Shipped with 256KB of Static RAM; Has four RAM expansion modules,
+  with up to 4MB max RAM
+- ROM: 256KB Flash; Stores BIOS and Kernel
 
 > CPU can be boosted by software up to 12MHz
 
-> ROM can be rewritten and replaced
+> ROM can be rewritten and/or replaced. <br>
+
+> ROM0 -> /UDS chip (D8-D15, even addresses) <br>
+> ROM1 -> /LDS chip (D0-D7, odd addresses)
+
+- [RAM Subsystem](docs/ram.md)
 
 ### IO Connectors:
 
@@ -29,51 +35,11 @@ Commodore and IBM.<br>
 - 1 x microSD Card Slot
 - 1 x 3.5mm Audio Jack
 - 1 x RCA Jack
-- 4 x Card Edge Connectors/Expansion Card (Parallel Bus)
-
-### RAM and Memory Map
-
-- The RBT-16 is shipped with 512KB SRAM, but can be expanded up to 4MB.
-
-#### Main Memory Map
-
-|    Address Range    | Size  | Description                     |
-| :-----------------: | :---: | ------------------------------- |
-| 0x00'0000-0x07'ffff | 512KB | Default 512KB RAM chip (Slot 0) |
-| 0x08'0000-0x3f'ffff | 3.5MB | RAM Expansion slots (Slots 1-7) |
-| 0x40'0000-0xef'ffff | 11MB  | Reserved (Triggers /BERR)       |
-| 0xf0'0000-0xf7'ffff | 512KB | Kernel ROM (BIOS)               |
-| 0xf8'0000-0xfa'ffff | 192KB | Reserved (Does nothing, /DTACK) |
-| 0xfb'0000-0xfb'ffff | 64KB  | MMIO (See Table Below)          |
-| 0xfc'0000-0xfc'ffff | 64KB  | Expansion Card 0                |
-| 0xfd'0000-0xfd'ffff | 64KB  | Expansion Card 1                |
-| 0xfe'0000-0xfe'ffff | 64KB  | Expansion Card 2                |
-| 0xff'0000-0xff'ffff | 64KB  | Expansion Card 3                |
-
-> RAM is mirrored on disabled expansion slots. It wraps around at
-> invalid address range. Memory Map is subject to changes
-
-> Disabled Expansion Cards triggers /BERR if accessed
-
-#### MMIO Memory Map
-
-| Start Address | Description            |
-| :-----------: | ---------------------- |
-|    0x0000     | VDP Registers          |
-|    0x0100     | APU Registers          |
-|    0x0200     | I/O (SNES, PS/2, GPIO) |
-|    0x0300     | SD/SPI Controller      |
-|    0x0400     | Debug I/O (/DTACK)     |
-| 0x0500-0xffff | Reserved (/DTACK)      |
-
-> MMIO memory region starts at: 0xfb'0000
-
-> Each MMIO region is 256-bytes wide
+- 4 x 2x50 Card Edge Connectors/Expansion Card (Parallel Bus)
 
 ### Chips references
 
 - [Video Display Processor](docs/vdp.md)
-- [Audio Processor Unit](docs/apu.md)
 
 <!--
 NOTES:
@@ -82,9 +48,6 @@ custom wiring.
 	(YAN) - CPU: Test clock frequencies stability.
 	(aCube) - ROM: Should the ROM be updated from the microSD card? It will
 require a read-only bootloader section.
-	(aCube) - RAM: Mirroring is more expensive? ICs decoders are cheap today,
-a 74HC138 should do. Accessing a reserved memory region should trigger
-the /BERR exception.
 	(YAN) - APU: Use the YM2413 OPLL FM chip as an alternative audio chip
 	(aCube) - SD Card: SPI controller should reside inside the VDP. This
 simplify implementation.
@@ -96,12 +59,17 @@ REFS:
 	SRAM:
 		- AS6C4008-55PCN -> 512Kx8 = 512KB
 		- AS6C1008-55PCN -> 128Kx8 = 128K
-	ROM: SST39SF040 -> Flash 512Kx8 = 512KB
+	ROM:
+		- SST39SF010A -> Flash 128Kx8 = 128KB
+		- SST39SF040  -> Flash 512Kx8 = 512KB
 	ICs:
 		- 74HC138 -> Decoder
-		- 74HCT245 -> 8-bit buffer, 5V <-> 3.3V
+		- 74HC139 -> Decoder
+		- 74HCT244 -> one-way 8-bit buffer, 5V |-> 3.3V
+		- 74HCT245 -> bidirectional 8-bit buffer, 5V <-> 3.3V
 	PINs:
 		- 2x50 Card Edge Connectors
+		- 2x30 Card Edge Connectors
 -->
 
 ---
