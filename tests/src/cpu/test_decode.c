@@ -15,12 +15,10 @@
 // License along with this library; if not, see
 // <https://www.gnu.org/licenses/>.
 
+#include "cpu/bus_internal.h"
 #include "cpu/decode.h"
-#include "cpu/mmu_internal.h"
-#include "cpu/timing.h"
-#include "error.h"
 #include "rbt/basic_types.h"
-#include "rbt/cpu/mmu.h"
+#include "rbt/cpu/bus.h"
 #include "rbt/cpu/types.h"
 #include "rbt/error_codes.h"
 #include "rbt/helpers.h"

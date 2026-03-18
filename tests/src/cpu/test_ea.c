@@ -17,7 +17,7 @@
 
 #include "cpu/effective_address.h"
 #include "rbt/basic_types.h"
-#include "rbt/cpu/mmu.h"
+#include "rbt/cpu/bus.h"
 #include "rbt/cpu/types.h"
 #include "rbt/error_codes.h"
 #include "unity_internals.h"
@@ -28,7 +28,10 @@
 static RBT_MemoryBus *bus;
 
 void setUp(void) {
-	bus = rbt_create_bus(1);
+	RBT_BusConfig cfg = {
+		.ram_slots = { RBT_RAM_256KB, RBT_RAM_NONE, RBT_RAM_NONE, RBT_RAM_NONE },
+	};
+	bus = rbt_create_bus(&cfg);
 	TEST_ASSERT_NOT_NULL(bus);
 }
 

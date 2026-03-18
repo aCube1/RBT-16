@@ -15,10 +15,10 @@
 // License along with this library; if not, see
 // <https://www.gnu.org/licenses/>.
 
-#include "rbt/cpu/mmu.h"
+#include "rbt/cpu/bus.h"
 
+#include "bus_internal.h"
 #include "error.h"
-#include "mmu_internal.h"
 #include "rbt/basic_types.h"
 #include "rbt/cpu/types.h"
 #include "rbt/error_codes.h"
@@ -28,54 +28,89 @@
 #include <stdlib.h>
 #include <string.h>
 
+static const u32 _ram_module_sizes[] = {
+	[RBT_RAM_NONE] = 0,
+	[RBT_RAM_256KB] = 256 * 1024,
+	[RBT_RAM_512KB] = 512 * 1024,
+	[RBT_RAM_1MB] = 1024 * 1024,
+};
+
 static inline bool _is_address_in_range(u32 addr, u32 start, u32 size) {
 	return addr >= start && addr < start + size;
 }
 
+static inline u32 _get_ram_index(const RBT_MemoryBus *bus, u32 addr) {
+	assert(bus->ram_slot_size[0] != 0 && "Slot 0 must be populated");
+
+	u32 slot = addr >> 20;
+	u32 subaddr = addr & 0x0f'ffff;
+
+	// If slot is unpopulated, mirror into slot 0
+	if (bus->ram_slot_size[slot] == 0) {
+		slot = 0;
+		subaddr = addr;
+	}
+
+	return bus->ram_slot_offset[slot] + (subaddr % bus->ram_slot_size[slot]);
+}
+
 static RBT_MMIODevice *_get_mmio_handler(RBT_MemoryBus *bus, u32 addr, u32 *offset) {
-	assert(bus);
 	assert(offset);
 
 	// VDP (Video Processor Unit)
-	if (_is_address_in_range(addr, _MMU_MMIO_VDP_ADDR, _MMU_MMIO_REGION_SIZE)) {
-		*offset = addr - _MMU_MMIO_VDP_ADDR;
-		return &bus->vdp;
+	if (_is_address_in_range(addr, _BUS_MMIO_VDP_ADDR, _BUS_MMIO_SIZE)) {
+		*offset = addr - _BUS_MMIO_VDP_ADDR;
+		return &bus->mmio_devices[RBT_BUSDEV_VDP];
 	}
 
 	// APU (Audio Processor Unit)
-	if (_is_address_in_range(addr, _MMU_MMIO_APU_ADDR, _MMU_MMIO_REGION_SIZE)) {
-		*offset = addr - _MMU_MMIO_APU_ADDR;
-		return &bus->apu;
+	if (_is_address_in_range(addr, _BUS_MMIO_APU_ADDR, _BUS_MMIO_SIZE)) {
+		*offset = addr - _BUS_MMIO_APU_ADDR;
+		return &bus->mmio_devices[RBT_BUSDEV_APU];
 	}
 
 	// IO (Input/Output)
-	if (_is_address_in_range(addr, _MMU_MMIO_IO_ADDR, _MMU_MMIO_REGION_SIZE)) {
-		*offset = addr - _MMU_MMIO_IO_ADDR;
-		return &bus->io;
+	if (_is_address_in_range(addr, _BUS_MMIO_IO_ADDR, _BUS_MMIO_SIZE)) {
+		*offset = addr - _BUS_MMIO_IO_ADDR;
+		return &bus->mmio_devices[RBT_BUSDEV_IO];
 	}
 
 	// SD (microSD Card)
-	if (_is_address_in_range(addr, _MMU_MMIO_SD_ADDR, _MMU_MMIO_REGION_SIZE)) {
-		*offset = addr - _MMU_MMIO_SD_ADDR;
-		return &bus->sd;
+	if (_is_address_in_range(addr, _BUS_MMIO_SD_ADDR, _BUS_MMIO_SIZE)) {
+		*offset = addr - _BUS_MMIO_SD_ADDR;
+		return &bus->mmio_devices[RBT_BUSDEV_SD];
+	}
+
+	// SYS (System Control)
+	if (_is_address_in_range(addr, _BUS_MMIO_SYS_ADDR, _BUS_MMIO_SIZE)) {
+		*offset = addr - _BUS_MMIO_SYS_ADDR;
+		return &bus->mmio_devices[RBT_BUSDEV_SYS];
 	}
 
 	// EXT (Extension Cards)
-	if (_is_address_in_range(addr, _MMU_EXT0_ADDR, _MMU_EXT_SIZE * 4)) {
-		i32 slot = (addr - _MMU_EXT0_ADDR) >> 16;
+	if (_is_address_in_range(addr, _BUS_EXT0_ADDR, _BUS_EXT_SIZE * 4)) {
+		i32 slot = (addr - _BUS_EXT0_ADDR) >> 16;
 		*offset = addr & 0xffff;
-		return &bus->ext[slot];
+
+		RBT_MMIODevice *ext = &bus->mmio_devices[RBT_BUSDEV_EXT0 + slot];
+		if (!ext->device) {
+			_push_error(
+				RBT_ERR_MEM_BUS_ERROR, "Extension card %u isn't populated, at: 0x%06x",
+				slot, addr
+			);
+			return nullptr;
+		}
+		return ext;
 	}
 
 	return nullptr;
 }
 
-[[nodiscard]] RBT_MemoryBus *rbt_create_bus(u8 ram_slots) {
-	if (ram_slots == 0 || ram_slots > _MMU_SLOTS_COUNT) {
-		_push_error(
-			RBT_ERR_INVALID_ARGS, "Invalid ram slots count. Expected: >0 and <=8, got %u",
-			ram_slots
-		);
+[[nodiscard]] RBT_MemoryBus *rbt_create_bus(const RBT_BusConfig *cfg) {
+	assert(cfg);
+
+	if (cfg->ram_slots[0] == RBT_RAM_NONE) {
+		_push_fatal(RBT_ERR_INVALID_ARGS, "RAM slot 0 must be populated");
 		return nullptr;
 	}
 
@@ -86,19 +121,26 @@ static RBT_MMIODevice *_get_mmio_handler(RBT_MemoryBus *bus, u32 addr, u32 *offs
 	}
 	memset(bus, 0, sizeof(RBT_MemoryBus));
 
-	bus->ram_size = _MMU_SLOT_SIZE * ram_slots;
+	u32 offset = 0;
+	for (i32 i = 0; i < _BUS_RAM_SLOTS_COUNT; i += 1) {
+		bus->ram_slot_size[i] = _ram_module_sizes[(u32)cfg->ram_slots[i]];
+		bus->ram_slot_offset[i] = offset;
+		offset += bus->ram_slot_size[i];
+	}
+
+	bus->ram_size = offset;
 	bus->ram = malloc(bus->ram_size);
 	if (!bus->ram) {
 		_push_fatal(RBT_ERR_SYS_OUT_OF_MEMORY, "Failed to allocate RAM");
 		goto error;
 	}
 
-	bus->rom = malloc(_MMU_ROM_SIZE * sizeof(u8));
+	bus->rom = malloc(_BUS_ROM_SIZE);
 	if (!bus->rom) {
 		_push_fatal(RBT_ERR_SYS_OUT_OF_MEMORY, "Failed to allocate ROM memory area");
 		goto error;
 	}
-	memset(bus->rom, 0, _MMU_ROM_SIZE * sizeof(u8));
+	memset(bus->rom, 0, _BUS_ROM_SIZE);
 
 	return bus;
 
@@ -130,18 +172,7 @@ void rbt_bus_reset(RBT_MemoryBus *bus) {
 
 void rbt_attach_bus_mmio(RBT_MemoryBus *bus, RBT_BusDevice dev, RBT_MMIODevice device) {
 	assert(bus);
-
-	switch (dev) {
-	case RBT_BUSDEV_VDP:  bus->vdp = device; break;
-	case RBT_BUSDEV_APU:  bus->apu = device; break;
-	case RBT_BUSDEV_IO:	  bus->io = device; break;
-	case RBT_BUSDEV_SD:	  bus->sd = device; break;
-	case RBT_BUSDEV_EXT0: bus->ext[0] = device; break;
-	case RBT_BUSDEV_EXT1: bus->ext[1] = device; break;
-	case RBT_BUSDEV_EXT2: bus->ext[2] = device; break;
-	case RBT_BUSDEV_EXT3: bus->ext[3] = device; break;
-	default:			  unreachable();
-	}
+	bus->mmio_devices[dev] = device;
 }
 
 RBT_ErrorCode rbt_bus_init(RBT_MemoryBus *bus, usize size, const u8 *rom) {
@@ -151,9 +182,9 @@ RBT_ErrorCode rbt_bus_init(RBT_MemoryBus *bus, usize size, const u8 *rom) {
 		return RBT_ERR_INVALID_ARGS;
 	}
 
-	if (size > _MMU_ROM_SIZE) {
-		_push_warn("ROM truncated: size %zu exceeds max %u", size, _MMU_ROM_SIZE);
-		size = _MMU_ROM_SIZE;
+	if (size > _BUS_ROM_SIZE) {
+		_push_warn("ROM truncated: size %zu exceeds max %u", size, _BUS_ROM_SIZE);
+		size = _BUS_ROM_SIZE;
 	}
 	memcpy(bus->rom, rom, size);
 
@@ -175,14 +206,14 @@ RBT_ErrorCode rbt_bus_init_from_file(RBT_MemoryBus *bus, const char *filename) {
 	}
 
 	usize size = 0;
-	while (size < _MMU_ROM_SIZE) {
+	while (size < _BUS_ROM_SIZE) {
 		u8 buf[4096];
 		usize bytes_read = fread(buf, 1, 4096, file);
 		if (bytes_read == 0) {
 			break;
 		}
 
-		usize remaining = _MMU_ROM_SIZE - size;
+		usize remaining = _BUS_ROM_SIZE - size;
 		if (bytes_read > remaining)
 			bytes_read = remaining;
 
@@ -209,13 +240,13 @@ RBT_ErrorCode rbt_bus_read_byte(RBT_MemoryBus *bus, u32 addr, u8 *out) {
 	assert(bus);
 	assert(out);
 
-	addr &= 0xffffff;
+	addr &= 0x00ffffff;
 
-	if (_is_address_in_range(addr, _MMU_RESERVED_DTACK_ADDR, _MMU_RESERVED_DTACK_SIZE)) {
+	if (_is_address_in_range(addr, _BUS_RESERVED_DTACK_ADDR, _BUS_RESERVED_DTACK_SIZE)) {
 		return RBT_ERR_SUCCESS;
 	}
 
-	if (_is_address_in_range(addr, _MMU_RESERVED_BERR_ADDR, _MMU_RESERVED_BERR_SIZE)) {
+	if (_is_address_in_range(addr, _BUS_RESERVED_BERR_ADDR, _BUS_RESERVED_BERR_SIZE)) {
 		_push_error(
 			RBT_ERR_MEM_BUS_ERROR, "Tried to access invalid address at: 0x%06x", addr
 		);
@@ -223,14 +254,14 @@ RBT_ErrorCode rbt_bus_read_byte(RBT_MemoryBus *bus, u32 addr, u8 *out) {
 	}
 
 	// RAM region
-	if (bus->ram && bus->ram_size && addr < _MMU_RAM_SIZE) {
-		*out = bus->ram[addr % bus->ram_size];
+	if (bus->ram && bus->ram_size && addr < _BUS_RAM_SIZE) {
+		*out = bus->ram[_get_ram_index(bus, addr)];
 		return RBT_ERR_SUCCESS;
 	}
 
 	// ROM region
-	if (bus->rom && _is_address_in_range(addr, _MMU_ROM_ADDR, _MMU_ROM_SIZE)) {
-		u32 offset = addr - _MMU_ROM_ADDR;
+	if (bus->rom && _is_address_in_range(addr, _BUS_ROM_ADDR, _BUS_ROM_SIZE * 2)) {
+		u32 offset = (addr - _BUS_ROM_ADDR) % _BUS_ROM_SIZE;
 		*out = bus->rom[offset];
 		return RBT_ERR_SUCCESS;
 	}
@@ -238,6 +269,10 @@ RBT_ErrorCode rbt_bus_read_byte(RBT_MemoryBus *bus, u32 addr, u8 *out) {
 	u32 offset;
 	RBT_MMIODevice *mmio = _get_mmio_handler(bus, addr, &offset);
 	if (!mmio || !mmio->read_byte) {
+		const RBT_ErrorEntry *last = rbt_query_last_error();
+		if (last && last->code == RBT_ERR_MEM_BUS_ERROR)
+			return RBT_ERR_MEM_BUS_ERROR;
+
 		_push_warn("Memory isn't mapped at: 0x%06x", addr);
 		return RBT_ERR_MEM_UNMAPPED;
 	}
@@ -249,13 +284,13 @@ RBT_ErrorCode rbt_bus_read_word(RBT_MemoryBus *bus, u32 addr, u16 *out) {
 	assert(bus);
 	assert(out);
 
-	addr &= 0xffffff;
+	addr &= 0x00ffffff;
 
-	if (_is_address_in_range(addr, _MMU_RESERVED_DTACK_ADDR, _MMU_RESERVED_DTACK_SIZE)) {
+	if (_is_address_in_range(addr, _BUS_RESERVED_DTACK_ADDR, _BUS_RESERVED_DTACK_SIZE)) {
 		return RBT_ERR_SUCCESS;
 	}
 
-	if (_is_address_in_range(addr, _MMU_RESERVED_BERR_ADDR, _MMU_RESERVED_BERR_SIZE)) {
+	if (_is_address_in_range(addr, _BUS_RESERVED_BERR_ADDR, _BUS_RESERVED_BERR_SIZE)) {
 		_push_error(
 			RBT_ERR_MEM_BUS_ERROR, "Tried to access invalid address at: 0x%06x", addr
 		);
@@ -269,18 +304,19 @@ RBT_ErrorCode rbt_bus_read_word(RBT_MemoryBus *bus, u32 addr, u16 *out) {
 	}
 
 	// RAM region (Wrap around on unused ram slots)
-	if (bus->ram && bus->ram_size && addr < _MMU_RAM_SIZE) {
-		u32 offset = addr % bus->ram_size;
-		u32 next = (offset + 1) % bus->ram_size;
+	if (bus->ram && bus->ram_size && addr < _BUS_RAM_SIZE) {
+		u32 offset = _get_ram_index(bus, addr);
+		u32 next = _get_ram_index(bus, addr + 1);
 		*out = (bus->ram[offset] << 8) | bus->ram[next];
 		return RBT_ERR_SUCCESS;
 	}
 
 	// ROM region
-	if (bus->rom && _is_address_in_range(addr, _MMU_ROM_ADDR, _MMU_ROM_SIZE)) {
-		u32 offset = addr - _MMU_ROM_ADDR;
+	if (bus->rom && _is_address_in_range(addr, _BUS_ROM_ADDR, _BUS_ROM_SIZE * 2)) {
+		u32 offset = (addr - _BUS_ROM_ADDR) % _BUS_ROM_SIZE;
+
 		u16 word = bus->rom[offset] << 8;
-		if (offset + 1 < _MMU_ROM_SIZE) {
+		if (offset + 1 < _BUS_ROM_SIZE) {
 			word |= bus->rom[offset + 1];
 		}
 
@@ -291,6 +327,10 @@ RBT_ErrorCode rbt_bus_read_word(RBT_MemoryBus *bus, u32 addr, u16 *out) {
 	u32 offset;
 	RBT_MMIODevice *mmio = _get_mmio_handler(bus, addr, &offset);
 	if (!mmio || !mmio->read_word) {
+		const RBT_ErrorEntry *last = rbt_query_last_error();
+		if (last && last->code == RBT_ERR_MEM_BUS_ERROR)
+			return RBT_ERR_MEM_BUS_ERROR;
+
 		_push_warn("Memory isn't mapped at: 0x%06x", addr);
 		return RBT_ERR_MEM_UNMAPPED;
 	}
@@ -302,13 +342,13 @@ RBT_ErrorCode rbt_bus_read_long(RBT_MemoryBus *bus, u32 addr, u32 *out) {
 	assert(bus);
 	assert(out);
 
-	addr &= 0xffffff;
+	addr &= 0x00ffffff;
 
-	if (_is_address_in_range(addr, _MMU_RESERVED_DTACK_ADDR, _MMU_RESERVED_DTACK_SIZE)) {
+	if (_is_address_in_range(addr, _BUS_RESERVED_DTACK_ADDR, _BUS_RESERVED_DTACK_SIZE)) {
 		return RBT_ERR_SUCCESS;
 	}
 
-	if (_is_address_in_range(addr, _MMU_RESERVED_BERR_ADDR, _MMU_RESERVED_BERR_SIZE)) {
+	if (_is_address_in_range(addr, _BUS_RESERVED_BERR_ADDR, _BUS_RESERVED_BERR_SIZE)) {
 		_push_error(
 			RBT_ERR_MEM_BUS_ERROR, "Tried to access invalid address at: 0x%06x", addr
 		);
@@ -339,13 +379,13 @@ RBT_ErrorCode rbt_bus_read_long(RBT_MemoryBus *bus, u32 addr, u32 *out) {
 RBT_ErrorCode rbt_bus_write_byte(RBT_MemoryBus *bus, u32 addr, u8 byte) {
 	assert(bus);
 
-	addr &= 0xffffff;
+	addr &= 0x00ffffff;
 
-	if (_is_address_in_range(addr, _MMU_RESERVED_DTACK_ADDR, _MMU_RESERVED_DTACK_SIZE)) {
+	if (_is_address_in_range(addr, _BUS_RESERVED_DTACK_ADDR, _BUS_RESERVED_DTACK_SIZE)) {
 		return RBT_ERR_SUCCESS;
 	}
 
-	if (_is_address_in_range(addr, _MMU_RESERVED_BERR_ADDR, _MMU_RESERVED_BERR_SIZE)) {
+	if (_is_address_in_range(addr, _BUS_RESERVED_BERR_ADDR, _BUS_RESERVED_BERR_SIZE)) {
 		_push_error(
 			RBT_ERR_MEM_BUS_ERROR, "Tried to access invalid address at: 0x%06x", addr
 		);
@@ -353,13 +393,13 @@ RBT_ErrorCode rbt_bus_write_byte(RBT_MemoryBus *bus, u32 addr, u8 byte) {
 	}
 
 	// RAM region (Wrap around at unused ram slots)
-	if (bus->ram && addr < _MMU_RAM_SIZE) {
-		bus->ram[addr % bus->ram_size] = byte;
+	if (bus->ram && addr < _BUS_RAM_SIZE) {
+		bus->ram[_get_ram_index(bus, addr)] = byte;
 		return RBT_ERR_SUCCESS;
 	}
 
 	// ROM region
-	if (_is_address_in_range(addr, _MMU_ROM_ADDR, _MMU_ROM_SIZE)) {
+	if (_is_address_in_range(addr, _BUS_ROM_ADDR, _BUS_ROM_SIZE * 2)) {
 		_push_warn("Write attempt on ROM at: 0x%06x", addr);
 		return RBT_ERR_MEM_READONLY;
 	}
@@ -367,6 +407,10 @@ RBT_ErrorCode rbt_bus_write_byte(RBT_MemoryBus *bus, u32 addr, u8 byte) {
 	u32 offset;
 	RBT_MMIODevice *mmio = _get_mmio_handler(bus, addr, &offset);
 	if (!mmio || !mmio->write_byte) {
+		const RBT_ErrorEntry *last = rbt_query_last_error();
+		if (last && last->code == RBT_ERR_MEM_BUS_ERROR)
+			return RBT_ERR_MEM_BUS_ERROR;
+
 		_push_warn("Memory isn't mapped at: 0x%06x", addr);
 		return RBT_ERR_MEM_UNMAPPED;
 	}
@@ -377,13 +421,13 @@ RBT_ErrorCode rbt_bus_write_byte(RBT_MemoryBus *bus, u32 addr, u8 byte) {
 RBT_ErrorCode rbt_bus_write_word(RBT_MemoryBus *bus, u32 addr, u16 word) {
 	assert(bus);
 
-	addr &= 0xffffff;
+	addr &= 0x00ffffff;
 
-	if (_is_address_in_range(addr, _MMU_RESERVED_DTACK_ADDR, _MMU_RESERVED_DTACK_SIZE)) {
+	if (_is_address_in_range(addr, _BUS_RESERVED_DTACK_ADDR, _BUS_RESERVED_DTACK_SIZE)) {
 		return RBT_ERR_SUCCESS;
 	}
 
-	if (_is_address_in_range(addr, _MMU_RESERVED_BERR_ADDR, _MMU_RESERVED_BERR_SIZE)) {
+	if (_is_address_in_range(addr, _BUS_RESERVED_BERR_ADDR, _BUS_RESERVED_BERR_SIZE)) {
 		_push_error(
 			RBT_ERR_MEM_BUS_ERROR, "Tried to access invalid address at: 0x%06x", addr
 		);
@@ -397,16 +441,16 @@ RBT_ErrorCode rbt_bus_write_word(RBT_MemoryBus *bus, u32 addr, u16 word) {
 	}
 
 	// RAM region (Wrap around on unused ram slots)
-	if (bus->ram && addr < _MMU_RAM_SIZE) {
-		u32 offset = addr % bus->ram_size;
-		u32 next = (offset + 1) % bus->ram_size;
+	if (bus->ram && addr < _BUS_RAM_SIZE) {
+		u32 offset = _get_ram_index(bus, addr);
+		u32 next = _get_ram_index(bus, addr + 1);
 		bus->ram[offset] = (word >> 8) & 0xff;
 		bus->ram[next] = word & 0xff;
 		return RBT_ERR_SUCCESS;
 	}
 
 	// ROM region
-	if (_is_address_in_range(addr, _MMU_ROM_ADDR, _MMU_ROM_SIZE)) {
+	if (_is_address_in_range(addr, _BUS_ROM_ADDR, _BUS_ROM_SIZE * 2)) {
 		_push_warn("Write attempt on ROM at: 0x%06x", addr);
 		return RBT_ERR_MEM_READONLY;
 	}
@@ -414,6 +458,10 @@ RBT_ErrorCode rbt_bus_write_word(RBT_MemoryBus *bus, u32 addr, u16 word) {
 	u32 offset;
 	RBT_MMIODevice *mmio = _get_mmio_handler(bus, addr, &offset);
 	if (!mmio || !mmio->write_word) {
+		const RBT_ErrorEntry *last = rbt_query_last_error();
+		if (last && last->code == RBT_ERR_MEM_BUS_ERROR)
+			return RBT_ERR_MEM_BUS_ERROR;
+
 		_push_warn("Memory isn't mapped at: 0x%06x", addr);
 		return RBT_ERR_MEM_UNMAPPED;
 	}
@@ -424,13 +472,13 @@ RBT_ErrorCode rbt_bus_write_word(RBT_MemoryBus *bus, u32 addr, u16 word) {
 RBT_ErrorCode rbt_bus_write_long(RBT_MemoryBus *bus, u32 addr, u32 long_) {
 	assert(bus);
 
-	addr &= 0xffffff;
+	addr &= 0x00ffffff;
 
-	if (_is_address_in_range(addr, _MMU_RESERVED_DTACK_ADDR, _MMU_RESERVED_DTACK_SIZE)) {
+	if (_is_address_in_range(addr, _BUS_RESERVED_DTACK_ADDR, _BUS_RESERVED_DTACK_SIZE)) {
 		return RBT_ERR_SUCCESS;
 	}
 
-	if (_is_address_in_range(addr, _MMU_RESERVED_BERR_ADDR, _MMU_RESERVED_BERR_SIZE)) {
+	if (_is_address_in_range(addr, _BUS_RESERVED_BERR_ADDR, _BUS_RESERVED_BERR_SIZE)) {
 		_push_error(
 			RBT_ERR_MEM_BUS_ERROR, "Tried to access invalid address at: 0x%06x", addr
 		);

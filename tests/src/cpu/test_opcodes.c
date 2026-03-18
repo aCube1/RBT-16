@@ -15,11 +15,11 @@
 // License along with this library; if not, see
 // <https://www.gnu.org/licenses/>.
 
+#include "cpu/bus_internal.h"
 #include "cpu/decode.h"
-#include "cpu/mmu_internal.h"
 #include "opcodes.h"
 #include "rbt/basic_types.h"
-#include "rbt/cpu/mmu.h"
+#include "rbt/cpu/bus.h"
 #include "rbt/cpu/types.h"
 #include "rbt/error_codes.h"
 #include "rbt/helpers.h"
@@ -161,13 +161,13 @@ static i32 _align_text(i32 len, i32 alignment, char *out) {
 }
 
 static void test_opcodes(void) {
-	u32 pc = _MMU_ROM_ADDR;
+	u32 pc = _BUS_ROM_ADDR;
 
 	while (true) {
 		RBT_Instruction instr;
 		RBT_ErrorCode err = _decode_instruction(_bus, pc, &instr);
 
-		if ((pc - _MMU_ROM_ADDR) >= opcodes_data_size)
+		if ((pc - _BUS_ROM_ADDR) >= opcodes_data_size)
 			break;
 
 		pc += instr.len;
@@ -197,7 +197,7 @@ static void test_opcodes(void) {
 			|| instr.mnemonic == RBT_OP_Bcc) {
 			u8 cond = instr.aux.imm;
 			len += sprintf(
-				&out[len], "%s%s ", _mnemonics[instr.mnemonic], _conditions[cond]
+				&out[len], "%s%s%s ", _mnemonics[instr.mnemonic], _conditions[cond], size
 			);
 		} else {
 			len += sprintf(&out[len], "%s%s ", _mnemonics[instr.mnemonic], size);
@@ -239,7 +239,11 @@ static void test_opcodes(void) {
 }
 
 void setUp(void) {
-	_bus = rbt_create_bus(1);
+	RBT_BusConfig cfg = {
+		.ram_slots = { RBT_RAM_256KB, RBT_RAM_NONE, RBT_RAM_NONE, RBT_RAM_NONE },
+	};
+	_bus = rbt_create_bus(&cfg);
+
 	TEST_ASSERT_NOT_NULL(_bus);
 
 	TEST_ASSERT_EQUAL(

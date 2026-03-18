@@ -22,7 +22,7 @@
 #include "cpu/timing.h"
 #include "error.h"
 #include "rbt/basic_types.h"
-#include "rbt/cpu/mmu.h"
+#include "rbt/cpu/bus.h"
 #include "rbt/cpu/types.h"
 #include "rbt/error_codes.h"
 

@@ -65,12 +65,32 @@
 |    0x0100     | APU Registers          |
 |    0x0200     | I/O (SNES, PS/2, GPIO) |
 |    0x0300     | SD/SPI Controller      |
-|    0x0400     | Debug I/O (/DTACK)     |
+|    0x0400     | System Control         |
 | 0x0500-0xffff | Reserved (/DTACK)      |
 
 > MMIO memory region starts at: 0xfb'0000
 
 > Each MMIO region is 256-bytes wide
+
+#### MMIO - VDP Registers
+
+- [Video Display Processor](docs/vdp.md)
+
+#### MMIO - APU Registers
+
+> TODO!
+
+#### MMIO - IO
+
+> TODO!
+
+#### MMIO - SD/SPI Controller
+
+> TODO!
+
+#### MMIO - System Control
+
+> TODO!
 
 ---
 

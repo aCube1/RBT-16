@@ -15,9 +15,9 @@ Commodore and IBM.<br>
 - CPU: Motorola 68000 at ~8/12MHz
 - VDP: Tang Nano 9K. Codename - Killy
 - APU: YM3812 (OPL2) + DAC
+- ROM: 256KB Flash; Stores BIOS and Kernel
 - RAM: Shipped with 256KB of Static RAM; Has four RAM expansion modules,
   with up to 4MB max RAM
-- ROM: 256KB Flash; Stores BIOS and Kernel
 
 > CPU can be boosted by software up to 12MHz
 

@@ -59,9 +59,9 @@ add_test_executable(
 )
 
 add_test_executable(
-	test_mmu
+	test_bus
 	SOURCES
-		"src/cpu/test_mmu.c"
+		"src/cpu/test_bus.c"
 )
 
 add_test_executable(

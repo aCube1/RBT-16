@@ -26,11 +26,20 @@ typedef enum RBT_BusDevice {
 	RBT_BUSDEV_APU,
 	RBT_BUSDEV_IO,
 	RBT_BUSDEV_SD,
+	RBT_BUSDEV_SYS,
 	RBT_BUSDEV_EXT0,
 	RBT_BUSDEV_EXT1,
 	RBT_BUSDEV_EXT2,
 	RBT_BUSDEV_EXT3,
+	_RBT_BUSDEV_COUNT,
 } RBT_BusDevice;
+
+typedef enum RBT_RamModuleSize {
+	RBT_RAM_NONE,
+	RBT_RAM_256KB,
+	RBT_RAM_512KB,
+	RBT_RAM_1MB,
+} RBT_RamModuleSize;
 
 typedef RBT_ErrorCode (*RBT_MMIOReadByteCallback)(void *device, u32 addr, u8 *byte);
 typedef RBT_ErrorCode (*RBT_MMIOReadWordCallback)(void *device, u32 addr, u16 *word);
@@ -45,9 +54,13 @@ typedef struct RBT_MMIODevice {
 	RBT_MMIOWriteWordCallback write_word;
 } RBT_MMIODevice;
 
+typedef struct RBT_BusConfig {
+	RBT_RamModuleSize ram_slots[4];
+} RBT_BusConfig;
+
 typedef struct RBT_MemoryBus RBT_MemoryBus;
 
-[[nodiscard]] RBT_MemoryBus *rbt_create_bus(u8 ram_slots);
+[[nodiscard]] RBT_MemoryBus *rbt_create_bus(const RBT_BusConfig *cfg);
 void rbt_destroy_bus(RBT_MemoryBus *bus);
 void rbt_bus_reset(RBT_MemoryBus *bus);
 
