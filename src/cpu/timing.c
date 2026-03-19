@@ -31,6 +31,8 @@ u16 _calculate_timing(
 	const RBT_Instruction *instr, const RBT_TimingCtx *ctx, RBT_CpuModel cpu_model
 ) {
 	assert(instr);
+	(void)ctx;
+	(void)cpu_model;
 
 	u16 cycles = 4; // TODO: Calculate instruction cycles timing
 

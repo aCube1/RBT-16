@@ -165,7 +165,8 @@ static u8 _decode_bit(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	if (rbt_bits(opcode, 11, 8) == 0b1000) {
 		u16 bits;
 		if (rbt_bus_read_word(bus, curr_pc, &bits)) {
-			return rbt_query_last_error()->code;
+			const RBT_ErrorEntry *last = rbt_query_last_error();
+			return last ? last->code : RBT_ERR_GENERIC;
 		}
 		curr_pc += 2;
 
@@ -237,7 +238,8 @@ static u8 _decode_imm(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	instr->src.size = instr->size;
 
 	if (_bus_fetch_imm(bus, instr->size, curr_pc, &instr->src.imm)) {
-		return rbt_query_last_error()->code;
+		const RBT_ErrorEntry *last = rbt_query_last_error();
+		return last ? last->code : RBT_ERR_GENERIC;
 	}
 
 	// Skip out immediate words
@@ -302,7 +304,8 @@ static u8 _decode_moves_movep(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 		u16 disp;
 		if (rbt_bus_read_word(bus, curr_pc, &disp)) {
-			return rbt_query_last_error()->code;
+			const RBT_ErrorEntry *last = rbt_query_last_error();
+			return last ? last->code : RBT_ERR_GENERIC;
 		}
 		curr_pc += 2;
 
@@ -344,7 +347,8 @@ static u8 _decode_moves_movep(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 		u16 ext;
 		if (rbt_bus_read_word(bus, curr_pc, &ext)) {
-			return rbt_query_last_error()->code;
+			const RBT_ErrorEntry *last = rbt_query_last_error();
+			return last ? last->code : RBT_ERR_GENERIC;
 		}
 		curr_pc += 2;
 
@@ -555,7 +559,8 @@ static u8 _decode_movem(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 
 	u16 regs;
 	if (rbt_bus_read_word(bus, curr_pc, &regs)) {
-		return rbt_query_last_error()->code;
+		const RBT_ErrorEntry *last = rbt_query_last_error();
+		return last ? last->code : RBT_ERR_GENERIC;
 	}
 	curr_pc += 2;
 
@@ -795,7 +800,8 @@ static u8 _decode_misc(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		if (instr->mnemonic == RBT_OP_LINK) {
 			u16 offset;
 			if (rbt_bus_read_word(bus, curr_pc, &offset)) {
-				return rbt_query_last_error()->code;
+				const RBT_ErrorEntry *last = rbt_query_last_error();
+				return last ? last->code : RBT_ERR_GENERIC;
 			}
 
 			instr->size = RBT_SIZE_WORD;
@@ -833,7 +839,8 @@ static u8 _decode_misc(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	if (rbt_bits(opcode, 3, 1) == 0b101) {
 		u16 aux;
 		if (rbt_bus_read_word(bus, curr_pc, &aux)) {
-			return rbt_query_last_error()->code;
+			const RBT_ErrorEntry *last = rbt_query_last_error();
+			return last ? last->code : RBT_ERR_GENERIC;
 		}
 
 		instr->mnemonic = RBT_OP_MOVEC;
@@ -895,14 +902,16 @@ static u8 _decode_misc(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		instr->src.mode = RBT_EA_IMMEDIATE;
 
 		if (_bus_fetch_imm(bus, instr->src.size, curr_pc, &instr->src.imm)) {
-			return rbt_query_last_error()->code;
+			const RBT_ErrorEntry *last = rbt_query_last_error();
+			return last ? last->code : RBT_ERR_GENERIC;
 		}
 	}
 
 	if (instr->mnemonic == RBT_OP_RTD) {
 		u16 disp;
 		if (rbt_bus_read_word(bus, curr_pc, &disp)) {
-			return rbt_query_last_error()->code;
+			const RBT_ErrorEntry *last = rbt_query_last_error();
+			return last ? last->code : RBT_ERR_GENERIC;
 		}
 
 		instr->src.mode = RBT_EA_DISPLACEMENT;
@@ -970,7 +979,8 @@ static u8 _decode_addq_subq(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 		if (ea_mode == 0b001) {
 			u16 offset;
 			if (rbt_bus_read_word(bus, curr_pc, &offset)) {
-				return rbt_query_last_error()->code;
+				const RBT_ErrorEntry *last = rbt_query_last_error();
+				return last ? last->code : RBT_ERR_GENERIC;
 			}
 
 			instr->mnemonic = RBT_OP_DBcc;
@@ -1059,7 +1069,8 @@ static u8 _decode_branch(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 	if (offset == 0x00) {
 		instr->size = RBT_SIZE_WORD;
 		if (rbt_bus_read_word(bus, curr_pc, &offset)) {
-			return rbt_query_last_error()->code;
+			const RBT_ErrorEntry *last = rbt_query_last_error();
+			return last ? last->code : RBT_ERR_GENERIC;
 		}
 	}
 
