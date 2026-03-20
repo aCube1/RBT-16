@@ -197,6 +197,51 @@ decoding_error:
 	return UINT32_MAX;
 }
 
+u32 _ea_compute_address(const RBT_EffectiveAddress *ea, RBT_Cpu *cpu) {
+	switch (ea->mode) {
+	case RBT_EA_INDIRECT: //
+		return cpu->state.gpr.addr[ea->indirect];
+	case RBT_EA_INDIRECT_DISPLACEMENT:
+		return cpu->state.gpr.addr[ea->ind_disp.areg] + ea->ind_disp.disp;
+	case RBT_EA_INDIRECT_INDEXED: {
+		const RBT_IndexExtension *ix = &ea->ind_idx.ix;
+		u32 xreg;
+		RBT_OperandSize ix_size = ix->is_long ? RBT_SIZE_LONG : RBT_SIZE_WORD;
+		if (ix->is_addr)
+			xreg = cpu->state.gpr.addr[ix->xreg];
+		else
+			xreg = cpu->state.gpr.data[ix->xreg];
+
+		return cpu->state.gpr.addr[ea->ind_idx.areg] //
+			 + ix->disp								 //
+			 + rbt_sign_extend(ix_size, xreg);
+	}
+	case RBT_EA_ABSOLUTE_SHORT: //
+		return rbt_sign_extend(RBT_SIZE_WORD, ea->absolute_short);
+	case RBT_EA_ABSOLUTE_LONG: //
+		return ea->absolute_long;
+	case RBT_EA_PC_DISPLACEMENT: //
+		return ea->start_pc + ea->pc_disp;
+	case RBT_EA_PC_INDEXED: {
+		const RBT_IndexExtension *ix = &ea->pc_idx;
+		u32 xreg;
+		RBT_OperandSize ix_size = ix->is_long ? RBT_SIZE_LONG : RBT_SIZE_WORD;
+		if (ix->is_addr)
+			xreg = cpu->state.gpr.addr[ix->xreg];
+		else
+			xreg = cpu->state.gpr.data[ix->xreg];
+
+		return ea->start_pc //
+			 + ix->disp		//
+			 + rbt_sign_extend(ix_size, xreg);
+	}
+	default: //
+		return 0;
+	}
+
+	unreachable();
+}
+
 RBT_ErrorCode _ea_read(
 	const RBT_EffectiveAddress *ea, RBT_OperandSize size, RBT_Cpu *cpu, u32 *out
 ) {
@@ -211,16 +256,6 @@ RBT_ErrorCode _ea_read(
 	case RBT_EA_DIRECT_ADDR: //
 		*out = cpu->state.gpr.addr[ea->reg];
 		break;
-	case RBT_EA_INDIRECT: {
-		u32 addr = cpu->state.gpr.addr[ea->indirect];
-
-		u32 value;
-		RBT_ErrorCode err = rbt_bus_load(cpu->bus, size, addr, &value);
-		if (err)
-			return err;
-
-		*out = value;
-	} break;
 	case RBT_EA_INDIRECT_POSTINC: {
 		u32 addr = cpu->state.gpr.addr[ea->indirect];
 
@@ -250,86 +285,17 @@ RBT_ErrorCode _ea_read(
 
 		*out = value;
 	} break;
-	case RBT_EA_INDIRECT_DISPLACEMENT: {
-		u32 addr = cpu->state.gpr.addr[ea->ind_disp.areg];
-		addr += ea->ind_disp.disp;
-
-		u32 value;
-		RBT_ErrorCode err = rbt_bus_load(cpu->bus, size, addr, &value);
+	case RBT_EA_INDIRECT:
+	case RBT_EA_INDIRECT_DISPLACEMENT:
+	case RBT_EA_INDIRECT_INDEXED:
+	case RBT_EA_ABSOLUTE_SHORT:
+	case RBT_EA_ABSOLUTE_LONG:
+	case RBT_EA_PC_DISPLACEMENT:
+	case RBT_EA_PC_INDEXED:			   {
+		u32 addr = _ea_compute_address(ea, cpu);
+		RBT_ErrorCode err = rbt_bus_load(cpu->bus, size, addr, out);
 		if (err)
 			return err;
-
-		*out = value;
-	} break;
-	case RBT_EA_INDIRECT_INDEXED: {
-		const RBT_IndexExtension *ix = &ea->ind_idx.ix;
-		u32 xreg;
-		RBT_OperandSize ix_size = ix->is_long ? RBT_SIZE_LONG : RBT_SIZE_WORD;
-		if (ix->is_addr)
-			xreg = cpu->state.gpr.addr[ix->xreg];
-		else
-			xreg = cpu->state.gpr.data[ix->xreg];
-
-		u32 addr = cpu->state.gpr.addr[ea->ind_idx.areg];
-		addr += ix->disp;
-		addr += rbt_sign_extend(ix_size, xreg);
-
-		u32 value;
-		RBT_ErrorCode err = rbt_bus_load(cpu->bus, size, addr, &value);
-		if (err)
-			return err;
-
-		*out = value;
-	} break;
-	case RBT_EA_ABSOLUTE_SHORT: {
-		u32 addr = rbt_sign_extend(RBT_SIZE_WORD, ea->absolute_short);
-
-		u32 value;
-		RBT_ErrorCode err = rbt_bus_load(cpu->bus, size, addr, &value);
-		if (err)
-			return err;
-
-		*out = value;
-	} break;
-	case RBT_EA_ABSOLUTE_LONG: {
-		u32 addr = ea->absolute_long;
-
-		u32 value;
-		RBT_ErrorCode err = rbt_bus_load(cpu->bus, size, addr, &value);
-		if (err)
-			return err;
-
-		*out = value;
-	} break;
-	case RBT_EA_PC_DISPLACEMENT: {
-		u32 addr = ea->start_pc + ea->pc_disp;
-
-		u32 value;
-		RBT_ErrorCode err = rbt_bus_load(cpu->bus, size, addr, &value);
-		if (err)
-			return err;
-
-		*out = value;
-	} break;
-	case RBT_EA_PC_INDEXED: {
-		const RBT_IndexExtension *ix = &ea->pc_idx;
-		u32 xreg;
-		RBT_OperandSize ix_size = ix->is_long ? RBT_SIZE_LONG : RBT_SIZE_WORD;
-		if (ix->is_addr)
-			xreg = cpu->state.gpr.addr[ix->xreg];
-		else
-			xreg = cpu->state.gpr.data[ix->xreg];
-
-		u32 addr = ea->start_pc;
-		addr += ix->disp;
-		addr += rbt_sign_extend(ix_size, xreg);
-
-		u32 value;
-		RBT_ErrorCode err = rbt_bus_load(cpu->bus, size, addr, &value);
-		if (err)
-			return err;
-
-		*out = value;
 	} break;
 	case RBT_EA_IMMEDIATE: //
 		*out = ea->imm;
@@ -367,13 +333,6 @@ RBT_ErrorCode _ea_write(
 	case RBT_EA_DIRECT_ADDR: //
 		cpu->state.gpr.addr[ea->reg] = in;
 		break;
-	case RBT_EA_INDIRECT: {
-		u32 addr = cpu->state.gpr.addr[ea->indirect];
-
-		RBT_ErrorCode err = rbt_bus_store(cpu->bus, size, addr, in);
-		if (err)
-			return err;
-	} break;
 	case RBT_EA_INDIRECT_POSTINC: {
 		u32 addr = cpu->state.gpr.addr[ea->indirect];
 
@@ -396,29 +355,11 @@ RBT_ErrorCode _ea_write(
 		RBT_ErrorCode err = rbt_bus_store(cpu->bus, size, addr, in);
 		if (err)
 			return err;
-
 	} break;
-	case RBT_EA_INDIRECT_DISPLACEMENT: {
-		u32 addr = cpu->state.gpr.addr[ea->ind_disp.areg];
-		addr += ea->ind_disp.disp;
-
-		RBT_ErrorCode err = rbt_bus_store(cpu->bus, size, addr, in);
-		if (err)
-			return err;
-	} break;
-	case RBT_EA_INDIRECT_INDEXED: {
-		const RBT_IndexExtension *ix = &ea->ind_idx.ix;
-		u32 xreg;
-		RBT_OperandSize ix_size = ix->is_long ? RBT_SIZE_LONG : RBT_SIZE_WORD;
-		if (ix->is_addr)
-			xreg = cpu->state.gpr.addr[ix->xreg];
-		else
-			xreg = cpu->state.gpr.data[ix->xreg];
-
-		u32 addr = cpu->state.gpr.addr[ea->ind_idx.areg];
-		addr += ix->disp;
-		addr += rbt_sign_extend(ix_size, xreg);
-
+	case RBT_EA_INDIRECT:
+	case RBT_EA_INDIRECT_DISPLACEMENT:
+	case RBT_EA_INDIRECT_INDEXED:	   {
+		u32 addr = _ea_compute_address(ea, cpu);
 		RBT_ErrorCode err = rbt_bus_store(cpu->bus, size, addr, in);
 		if (err)
 			return err;

@@ -18,22 +18,38 @@
 #pragma once
 
 #include "cpu/cpu_internal.h"
+#include "cpu/effective_address.h"
 #include "error.h"
+#include "rbt/basic_types.h"
 #include "rbt/cpu/types.h"
 #include "rbt/error_codes.h"
+#include "rbt/helpers.h"
 
 #include <assert.h>
 
 typedef RBT_ErrorCode (*RBT_OpExec)(const RBT_Instruction *instr, RBT_Cpu *cpu);
 
-static RBT_ErrorCode _handle_bus_result(RBT_Cpu *cpu, RBT_ErrorCode err) {
-	switch (err) {
-	case RBT_ERR_MEM_ADDR_ERROR: return _cpu_raise_exception(cpu, _VEC_ADDR_ERROR);
-	case RBT_ERR_MEM_BUS_ERROR:	 return _cpu_raise_exception(cpu, _VEC_BUS_ERROR);
-	default:					 return err;
-	}
+static inline void _ccr_set_nz(RBT_Cpu *cpu, RBT_OperandSize size, u32 result) {
+	u32 msb = ((u32)size * 8) - 1; // Most-Significant Bit
+	cpu->state.sr.negative = (result >> msb) & 1;
+	cpu->state.sr.zero = rbt_truncate(size, result) == 0;
+}
 
-	unreachable();
+static inline void _ccr_set_nzvc(RBT_Cpu *cpu, RBT_OperandSize size, u32 src, u32 dst) {
+	u32 mask = rbt_truncate(size, 0xffff'ffff);
+	u32 msb = ((u32)size * 8) - 1; // Most-Significant Bit
+
+	u64 wide = (u64)(src & mask) + (u64)(dst & mask); // Wider result
+	u32 result = (u32)(wide & mask);
+
+	bool src_sign = (src >> msb) & 1;
+	bool dst_sign = (dst >> msb) & 1;
+	bool res_sign = (result >> msb) & 1;
+
+	cpu->state.sr.negative = res_sign;
+	cpu->state.sr.zero = result == 0;
+	cpu->state.sr.overflow = (src_sign == dst_sign) && (res_sign != src_sign);
+	cpu->state.sr.carry = (wide >> (msb + 1)) & 1;
 }
 
 static RBT_ErrorCode _op_abcd(const RBT_Instruction *instr, RBT_Cpu *cpu) {
@@ -254,13 +270,21 @@ static RBT_ErrorCode _op_ext(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 	_push_fatal(RBT_ERR_UNIMPLEMENTED, "Unimplemented instruction");
 	return RBT_ERR_UNIMPLEMENTED;
 }
+
+// ILLEGAL - Force trigger Illegal exception vector
+// Raise Exception: ILLEGAL - 4
+// Syntax:
+//   ILLEGAL
+// SIZE = None
+//
+//   X N Z V C
+// [ . . . . . ]
 static RBT_ErrorCode _op_illegal(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 	(void)instr;
-	(void)cpu;
 
-	_push_fatal(RBT_ERR_UNIMPLEMENTED, "Unimplemented instruction");
-	return RBT_ERR_UNIMPLEMENTED;
+	return _cpu_raise_exception(cpu, _VEC_ILLEGAL);
 }
+
 static RBT_ErrorCode _op_jmp(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 	(void)instr;
 	(void)cpu;
@@ -276,13 +300,20 @@ static RBT_ErrorCode _op_jsr(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 	_push_fatal(RBT_ERR_UNIMPLEMENTED, "Unimplemented instruction");
 	return RBT_ERR_UNIMPLEMENTED;
 }
-static RBT_ErrorCode _op_lea(const RBT_Instruction *instr, RBT_Cpu *cpu) {
-	(void)instr;
-	(void)cpu;
 
-	_push_fatal(RBT_ERR_UNIMPLEMENTED, "Unimplemented instruction");
-	return RBT_ERR_UNIMPLEMENTED;
+// LEA - Load effective address
+// [src] -> An
+// Syntax:
+//   LEA <ea>, An
+// SIZE = Long
+//
+//   X N Z V C
+// [ . . . . . ]
+static RBT_ErrorCode _op_lea(const RBT_Instruction *instr, RBT_Cpu *cpu) {
+	cpu->state.gpr.addr[instr->dst.reg] = _ea_compute_address(&instr->src, cpu);
+	return RBT_ERR_SUCCESS;
 }
+
 static RBT_ErrorCode _op_link(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 	(void)instr;
 	(void)cpu;
@@ -305,20 +336,140 @@ static RBT_ErrorCode _op_lsr(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 	_push_fatal(RBT_ERR_UNIMPLEMENTED, "Unimplemented instruction");
 	return RBT_ERR_UNIMPLEMENTED;
 }
+
+// MOVE - Copy data from source to destination
+// [src] -> [dst]
+// Syntax:
+//   MOVE <ea>, <ea>
+// SIZE = (Byte, Word, Long)
+//
+//   X N Z V C
+// [ . * * 0 0 ]
+//
+// N - Set if result is negative, cleared otherwise
+// Z - Set if result is zero, cleared otherwise
+//
+//
+// MOVE from CCR - Copy data from CCR to destination [M68010+]
+// CCR -> [dst]
+// Syntax:
+//   MOVE CCR, <ea>
+// SIZE = Word
+//
+//   X N Z V C
+// [ . . . . . ]
+//
+//
+// MOVE to CCR - Copy data from source to CCR
+// [src] -> CCR
+// Syntax:
+//   MOVE <ea>, CCR
+// SIZE = Word
+//
+//   X N Z V C
+// [ * * * * * ]
+//
+// X - Set if bit 4 in data is set, cleared otherwise
+// N - Set if bit 3 in data is set, cleared otherwise
+// Z - Set if bit 2 in data is set, cleared otherwise
+// V - Set if bit 1 in data is set, cleared otherwise
+// C - Set if bit 0 in data is set, cleared otherwise
+//
+//
+// MOVE from SR - Copy data from SR to destination [privilege(MC68010+)]
+// SR -> [dst]
+// Syntax:
+//   MOVE SR, <ea>
+// SIZE = Word
+//
+//   X N Z V C
+// [ . . . . . ]
+//
+//
+// MOVE to SR - Copy data from source to SR [privilege]
+// [src] -> SR
+// Syntax:
+//   MOVE <ea>, SR
+// SIZE = Word
+//
+//   X N Z V C
+// [ * * * * * ]
+//
+// X - Set if bit 4 in data is set, cleared otherwise
+// N - Set if bit 3 in data is set, cleared otherwise
+// Z - Set if bit 2 in data is set, cleared otherwise
+// V - Set if bit 1 in data is set, cleared otherwise
+// C - Set if bit 0 in data is set, cleared otherwise
+//
+//
+// MOVE USP - Copy data to or from USP [privilege]
+// MOVE to USP
+//   IF S=1 THEN [An] -> USP ELSE TRAP
+// MOVE from USP
+//   IF S=1 THEN USP -> [An] ELSE TRAP
+// Syntax:
+//   MOVE An, USP
+//   MOVE USP, An
+// SIZE = Long
+//
+//   X N Z V C
+// [ . . . . . ]
 static RBT_ErrorCode _op_move(const RBT_Instruction *instr, RBT_Cpu *cpu) {
-	(void)instr;
-	(void)cpu;
+	if (!cpu->state.sr.supervisor) {
+		if (instr->src.mode == RBT_EA_REGISTER_USP
+			|| instr->dst.mode == RBT_EA_REGISTER_USP)
+			return _cpu_raise_exception(cpu, _VEC_PRIVILEGE);
 
-	_push_fatal(RBT_ERR_UNIMPLEMENTED, "Unimplemented instruction");
-	return RBT_ERR_UNIMPLEMENTED;
+		if (instr->dst.mode == RBT_EA_REGISTER_SR)
+			return _cpu_raise_exception(cpu, _VEC_PRIVILEGE);
+
+		if (instr->src.mode == RBT_EA_REGISTER_SR && cpu->cfg.model == RBT_CPU_M68010)
+			return _cpu_raise_exception(cpu, _VEC_PRIVILEGE);
+	}
+
+	if (instr->src.mode == RBT_EA_REGISTER_CCR && cpu->cfg.model != RBT_CPU_M68010)
+		return _cpu_raise_exception(cpu, _VEC_ILLEGAL);
+
+	u32 data;
+	RBT_ErrorCode err = _ea_read(&instr->src, instr->size, cpu, &data);
+	if (err)
+		return err;
+
+	err = _ea_write(&instr->dst, instr->size, cpu, data);
+	if (err)
+		return err;
+
+	u16 reg_modes = RBT_EA_REGISTER_CCR | RBT_EA_REGISTER_SR | RBT_EA_REGISTER_USP;
+	if (!(instr->src.mode & reg_modes) && !(instr->dst.mode & reg_modes)) {
+		_ccr_set_nz(cpu, instr->size, data);
+		cpu->state.sr.overflow = false;
+		cpu->state.sr.carry = false;
+	}
+
+	return RBT_ERR_SUCCESS;
 }
+
+// MOVEA - Copy data to address register
+// [src] -> An
+// Syntax:
+//   MOVEA <ea>, An
+// SIZE = (Word, Long)
+//
+//   X N Z V C
+// [ . . . . . ]
 static RBT_ErrorCode _op_movea(const RBT_Instruction *instr, RBT_Cpu *cpu) {
-	(void)instr;
-	(void)cpu;
+	u32 data;
+	RBT_ErrorCode err = _ea_read(&instr->src, instr->size, cpu, &data);
+	if (err)
+		return err;
 
-	_push_fatal(RBT_ERR_UNIMPLEMENTED, "Unimplemented instruction");
-	return RBT_ERR_UNIMPLEMENTED;
+	if (instr->size == RBT_SIZE_WORD)
+		data = rbt_sign_extend(RBT_SIZE_WORD, data);
+
+	cpu->state.gpr.addr[instr->dst.reg] = data;
+	return RBT_ERR_SUCCESS;
 }
+
 static RBT_ErrorCode _op_movem(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 	(void)instr;
 	(void)cpu;
@@ -334,13 +485,25 @@ static RBT_ErrorCode _op_movep(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 	_push_fatal(RBT_ERR_UNIMPLEMENTED, "Unimplemented instruction");
 	return RBT_ERR_UNIMPLEMENTED;
 }
-static RBT_ErrorCode _op_moveq(const RBT_Instruction *instr, RBT_Cpu *cpu) {
-	(void)instr;
-	(void)cpu;
 
-	_push_fatal(RBT_ERR_UNIMPLEMENTED, "Unimplemented instruction");
-	return RBT_ERR_UNIMPLEMENTED;
+// MOVEQ - Move signed 8-bit data quick
+// [src] -> Dn
+// Syntax:
+//   MOVEQ #data:8, Dn
+// SIZE = Long
+//
+//   X N Z V C
+// [ . * * 0 0 ]
+static RBT_ErrorCode _op_moveq(const RBT_Instruction *instr, RBT_Cpu *cpu) {
+	u32 data = rbt_sign_extend(RBT_SIZE_BYTE, instr->src.imm);
+	cpu->state.gpr.data[instr->dst.reg] = data;
+
+	_ccr_set_nz(cpu, instr->size, data);
+	cpu->state.sr.overflow = false;
+	cpu->state.sr.carry = false;
+	return RBT_ERR_SUCCESS;
 }
+
 static RBT_ErrorCode _op_muls(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 	(void)instr;
 	(void)cpu;
@@ -377,12 +540,20 @@ static RBT_ErrorCode _op_negx(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 	_push_fatal(RBT_ERR_UNIMPLEMENTED, "Unimplemented instruction");
 	return RBT_ERR_UNIMPLEMENTED;
 }
+
+// NOP - No Operation
+// Consume CPU cycles and does nothing
+// Syntax:
+//  NOP
+//  SIZE = Word
+//
+//   X N Z V C
+// [ . . . . . ]
 static RBT_ErrorCode _op_nop(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 	(void)instr;
 	(void)cpu;
 
-	_push_fatal(RBT_ERR_UNIMPLEMENTED, "Unimplemented instruction");
-	return RBT_ERR_UNIMPLEMENTED;
+	return RBT_ERR_SUCCESS;
 }
 
 static RBT_ErrorCode _op_not(const RBT_Instruction *instr, RBT_Cpu *cpu) {

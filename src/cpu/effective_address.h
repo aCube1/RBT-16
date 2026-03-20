@@ -36,6 +36,8 @@ u32 _ea_decode(
 	RBT_EffectiveAddress *ea
 );
 
+u32 _ea_compute_address(const RBT_EffectiveAddress *ea, RBT_Cpu *cpu);
+
 RBT_ErrorCode _ea_read(
 	const RBT_EffectiveAddress *ea, RBT_OperandSize size, RBT_Cpu *cpu, u32 *out
 );

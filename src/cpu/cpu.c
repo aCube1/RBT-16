@@ -37,7 +37,7 @@
 static RBT_ErrorCode _cpu_check_exception(RBT_Cpu *cpu) {
 	assert(cpu);
 
-	// Exception Processing: Group 0
+	// Group 0 - Exception Processing
 	// 0: Reset - asserted at startup
 	// 1: Address Error - Thrown by bus
 	// 2: Bus Error - Thrown by bus
@@ -50,11 +50,11 @@ static RBT_ErrorCode _cpu_check_exception(RBT_Cpu *cpu) {
 		return _cpu_raise_exception(cpu, _VEC_BUS_ERROR);
 	}
 
-	// Exception Processing: Group 1
+	// Group 1 - Exception Processing
 	// 3: Trace
 	// 4: Interrupt
 	// 5: Illegal - Check at decode or Instruction
-	// 6: Privilege - Check at execute
+	// 6: Privilege - Check at execution
 	if (cpu->state.sr.trace1) {
 		return _cpu_raise_exception(cpu, _VEC_TRACE);
 	}
@@ -69,7 +69,7 @@ static RBT_ErrorCode _cpu_check_exception(RBT_Cpu *cpu) {
 		cpu->state.sr.interrupt_priority = cpu->pending.interrupt_level;
 	}
 
-	// Exception Processing: Group 2
+	// Group 2 - Exception Processing
 	// 7: TRAP/TRAVP - Instruction
 	// 8: CHK - Instruction
 	// 9: Zero Div - Instruction
@@ -77,10 +77,85 @@ static RBT_ErrorCode _cpu_check_exception(RBT_Cpu *cpu) {
 	return RBT_ERR_SUCCESS;
 }
 
+RBT_ErrorCode _stack_push_word(RBT_Cpu *cpu, u16 value) {
+	assert(cpu);
+	assert(cpu->bus);
+
+	u32 *stack;
+	if (cpu->state.sr.supervisor)
+		stack = &cpu->state.ssp;
+	else
+		stack = &cpu->state.usp;
+
+	// Stack grows downwards
+	*stack -= 2; // Word is 2-bytes
+	cpu->state.gpr.sp = *stack;
+
+	return rbt_bus_write_word(cpu->bus, *stack, value);
+}
+
+RBT_ErrorCode _stack_push_long(RBT_Cpu *cpu, u32 value) {
+	assert(cpu);
+	assert(cpu->bus);
+
+	u32 *stack;
+	if (cpu->state.sr.supervisor)
+		stack = &cpu->state.ssp;
+	else
+		stack = &cpu->state.usp;
+
+	// Stack grows downwards
+	*stack -= 4; // Long is 4-bytes
+	cpu->state.gpr.sp = *stack;
+
+	return rbt_bus_write_long(cpu->bus, *stack, value);
+}
+
+RBT_ErrorCode _stack_pop_word(RBT_Cpu *cpu, u16 *out) {
+	assert(cpu);
+	assert(cpu->bus);
+
+	u32 *stack;
+	if (cpu->state.sr.supervisor)
+		stack = &cpu->state.ssp;
+	else
+		stack = &cpu->state.usp;
+
+	RBT_ErrorCode err = rbt_bus_read_word(cpu->bus, *stack, out);
+	if (err)
+		return err;
+
+	// Stack grows downwards
+	*stack += 2; // Word is 2-bytes
+	cpu->state.gpr.sp = *stack;
+	return RBT_ERR_SUCCESS;
+}
+
+RBT_ErrorCode _stack_pop_long(RBT_Cpu *cpu, u32 *out) {
+	assert(cpu);
+	assert(cpu->bus);
+
+	u32 *stack;
+	if (cpu->state.sr.supervisor)
+		stack = &cpu->state.ssp;
+	else
+		stack = &cpu->state.usp;
+
+	RBT_ErrorCode err = rbt_bus_read_long(cpu->bus, *stack, out);
+	if (err)
+		return err;
+
+	// Stack grows downwards
+	*stack += 4; // Long is 4-bytes
+	cpu->state.gpr.sp = *stack;
+	return RBT_ERR_SUCCESS;
+}
+
 RBT_ErrorCode _cpu_raise_exception(RBT_Cpu *cpu, RBT_CpuVector vec) {
 	assert(cpu);
 
-	// TODO: Raise exception and push stack frame
+	(void)cpu;
+	(void)vec;
 
 	return RBT_ERR_SUCCESS;
 }
@@ -143,24 +218,28 @@ RBT_ErrorCode rbt_cpu_step(RBT_Cpu *cpu, u16 *out_cycles) {
 	assert(cpu);
 	assert(cpu->bus);
 
+	if (cpu->is_halted)
+		return RBT_ERR_CPU_HALTED;
+
 	RBT_ErrorCode err = _cpu_check_exception(cpu);
 	if (err)
 		return err;
 
-	RBT_Instruction instr;
-	err = _decode_instruction(cpu->bus, cpu->state.pc, &instr);
+	err = _decode_instruction(cpu->bus, cpu->state.pc, &cpu->current_instr);
 	if (err)
 		return err;
 
-	// Increment PC before executing next instruction
-	cpu->state.pc += instr.len;
+	RBT_Instruction *instr = &cpu->current_instr;
 
-	err = _cpu_execute(&instr, cpu);
+	// Increment PC before executing next instruction
+	cpu->state.pc += instr->len;
+
+	err = _cpu_execute(instr, cpu);
 	if (err)
 		return err;
 
 	if (out_cycles)
-		*out_cycles = _calculate_timing(&instr, &cpu->timing, cpu->cfg.model);
+		*out_cycles = _calculate_timing(instr, &cpu->timing, cpu->cfg.model);
 	memset(&cpu->timing, 0, sizeof(RBT_TimingCtx));
 
 	return RBT_ERR_SUCCESS;

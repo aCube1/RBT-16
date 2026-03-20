@@ -87,16 +87,32 @@ typedef struct RBT_CpuPendingException {
 	u8 interrupt_level; // 1-7
 } RBT_CpuPendingException;
 
+typedef struct RBT_CpuFaultInfo {
+	u32 addr;
+	u16 opcode;
+	u8 function_code;
+	bool is_read;
+	bool is_fetch;
+} RBT_CpuFaultInfo;
+
 typedef struct RBT_Cpu {
 	RBT_CpuConfig cfg; // General CPU configuration
 
 	RBT_CpuState state;
 	RBT_MemoryBus *bus;
+	RBT_Instruction current_instr;
 
+	RBT_CpuFaultInfo fault;
 	RBT_TimingCtx timing;
 	RBT_CpuPendingException pending;
 	bool is_halted;
 } RBT_Cpu;
+
+RBT_ErrorCode _stack_push_word(RBT_Cpu *cpu, u16 value);
+RBT_ErrorCode _stack_push_long(RBT_Cpu *cpu, u32 value);
+
+RBT_ErrorCode _stack_pop_word(RBT_Cpu *cpu, u16 *out);
+RBT_ErrorCode _stack_pop_long(RBT_Cpu *cpu, u32 *out);
 
 RBT_ErrorCode _cpu_raise_exception(RBT_Cpu *cpu, RBT_CpuVector vec);
 
