@@ -59,7 +59,7 @@ REFS:
 	CPU: MC68000P12 | MC68010P12
 	VIDEO:
 		- Tang Nano 9K -> VDP (Killy)
-		- AD724 -> RGB to Composite/S-Video encoder
+		- AD725 -> RGB to Composite/S-Video encoder
 		ICs:
 			- HD-15 -> VGA Connector
 			- Mini-DIN 4-pin -> S-Video Connector

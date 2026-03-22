@@ -14,7 +14,7 @@
 
 ## Video Output:
 
-Killy supports three video output modes
+Killy supports three video output modes:
 
 - **HDMI**: Diginal output via onboard Tang Nano 9K connector.
     - Exclusive: Cannot be used at the same time with VGA or S-Video.
@@ -24,7 +24,7 @@ Killy supports three video output modes
 - **S-Video**: Analog Y/C output via AD724 encoder.
     - Active simultaneously with VGA whenever HDMI isn't connected
 
-> Pluggin in an HDMI cable automacally switches the output mode
+> Plugging in an HDMI cable automatically switches the output mode
 
 > VGA and S-video are always simultaneously active in RGB parallel mode
 
@@ -618,11 +618,6 @@ VDP_MMIO + 0x00f8 -> VDP_BUILD_H | R
 
     [31:0] B - BUILD_HASH -> Build hash identifier
 ```
-
-<!--
-TODO:
-	Improve video capabilities and learn more about what can be executed by the VDP.
--->
 
 ---
 
