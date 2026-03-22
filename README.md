@@ -52,14 +52,28 @@ require a read-only bootloader section.
 	(YAN) - APU: Use the YM2413 OPLL FM chip as an alternative audio chip
 	(aCube) - SD Card: SPI controller should reside inside the VDP. This
 simplify implementation.
+	(aCube) - Add 525-line interlaced NTSC/PAL-M mode for CRT TV compatibility.
+reference: https://github.com/fvdhoef/vera-module
 
 REFS:
 	CPU: MC68000P12 | MC68010P12
-	VDP: FPGA Tang Nano 9K
+	VIDEO:
+		- Tang Nano 9K -> VDP (Killy)
+		- AD724 -> RGB to Composite/S-Video encoder
+		ICs:
+			- HD-15 -> VGA Connector
+			- Mini-DIN 4-pin -> S-Video Connector
+		NOTES:
+			- HDMI and VGA/S-Video share FPGA pins
+			- HDMI uses onboard Tang Nano 9K connector
+			- VGA and S-Video are share LCD connector signals
+			- S-Video uses AD724 encoder fed from LCD connector
+			- VGA and S-Video can be used at the same time
+			- HDMI is auto-detected; Turns VGA and S-Video off if connected
 	APU:
 		- YM3812
-		- DAC: YM3014B
-		- OpAmp: LM358 | TL072 | NE5532
+		- YM3014B -> DAC
+		- LM358 | TL072 | NE5532 -> OpAmp
 	SRAM:
 		- AS6C4008-55PCN -> 512Kx8 = 512KB
 		- AS6C1008-55PCN -> 128Kx8 = 128K

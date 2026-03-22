@@ -12,6 +12,22 @@
 
 ---
 
+## Video Output:
+
+Killy supports three video output modes
+
+- **HDMI**: Diginal output via onboard Tang Nano 9K connector.
+    - Exclusive: Cannot be used at the same time with VGA or S-Video.
+    - Auto-detected vida HPD (Hot Plug Detect) pin
+- **VGA**: Analog RGB output.
+    - Active whenever HDMI is not connected
+- **S-Video**: Analog Y/C output via AD724 encoder.
+    - Active simultaneously with VGA whenever HDMI isn't connected
+
+> Pluggin in an HDMI cable automacally switches the output mode
+
+> VGA and S-video are always simultaneously active in RGB parallel mode
+
 ## Colors and Palettes
 
 - 16 palettes of 16 colors
