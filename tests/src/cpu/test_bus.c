@@ -34,39 +34,39 @@ static RBT_MemoryBus *_make_bus(
 void setUp(void) { }
 void tearDown(void) { }
 
-void test_create_slot0_unpopulated_fails(void) {
+static void test_create_slot0_unpopulated_fails(void) {
 	TEST_ASSERT_NULL(_make_bus(RBT_RAM_NONE, RBT_RAM_256KB, RBT_RAM_NONE, RBT_RAM_NONE));
 }
 
-void test_create_only_slot0(void) {
+static void test_create_only_slot0(void) {
 	RBT_MemoryBus *bus = _make_bus(
 		RBT_RAM_256KB, RBT_RAM_NONE, RBT_RAM_NONE, RBT_RAM_NONE
 	);
 	TEST_ASSERT_NOT_NULL(bus);
-	TEST_ASSERT_NOT_NULL(bus->ram);
+	TEST_ASSERT_NOT_NULL(bus->ram.data);
 	TEST_ASSERT_NOT_NULL(bus->rom);
-	TEST_ASSERT_EQUAL(256 * 1024, bus->ram_size);
+	TEST_ASSERT_EQUAL(256 * 1024, bus->ram.size);
 	rbt_destroy_bus(bus);
 }
 
-void test_create_all_slots(void) {
+static void test_create_all_slots(void) {
 	RBT_MemoryBus *bus = _make_bus(RBT_RAM_1MB, RBT_RAM_1MB, RBT_RAM_1MB, RBT_RAM_1MB);
 	TEST_ASSERT_NOT_NULL(bus);
-	TEST_ASSERT_EQUAL(4 * 1024 * 1024, bus->ram_size);
+	TEST_ASSERT_EQUAL(4 * 1024 * 1024, bus->ram.size);
 	rbt_destroy_bus(bus);
 }
 
-void test_create_mixed_slots(void) {
+static void test_create_mixed_slots(void) {
 	// 256KB + unpopulated + 512KB + unpopulated = 768KB allocated
 	RBT_MemoryBus *bus = _make_bus(
 		RBT_RAM_256KB, RBT_RAM_NONE, RBT_RAM_512KB, RBT_RAM_NONE
 	);
 	TEST_ASSERT_NOT_NULL(bus);
-	TEST_ASSERT_EQUAL((256 + 512) * 1024, bus->ram_size);
+	TEST_ASSERT_EQUAL((256 + 512) * 1024, bus->ram.size);
 	rbt_destroy_bus(bus);
 }
 
-void test_ram_read_write_byte(void) {
+static void test_ram_read_write_byte(void) {
 	RBT_MemoryBus *bus = _make_bus(
 		RBT_RAM_256KB, RBT_RAM_NONE, RBT_RAM_NONE, RBT_RAM_NONE
 	);
@@ -79,7 +79,7 @@ void test_ram_read_write_byte(void) {
 	rbt_destroy_bus(bus);
 }
 
-void test_ram_read_write_word(void) {
+static void test_ram_read_write_word(void) {
 	RBT_MemoryBus *bus = _make_bus(
 		RBT_RAM_256KB, RBT_RAM_NONE, RBT_RAM_NONE, RBT_RAM_NONE
 	);
@@ -92,7 +92,7 @@ void test_ram_read_write_word(void) {
 	rbt_destroy_bus(bus);
 }
 
-void test_ram_read_write_long(void) {
+static void test_ram_read_write_long(void) {
 	RBT_MemoryBus *bus = _make_bus(
 		RBT_RAM_256KB, RBT_RAM_NONE, RBT_RAM_NONE, RBT_RAM_NONE
 	);
@@ -105,7 +105,7 @@ void test_ram_read_write_long(void) {
 	rbt_destroy_bus(bus);
 }
 
-void test_ram_slot0_wraps_at_module_size(void) {
+static void test_ram_slot0_wraps_at_module_size(void) {
 	// 256KB module in 1MB window — address 256KB should alias to address 0
 	RBT_MemoryBus *bus = _make_bus(
 		RBT_RAM_256KB, RBT_RAM_NONE, RBT_RAM_NONE, RBT_RAM_NONE
@@ -120,7 +120,7 @@ void test_ram_slot0_wraps_at_module_size(void) {
 	rbt_destroy_bus(bus);
 }
 
-void test_ram_slot0_wraps_512kb_module(void) {
+static void test_ram_slot0_wraps_512kb_module(void) {
 	RBT_MemoryBus *bus = _make_bus(
 		RBT_RAM_512KB, RBT_RAM_NONE, RBT_RAM_NONE, RBT_RAM_NONE
 	);
@@ -135,7 +135,7 @@ void test_ram_slot0_wraps_512kb_module(void) {
 	rbt_destroy_bus(bus);
 }
 
-void test_ram_unpopulated_slot_mirrors_slot0(void) {
+static void test_ram_unpopulated_slot_mirrors_slot0(void) {
 	RBT_MemoryBus *bus = _make_bus(
 		RBT_RAM_256KB, RBT_RAM_NONE, RBT_RAM_NONE, RBT_RAM_NONE
 	);
@@ -150,7 +150,7 @@ void test_ram_unpopulated_slot_mirrors_slot0(void) {
 	rbt_destroy_bus(bus);
 }
 
-void test_ram_populated_slot_does_not_mirror(void) {
+static void test_ram_populated_slot_does_not_mirror(void) {
 	RBT_MemoryBus *bus = _make_bus(
 		RBT_RAM_256KB, RBT_RAM_256KB, RBT_RAM_NONE, RBT_RAM_NONE
 	);
@@ -168,7 +168,7 @@ void test_ram_populated_slot_does_not_mirror(void) {
 	rbt_destroy_bus(bus);
 }
 
-void test_rom_init_and_read(void) {
+static void test_rom_init_and_read(void) {
 	RBT_MemoryBus *bus = _make_bus(
 		RBT_RAM_256KB, RBT_RAM_NONE, RBT_RAM_NONE, RBT_RAM_NONE
 	);
@@ -183,7 +183,7 @@ void test_rom_init_and_read(void) {
 	rbt_destroy_bus(bus);
 }
 
-void test_rom_mirror(void) {
+static void test_rom_mirror(void) {
 	RBT_MemoryBus *bus = _make_bus(
 		RBT_RAM_256KB, RBT_RAM_NONE, RBT_RAM_NONE, RBT_RAM_NONE
 	);
@@ -210,7 +210,7 @@ void test_rom_mirror(void) {
 	rbt_destroy_bus(bus);
 }
 
-void test_rom_write_readonly(void) {
+static void test_rom_write_readonly(void) {
 	RBT_MemoryBus *bus = _make_bus(
 		RBT_RAM_256KB, RBT_RAM_NONE, RBT_RAM_NONE, RBT_RAM_NONE
 	);
@@ -223,7 +223,7 @@ void test_rom_write_readonly(void) {
 	rbt_destroy_bus(bus);
 }
 
-void test_rom_init_from_file(void) {
+static void test_rom_init_from_file(void) {
 	RBT_MemoryBus *bus = _make_bus(
 		RBT_RAM_256KB, RBT_RAM_NONE, RBT_RAM_NONE, RBT_RAM_NONE
 	);
@@ -244,7 +244,7 @@ void test_rom_init_from_file(void) {
 	rbt_destroy_bus(bus);
 }
 
-void test_unaligned_word_access(void) {
+static void test_unaligned_word_access(void) {
 	RBT_MemoryBus *bus = _make_bus(
 		RBT_RAM_256KB, RBT_RAM_NONE, RBT_RAM_NONE, RBT_RAM_NONE
 	);
@@ -256,7 +256,7 @@ void test_unaligned_word_access(void) {
 	rbt_destroy_bus(bus);
 }
 
-void test_berr_region(void) {
+static void test_berr_region(void) {
 	RBT_MemoryBus *bus = _make_bus(
 		RBT_RAM_256KB, RBT_RAM_NONE, RBT_RAM_NONE, RBT_RAM_NONE
 	);
@@ -272,7 +272,7 @@ void test_berr_region(void) {
 	rbt_destroy_bus(bus);
 }
 
-void test_dtack_region(void) {
+static void test_dtack_region(void) {
 	// DTACK region does nothing — reads/writes silently succeed
 	RBT_MemoryBus *bus = _make_bus(
 		RBT_RAM_256KB, RBT_RAM_NONE, RBT_RAM_NONE, RBT_RAM_NONE
@@ -289,7 +289,7 @@ void test_dtack_region(void) {
 	rbt_destroy_bus(bus);
 }
 
-void test_disabled_ext_card_berr(void) {
+static void test_disabled_ext_card_berr(void) {
 	RBT_MemoryBus *bus = _make_bus(
 		RBT_RAM_256KB, RBT_RAM_NONE, RBT_RAM_NONE, RBT_RAM_NONE
 	);

@@ -22,8 +22,9 @@
 #include "rbt/error_codes.h"
 
 typedef enum RBT_BusDevice {
+	RBT_BUSDEV_RAM,
+	RBT_BUSDEV_ROM,
 	RBT_BUSDEV_VDP,
-	RBT_BUSDEV_APU,
 	RBT_BUSDEV_IO,
 	RBT_BUSDEV_SD,
 	RBT_BUSDEV_SYS,
@@ -41,18 +42,21 @@ typedef enum RBT_RamModuleSize {
 	RBT_RAM_1MB,
 } RBT_RamModuleSize;
 
-typedef RBT_ErrorCode (*RBT_MMIOReadByteCallback)(void *device, u32 addr, u8 *byte);
-typedef RBT_ErrorCode (*RBT_MMIOReadWordCallback)(void *device, u32 addr, u16 *word);
-typedef RBT_ErrorCode (*RBT_MMIOWriteByteCallback)(void *device, u32 addr, u8 byte);
-typedef RBT_ErrorCode (*RBT_MMIOWriteWordCallback)(void *device, u32 addr, u16 word);
+typedef RBT_ErrorCode (*RBT_IOReadByteCallback)(void *device, u32 addr, u8 *byte);
+typedef RBT_ErrorCode (*RBT_IOReadWordCallback)(void *device, u32 addr, u16 *word);
+typedef RBT_ErrorCode (*RBT_IOWriteByteCallback)(void *device, u32 addr, u8 byte);
+typedef RBT_ErrorCode (*RBT_IOWriteWordCallback)(void *device, u32 addr, u16 word);
 
-typedef struct RBT_MMIODevice {
+typedef struct RBT_IODevice {
+	u32 addr;
+	u32 size;
+
 	void *device;
-	RBT_MMIOReadByteCallback read_byte;
-	RBT_MMIOReadWordCallback read_word;
-	RBT_MMIOWriteByteCallback write_byte;
-	RBT_MMIOWriteWordCallback write_word;
-} RBT_MMIODevice;
+	RBT_IOReadByteCallback read_byte;
+	RBT_IOReadWordCallback read_word;
+	RBT_IOWriteByteCallback write_byte;
+	RBT_IOWriteWordCallback write_word;
+} RBT_IODevice;
 
 typedef struct RBT_BusConfig {
 	RBT_RamModuleSize ram_slots[4];
@@ -64,7 +68,9 @@ typedef struct RBT_MemoryBus RBT_MemoryBus;
 void rbt_destroy_bus(RBT_MemoryBus *bus);
 void rbt_bus_reset(RBT_MemoryBus *bus);
 
-void rbt_attach_bus_mmio(RBT_MemoryBus *bus, RBT_BusDevice dev, RBT_MMIODevice device);
+void rbt_bus_attach_iodevice(
+	RBT_MemoryBus *bus, RBT_BusDevice dev, const RBT_IODevice *device
+);
 RBT_ErrorCode rbt_bus_init(RBT_MemoryBus *bus, usize size, const u8 *rom);
 RBT_ErrorCode rbt_bus_init_from_file(RBT_MemoryBus *bus, const char *filename);
 
