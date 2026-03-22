@@ -20,13 +20,13 @@ Killy supports three video output modes:
     - Exclusive: Cannot be used at the same time with VGA or S-Video.
     - Auto-detected vida HPD (Hot Plug Detect) pin
 - **VGA**: Analog RGB output.
-    - Active whenever HDMI is not connected
 - **S-Video**: Analog Y/C output via AD724 encoder.
-    - Active simultaneously with VGA whenever HDMI isn't connected
+- **Composite**: Analog Composite output via AD724 encoder.
 
 > Plugging in an HDMI cable automatically switches the output mode
 
-> VGA and S-video are always simultaneously active in RGB parallel mode
+> VGA, S-video and Composite are always simultaneously active in RGB
+> parallel mode
 
 ## Colors and Palettes
 

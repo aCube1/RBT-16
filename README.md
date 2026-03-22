@@ -31,11 +31,14 @@ Commodore and IBM.<br>
 
 ### IO Connectors:
 
+- 1 x HD-15 VGA Output
+- 1 x Mini-DIN 4-pin S-Video Output
+- 1 x RCA Composite Output
+- 1 x RCA Audio Jack
+- 1 x 3.5mm Audio Jack
+- 1 x microSD Card Slot
 - 2 x SNES Controllers
 - 2 x PS/2 Mouse and Keyboard Ports
-- 1 x microSD Card Slot
-- 1 x 3.5mm Audio Jack
-- 1 x RCA Jack
 - 4 x 2x50 Card Edge Connectors/Expansion Card (Parallel Bus)
 
 ### Chips references
@@ -59,10 +62,11 @@ REFS:
 	CPU: MC68000P12 | MC68010P12
 	VIDEO:
 		- Tang Nano 9K -> VDP (Killy)
-		- AD725 -> RGB to Composite/S-Video encoder
-		ICs:
+		- AD724 -> RGB to Composite/S-Video encoder
+		Connectors:
 			- HD-15 -> VGA Connector
 			- Mini-DIN 4-pin -> S-Video Connector
+			- RCA -> Composite Jack
 		NOTES:
 			- HDMI and VGA/S-Video share FPGA pins
 			- HDMI uses onboard Tang Nano 9K connector
