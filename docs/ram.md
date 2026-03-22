@@ -62,11 +62,10 @@
 | Start Address | Description            |
 | :-----------: | ---------------------- |
 |    0x0000     | VDP Registers          |
-|    0x0100     | APU Registers          |
-|    0x0200     | I/O (SNES, PS/2, GPIO) |
-|    0x0300     | SD/SPI Controller      |
-|    0x0400     | System Control         |
-| 0x0500-0xffff | Reserved (/DTACK)      |
+|    0x0100     | I/O (SNES, PS/2, GPIO) |
+|    0x0200     | SD/SPI Controller      |
+|    0x0300     | System Control         |
+| 0x0400-0xffff | Reserved (/DTACK)      |
 
 > MMIO memory region starts at: 0xfb'0000
 
@@ -75,10 +74,6 @@
 #### MMIO - VDP Registers
 
 - [Video Display Processor](docs/vdp.md)
-
-#### MMIO - APU Registers
-
-> TODO!
 
 #### MMIO - IO
 
