@@ -18,6 +18,7 @@ Commodore and IBM.<br>
 - ROM: 256KB Flash; Stores BIOS and Kernel
 - RAM: Shipped with 256KB of Static RAM; Has four RAM expansion modules,
   with up to 4MB max RAM
+- RTC: DS3231 module
 
 > CPU can be boosted by software up to 12MHz
 
@@ -54,8 +55,11 @@ simplify implementation.
 
 REFS:
 	CPU: MC68000P12 | MC68010P12
-	APU: YM3812 | YM2413
-	FPGA: Tang Nano 9K
+	VDP: FPGA Tang Nano 9K
+	APU:
+		- YM3812
+		- DAC: YM3014B
+		- OpAmp: LM358 | TL072 | NE5532
 	SRAM:
 		- AS6C4008-55PCN -> 512Kx8 = 512KB
 		- AS6C1008-55PCN -> 128Kx8 = 128K
@@ -70,6 +74,9 @@ REFS:
 	PINs:
 		- 2x50 Card Edge Connectors
 		- 2x30 Card Edge Connectors
+	RTC:
+		- DS3231 ZS-042 module -> I2C, battery-backed, SQW output
+		- warn: Remove 200ohms charging resistor if using CR2032 battery
 -->
 
 ---
