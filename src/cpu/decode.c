@@ -98,6 +98,18 @@
 	}
 }
 
+[[nodiscard]] static inline RBT_AddressMode _decode_ctrl_register(u16 ctrl) {
+	switch (ctrl) {
+	case 0x000: return RBT_EA_REGISTER_SFC;
+	case 0x001: return RBT_EA_REGISTER_DFC;
+	case 0x800: return RBT_EA_REGISTER_USP;
+	case 0x801: return RBT_EA_REGISTER_VBR;
+	default:	return RBT_EA_NONE;
+	}
+
+	unreachable();
+}
+
 [[nodiscard]] static u8 _store_operand_as_words(
 	const RBT_EffectiveAddress *ea, u16 *words
 ) {
@@ -860,13 +872,9 @@ static u8 _decode_misc(RBT_Instruction *instr, RBT_MemoryBus *bus) {
 			instr->src.mode = is_addr ? RBT_EA_DIRECT_ADDR : RBT_EA_DIRECT_DATA;
 			instr->src.reg = reg;
 
-			instr->dst.size = RBT_SIZE_NONE;
-			instr->dst.mode = RBT_EA_IMMEDIATE;
-			instr->dst.imm = ctrl;
+			instr->dst.mode = _decode_ctrl_register(ctrl);
 		} else {
-			instr->src.size = RBT_SIZE_NONE;
-			instr->src.mode = RBT_EA_IMMEDIATE;
-			instr->src.imm = ctrl;
+			instr->src.mode = _decode_ctrl_register(ctrl);
 
 			instr->dst.mode = is_addr ? RBT_EA_DIRECT_ADDR : RBT_EA_DIRECT_DATA;
 			instr->dst.reg = reg;

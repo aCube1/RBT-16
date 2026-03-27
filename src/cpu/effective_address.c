@@ -307,10 +307,20 @@ RBT_ErrorCode _ea_read(
 		*out = _pack_status_register(&cpu->state.sr);
 		break;
 	case RBT_EA_REGISTER_CCR: //
+		// Only read lower byte from status register
 		*out = _pack_status_register(&cpu->state.sr) & 0xff;
 		break;
 	case RBT_EA_REGISTER_USP: //
 		*out = cpu->state.usp;
+		break;
+	case RBT_EA_REGISTER_DFC: //
+		*out = cpu->state.dfc;
+		break;
+	case RBT_EA_REGISTER_SFC: //
+		*out = cpu->state.sfc;
+		break;
+	case RBT_EA_REGISTER_VBR: //
+		*out = cpu->state.vbr;
 		break;
 	default: //
 		return RBT_ERR_DECODE_ILLEGAL_EA;
@@ -398,6 +408,15 @@ RBT_ErrorCode _ea_write(
 	} break;
 	case RBT_EA_REGISTER_USP: //
 		cpu->state.usp = in;
+		break;
+	case RBT_EA_REGISTER_DFC: //
+		cpu->state.dfc = in;
+		break;
+	case RBT_EA_REGISTER_SFC: //
+		cpu->state.sfc = in;
+		break;
+	case RBT_EA_REGISTER_VBR: //
+		cpu->state.vbr = in;
 		break;
 	default: //
 		return RBT_ERR_DECODE_ILLEGAL_EA;

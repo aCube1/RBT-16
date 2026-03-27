@@ -205,18 +205,27 @@ static void test_opcodes(void) {
 
 		len = _align_text(len, _ALIGN_OPERATORS, out);
 		if (instr.mnemonic == RBT_OP_MOVEC) {
+			RBT_AddressMode ctrl_reg = RBT_EA_REGISTER_SFC | RBT_EA_REGISTER_DFC
+									 | RBT_EA_REGISTER_USP | RBT_EA_REGISTER_VBR;
+
 			char *reg;
-			u32 ctrl = rbt_bits(instr.aux.imm, 12, 0);
+			bool to_ctrl = (instr.src.mode & ctrl_reg) != 0;
+			RBT_AddressMode ctrl;
+
+			if (to_ctrl)
+				ctrl = instr.src.mode;
+			else
+				ctrl = instr.dst.mode;
 
 			switch (ctrl) {
-			case 0x000: reg = "%sfc"; break;
-			case 0x001: reg = "%dfc"; break;
-			case 0x800: reg = "%usp"; break;
-			case 0x801: reg = "%vbr"; break;
-			default:	reg = ""; break;
+			case RBT_EA_REGISTER_SFC: reg = "%sfc"; break;
+			case RBT_EA_REGISTER_DFC: reg = "%dfc"; break;
+			case RBT_EA_REGISTER_USP: reg = "%usp"; break;
+			case RBT_EA_REGISTER_VBR: reg = "%vbr"; break;
+			default:				  reg = ""; break;
 			}
 
-			if (instr.src.mode == RBT_EA_IMMEDIATE) {
+			if (to_ctrl) {
 				// movec Rc,Rn
 				len += sprintf(&out[len], "%s, ", reg);
 				len += _stringfy_effective_address(&instr.dst, &out[len]);

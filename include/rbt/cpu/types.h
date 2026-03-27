@@ -35,7 +35,7 @@ typedef enum RBT_OperandSize {
 	RBT_SIZE_NONE = 0,
 } RBT_OperandSize;
 
-typedef enum RBT_AddressMode : u16 {
+typedef enum RBT_AddressMode : u64 {
 	RBT_EA_NONE = 0,
 
 	RBT_EA_DIRECT_DATA = 1 << 0,		   // mode:000, reg:Dn  | Dn
@@ -55,6 +55,9 @@ typedef enum RBT_AddressMode : u16 {
 	RBT_EA_REGISTER_CCR = 1 << 13, // CCR | Condition Code Register
 	RBT_EA_REGISTER_SR = 1 << 14,  // SR  | Status Register
 	RBT_EA_REGISTER_USP = 1 << 15, // USP | User Stack Pointer
+	RBT_EA_REGISTER_DFC = 1 << 16, // DFC | Destination Function Code Register
+	RBT_EA_REGISTER_SFC = 1 << 17, // SFC | Source Function Code Register
+	RBT_EA_REGISTER_VBR = 1 << 18, // VBR | Vector Base Register
 
 	// GROUPS
 	RBT_EA_GROUP_REG = RBT_EA_DIRECT_DATA | RBT_EA_DIRECT_ADDR,
