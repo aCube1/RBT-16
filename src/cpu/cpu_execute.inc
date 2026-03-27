@@ -256,13 +256,27 @@ static RBT_ErrorCode _op_eori(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 	return RBT_ERR_UNIMPLEMENTED;
 }
 
+// EXG - Exchange Registers
+// [Ry] <-> [Rx]
+// Syntax:
+//   EXG Rx, Ry
+// SIZE = Long
+//
+//   X N Z V C
+// [ . . . . . ]
 static RBT_ErrorCode _op_exg(const RBT_Instruction *instr, RBT_Cpu *cpu) {
-	(void)instr;
-	(void)cpu;
+	u32 data_y; // always ea_src
+	u32 data_x; // always ea_dst
 
-	_push_fatal(RBT_ERR_UNIMPLEMENTED, "Unimplemented instruction");
-	return RBT_ERR_UNIMPLEMENTED;
+	// ignore err-return, since EA is always a register
+	_ea_read(&instr->src, instr->size, cpu, &data_y);
+	_ea_read(&instr->dst, instr->size, cpu, &data_x);
+
+	_ea_write(&instr->src, instr->size, cpu, data_x);
+	_ea_write(&instr->dst, instr->size, cpu, data_y);
+	return RBT_ERR_SUCCESS;
 }
+
 static RBT_ErrorCode _op_ext(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 	(void)instr;
 	(void)cpu;
@@ -701,13 +715,27 @@ static RBT_ErrorCode _op_subx(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 	return RBT_ERR_UNIMPLEMENTED;
 }
 
+// SWAP - Swap register upper and lower words
+// Dn[15:0] <-> Dn[31:16]
+// Syntax:
+//   SWAP Dn
+// SIZE = Word
+//
+//   X N Z V C
+// [ . * * 0 0 ]
 static RBT_ErrorCode _op_swap(const RBT_Instruction *instr, RBT_Cpu *cpu) {
-	(void)instr;
-	(void)cpu;
+	u32 *data = &cpu->state.gpr.data[instr->dst.reg];
 
-	_push_fatal(RBT_ERR_UNIMPLEMENTED, "Unimplemented instruction");
-	return RBT_ERR_UNIMPLEMENTED;
+	u16 low = *data & 0xffff;
+	u16 hiw = (*data >> 16) & 0xffff;
+	*data = (low << 16) | hiw;
+
+	_ccr_set_nz(cpu, RBT_SIZE_LONG, *data);
+	cpu->state.sr.overflow = false;
+	cpu->state.sr.carry = false;
+	return RBT_ERR_SUCCESS;
 }
+
 static RBT_ErrorCode _op_tas(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 	(void)instr;
 	(void)cpu;
@@ -748,28 +776,50 @@ static RBT_ErrorCode _op_unlk(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 // M68010+
 static RBT_ErrorCode _op_bkpt(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 	(void)instr;
-	(void)cpu;
+	if (cpu->cfg.model != RBT_CPU_M68010)
+		return _cpu_raise_exception(cpu, _VEC_ILLEGAL);
 
 	_push_fatal(RBT_ERR_UNIMPLEMENTED, "Unimplemented instruction");
 	return RBT_ERR_UNIMPLEMENTED;
 }
+
+// MOVEC - Move Control Register
+// IF S=1 THEN [Rc] -> [Rn] or [Rn] -> [Rc] ELSE TRAP
+// Syntax:
+//   MOVEC Rc, Rn
+//   MOVEC Rn, Rc
+// SIZE = Long
+//
+//   X N Z V C
+// [ . . . . . ]
 static RBT_ErrorCode _op_movec(const RBT_Instruction *instr, RBT_Cpu *cpu) {
-	(void)instr;
-	(void)cpu;
+	if (cpu->cfg.model != RBT_CPU_M68010)
+		return _cpu_raise_exception(cpu, _VEC_ILLEGAL);
 
-	_push_fatal(RBT_ERR_UNIMPLEMENTED, "Unimplemented instruction");
-	return RBT_ERR_UNIMPLEMENTED;
+	u32 data;
+	RBT_ErrorCode err = _ea_read(&instr->src, instr->size, cpu, &data);
+	if (err)
+		return err;
+
+	err = _ea_write(&instr->dst, instr->size, cpu, data);
+	if (err)
+		return err;
+
+	return RBT_ERR_SUCCESS;
 }
+
 static RBT_ErrorCode _op_moves(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 	(void)instr;
-	(void)cpu;
+	if (cpu->cfg.model != RBT_CPU_M68010)
+		return _cpu_raise_exception(cpu, _VEC_ILLEGAL);
 
 	_push_fatal(RBT_ERR_UNIMPLEMENTED, "Unimplemented instruction");
 	return RBT_ERR_UNIMPLEMENTED;
 }
 static RBT_ErrorCode _op_rtd(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 	(void)instr;
-	(void)cpu;
+	if (cpu->cfg.model != RBT_CPU_M68010)
+		return _cpu_raise_exception(cpu, _VEC_ILLEGAL);
 
 	_push_fatal(RBT_ERR_UNIMPLEMENTED, "Unimplemented instruction");
 	return RBT_ERR_UNIMPLEMENTED;
