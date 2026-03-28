@@ -237,13 +237,13 @@ $\left[O_X \; O_Y \right] \rightarrow \text{Object's origin position}$
 
 ## VDP MMIO Registers
 
-> VDP_MMIO: 0xfa'0000
+> VDP_MMIO: 0xfb'0000
 
 ```asm
 ;=========================
 ; Global control & status
 ;=========================
-VDP_MMIO + 0x0000 -> VDP_CTRL | R/W
+VDP_MMIO + 0x00 -> VDP_CTRL | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     .  .  .  .  V  H  B  I  .  .  .  .  .  .  M  M
 
@@ -253,7 +253,7 @@ VDP_MMIO + 0x0000 -> VDP_CTRL | R/W
     [10:10] H - HB_IRQ_E -> H-Blank interrupt enable
     [11:11] V - VB_IRQ_E -> V-Blank interrupt enable
 
-VDP_MMIO + 0x0002 -> VDP_STATUS | R
+VDP_MMIO + 0x02 -> VDP_STATUS | R
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     .  .  .  .  v  h  .  L  L  L  L  L  L  L  L  L
 
@@ -263,7 +263,7 @@ VDP_MMIO + 0x0002 -> VDP_STATUS | R
 
 ; Current scanline stops at 0x1ff through lines 512-524
 
-VDP_MMIO + 0x0004 -> VDP_SCANLINE_CMP | R/W
+VDP_MMIO + 0x04 -> VDP_SCANLINE_CMP | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     l  .  .  .  .  .  .  L  L  L  L  L  L  L  L  L
 
@@ -272,7 +272,7 @@ VDP_MMIO + 0x0004 -> VDP_SCANLINE_CMP | R/W
 
 ; Triggers an interrupt when the current scanline matches
 
-VDP_MMIO + 0x0006 -> VDP_BACKDROP | R/W
+VDP_MMIO + 0x06 -> VDP_BACKDROP | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     .  .  .  .  r  r  r  r  g  g  g  g  b  b  b  b
 
@@ -286,13 +286,13 @@ VDP_MMIO + 0x0006 -> VDP_BACKDROP | R/W
 ;=============
 ; VRAM access
 ;=============
-VDP_MMIO + 0x0010 -> VDP_VRAM_ADDR_L | W/R
+VDP_MMIO + 0x10 -> VDP_VRAM_ADDR_L | W/R
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     a  a  a  a  a  a  a  a  a  a  a  a  a  a  a  a
 
     [15:0] a - ADDR_LOW -> VRAM address low word (VRAM_ADDR[15:0])
 
-VDP_MMIO + 0x0012 -> VDP_VRAM_ADDR_H | W/R
+VDP_MMIO + 0x12 -> VDP_VRAM_ADDR_H | W/R
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     D  s  .  .  i  i  i  i  .  .  .  .  .  .  .  a
 
@@ -323,7 +323,7 @@ VDP_MMIO + 0x0012 -> VDP_VRAM_ADDR_H | W/R
 
 ; Note: WORD size mode is little-endian
 
-VDP_MMIO + 0x0014 -> VDP_DATA | R/W
+VDP_MMIO + 0x14 -> VDP_DATA | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     D  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D
 
@@ -333,8 +333,8 @@ VDP_MMIO + 0x0014 -> VDP_DATA | R/W
 ;================
 ; Memory mapping
 ;================
-VDP_MMIO + 0x0020 -> SPR_TILE_BASE | R/W
-VDP_MMIO + 0x0022 -> BG_TILE_BASE | R/W
+VDP_MMIO + 0x20 -> SPR_TILE_BASE | R/W
+VDP_MMIO + 0x22 -> BG_TILE_BASE | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     .  .  .  .  .  .  .  .  .  .  a  a  a  a  a  a
 
@@ -342,7 +342,7 @@ VDP_MMIO + 0x0022 -> BG_TILE_BASE | R/W
 
 ; VRAM_ADDR = TILE_ADDR << 11
 
-VDP_MMIO + 0x0024 -> PALETTE_BASE | R/W
+VDP_MMIO + 0x24 -> PALETTE_BASE | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
 	.  .  .  .  .  .  .  .  a  a  a  a  a  a  a  a
 
@@ -350,7 +350,7 @@ VDP_MMIO + 0x0024 -> PALETTE_BASE | R/W
 
 ; VRAM_ADDR = PAL_ADDR << 9
 
-VDP_MMIO + 0x0028 -> SPR_OAM_BASE | R/W
+VDP_MMIO + 0x28 -> SPR_OAM_BASE | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     .  .  .  .  .  .  .  .  a  a  a  a  a  a  a  a
 
@@ -358,7 +358,7 @@ VDP_MMIO + 0x0028 -> SPR_OAM_BASE | R/W
 
 ; VRAM_ADDR = OAM_ADDR << 9
 
-VDP_MMIO + 0x002a -> AFFINE_BASE | R/W
+VDP_MMIO + 0x2a -> AFFINE_BASE | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     .  .  .  .  .  .  .  .  a  a  a  a  a  a  a  a
 
@@ -370,10 +370,10 @@ VDP_MMIO + 0x002a -> AFFINE_BASE | R/W
 ;=====================================
 ; Background layer control (4 layers)
 ;=====================================
-VDP_MMIO + 0x0030 -> BG0_CTRL | R/W
-VDP_MMIO + 0x0032 -> BG1_CTRL | R/W
-VDP_MMIO + 0x0034 -> BG2_CTRL | R/W
-VDP_MMIO + 0x0036 -> BG3_CTRL | R/W
+VDP_MMIO + 0x30 -> BG0_CTRL | R/W
+VDP_MMIO + 0x32 -> BG1_CTRL | R/W
+VDP_MMIO + 0x34 -> BG2_CTRL | R/W
+VDP_MMIO + 0x36 -> BG3_CTRL | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     E  .  .  .  .  .  .  .  .  .  M  M  M  M  M  M
 
@@ -382,14 +382,14 @@ VDP_MMIO + 0x0036 -> BG3_CTRL | R/W
 
 ; VRAM_ADDR = MAP_ADDR << 11
 
-VDP_MMIO + 0x0040 -> BG0_SCROLL_X | R/W
-VDP_MMIO + 0x0042 -> BG0_SCROLL_Y | R/W
-VDP_MMIO + 0x0044 -> BG1_SCROLL_X | R/W
-VDP_MMIO + 0x0046 -> BG1_SCROLL_Y | R/W
-VDP_MMIO + 0x0048 -> BG2_SCROLL_X | R/W
-VDP_MMIO + 0x004a -> BG2_SCROLL_Y | R/W
-VDP_MMIO + 0x004c -> BG3_SCROLL_X | R/W
-VDP_MMIO + 0x004e -> BG3_SCROLL_Y | R/W
+VDP_MMIO + 0x40 -> BG0_SCROLL_X | R/W
+VDP_MMIO + 0x42 -> BG0_SCROLL_Y | R/W
+VDP_MMIO + 0x44 -> BG1_SCROLL_X | R/W
+VDP_MMIO + 0x46 -> BG1_SCROLL_Y | R/W
+VDP_MMIO + 0x48 -> BG2_SCROLL_X | R/W
+VDP_MMIO + 0x4a -> BG2_SCROLL_Y | R/W
+VDP_MMIO + 0x4c -> BG3_SCROLL_X | R/W
+VDP_MMIO + 0x4e -> BG3_SCROLL_Y | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     .  .  .  .  .  .  x  x  x  x  x  x  x  x  x  x
 	.  .  .  .  .  .  .  y  y  y  y  y  y  y  y  y
@@ -403,8 +403,8 @@ VDP_MMIO + 0x004e -> BG3_SCROLL_Y | R/W
 ;==========================
 ; Affine transform control
 ;==========================
-VDP_MMIO + 0x0050 -> ABG0_CTRL | R/W
-VDP_MMIO + 0x0052 -> ABG1_CTRL | R/W
+VDP_MMIO + 0x50 -> ABG0_CTRL | R/W
+VDP_MMIO + 0x52 -> ABG1_CTRL | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     a  .  .  .  .  .  b  b  .  .  .  A  A  A  A  A
 
@@ -421,7 +421,7 @@ VDP_MMIO + 0x0052 -> ABG1_CTRL | R/W
 ;=====================
 ; Bitmap mode control
 ;=====================
-VDP_MMIO + 0x0060 -> BMP_CTRL | R/W
+VDP_MMIO + 0x60 -> BMP_CTRL | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     .  .  .  .  .  M  M  M  .  .  a  a  a  a  a  a
 
@@ -444,31 +444,31 @@ VDP_MMIO + 0x0060 -> BMP_CTRL | R/W
 ;================
 ; Blitter Engine
 ;================
-VDP_MMIO + 0x0080 -> BLT_SRC_L | W
+VDP_MMIO + 0x80 -> BLT_SRC_L | W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     a  a  a  a  a  a  a  a  a  a  a  a  a  a  a  a
 
     [15:0] a - BLT_SRC_LOW -> Source address low word
 
-VDP_MMIO + 0x0082 -> BLT_SRC_H | W
+VDP_MMIO + 0x82 -> BLT_SRC_H | W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     .  .  .  .  .  .  .  .  a  a  a  a  a  a  a  a
 
     [7:0] a - BLT_SRC_HI -> Source address high byte
 
-VDP_MMIO + 0x0084 -> BLT_DST_L | W
+VDP_MMIO + 0x84 -> BLT_DST_L | W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     d  d  d  d  d  d  d  d  d  d  d  d  d  d  d  d
 
     [15:0] d - BLT_DEST_LOW -> Destination address low word
 
-VDP_MMIO + 0x0086 -> BLT_DST_H | W
+VDP_MMIO + 0x86 -> BLT_DST_H | W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  d
 
     [0:0] d - BLT_DEST_HI -> VRAM destination address high bit
 
-VDP_MMIO + 0x0088 -> BLT_SIZE | W
+VDP_MMIO + 0x88 -> BLT_SIZE | W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     h  h  h  h  h  h  h  h  w  w  w  w  w  w  w  w
 
@@ -477,7 +477,7 @@ VDP_MMIO + 0x0088 -> BLT_SIZE | W
 
 ; Size is computed as: (W+1) x (H+1)
 
-VDP_MMIO + 0x008a -> BLT_CTRL | R/W
+VDP_MMIO + 0x8a -> BLT_CTRL | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     .  .  S  A  .  .  T  T  .  .  .  .  O  O  O  O
 
@@ -491,7 +491,7 @@ VDP_MMIO + 0x008a -> BLT_CTRL | R/W
 ; Note: if transfer type is VRAM->VRAM, only the first 17-bits
 ; from BLT_SRC address are used: BLT_SRC[16:0], the upper are ignored
 
-VDP_MMIO + 0x008c -> BLT_STATUS | R
+VDP_MMIO + 0x8c -> BLT_STATUS | R
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     D  B  E  I  .  .  .  .  .  .  .  .  .  .  .  .
 
@@ -500,7 +500,7 @@ VDP_MMIO + 0x008c -> BLT_STATUS | R
     [14:14] B - BUSY -> Blitter operation running
     [15:15] D - DONE -> Completed successfully
 
-VDP_MMIO + 0x008e -> BLT_PATTERN | R/W
+VDP_MMIO + 0x8e -> BLT_PATTERN | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     p  p  p  p  p  p  p  p  p  p  p  p  p  p  p  p
 
@@ -510,7 +510,7 @@ VDP_MMIO + 0x008e -> BLT_PATTERN | R/W
 ;====================
 ; Blitter FX drawing
 ;====================
-VDP_MMIO + 0x0090 -> FX_CTRL | R/W
+VDP_MMIO + 0x90 -> FX_CTRL | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     .  .  .  .  .  .  .  .  S  T  .  .  V  V  V  V
 
@@ -520,13 +520,13 @@ VDP_MMIO + 0x0090 -> FX_CTRL | R/W
 
 ; Effective vertex count = VERT_COUNT + 3
 
-VDP_MMIO + 0x0092 -> FX_COLOR | R/W
+VDP_MMIO + 0x92 -> FX_COLOR | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     .  .  .  .  .  .  .  .  c  c  c  c  c  c  c  c
 
     [7:0] c - COLOR_IDX -> Color index (2/4/8bpp)
 
-VDP_MMIO + 0x0094 -> FX_VERTEX_BASE | R/W
+VDP_MMIO + 0x94 -> FX_VERTEX_BASE | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     .  .  .  .  .  .  .  .  .  .  a  a  a  a  a  a
 
@@ -559,7 +559,7 @@ VDP_MMIO + 0x0094 -> FX_VERTEX_BASE | R/W
 ; Note: FX VDP isn't aware of screen boundaries, Polygons are still computed,
 ; even though, no write is made
 
-VDP_MMIO + 0x0096 -> FX_TEX_BASE | R/W
+VDP_MMIO + 0x96 -> FX_TEX_BASE | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     .  .  .  .  .  .  .  .  .  .  a  a  a  a  a  a
 
@@ -567,7 +567,7 @@ VDP_MMIO + 0x0096 -> FX_TEX_BASE | R/W
 
 ; VRAM_ADDR = TEX_ADDR << 11
 
-VDP_MMIO + 0x0098 -> FX_TEX_SIZE | R/W
+VDP_MMIO + 0x98 -> FX_TEX_SIZE | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     .  .  .  .  .  .  .  .  .  .  S  S  S  s  s  s
 
@@ -591,10 +591,10 @@ VDP_MMIO + 0x0098 -> FX_TEX_SIZE | R/W
 ;=========================
 ; Version and Identifiers
 ;=========================
-VDP_MMIO + 0x00f0 -> VDP_ID0 | R ; 0x47 ('G')
-VDP_MMIO + 0x00f1 -> VDP_ID1 | R ; 0x42 ('B')
-VDP_MMIO + 0x00f2 -> VDP_ID2 | R ; 0x45 ('E')
-VDP_MMIO + 0x00f3 -> VDP_ID3 | R ; 0x0a ('\n')
+VDP_MMIO + 0xf0 -> VDP_ID0 | R ; 0x47 ('G')
+VDP_MMIO + 0xf1 -> VDP_ID1 | R ; 0x42 ('B')
+VDP_MMIO + 0xf2 -> VDP_ID2 | R ; 0x45 ('E')
+VDP_MMIO + 0xf3 -> VDP_ID3 | R ; 0x0a ('\n')
     7  6  5  4  3  2  1  0
     i  i  i  i  i  i  i  i
 
@@ -604,15 +604,15 @@ VDP_MMIO + 0x00f3 -> VDP_ID3 | R ; 0x0a ('\n')
 
 ; GBE stands for: Gravitational Beam Emitter from Blame!
 
-VDP_MMIO + 0x00f4 -> VDP_REV0 | R
+VDP_MMIO + 0xf4 -> VDP_REV0 | R
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     N  N  N  N  N  N  N  N  m  m  m  m  m  m  m  m
 
     [7:0]  m - VER_MAJOR -> Major revision
     [15:8] N - VER_MINOR -> Minor revision
 
-VDP_MMIO + 0x00f6 -> VDP_BUILD_L | R
-VDP_MMIO + 0x00f8 -> VDP_BUILD_H | R
+VDP_MMIO + 0xf6 -> VDP_BUILD_L | R
+VDP_MMIO + 0xf8 -> VDP_BUILD_H | R
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
     B  B  B  B  B  B  B  B  B  B  B  B  B  B  B  B
 

@@ -78,6 +78,9 @@ REFS:
 		- YM3812
 		- YM3014B -> DAC
 		- LM358 | TL072 | NE5532 -> OpAmp
+	IO:
+		- ATmega324P | ATmega1284P -> IO Controller
+		- 16MHz crystal oscillator -> Controller Clock
 	SRAM:
 		- AS6C4008-55PCN -> 512Kx8 = 512KB
 		- AS6C1008-55PCN -> 128Kx8 = 128K
@@ -93,8 +96,13 @@ REFS:
 		- 2x50 Card Edge Connectors
 		- 2x30 Card Edge Connectors
 	RTC:
-		- DS3231 ZS-042 module -> I2C, battery-backed, SQW output
+		- DS3231 | DS1307 -> I2C, battery-backed, SQW output
 		- warn: Remove 200ohms charging resistor if using CR2032 battery
+		- 32.768 kHz crystal oscillator -> RTC Clock
+		NOTES:
+			- The DS1307 has 56-byte SRAM battery-backed
+			- The DS3231 has internal crystal oscillator
+			- Decide which one to use
 -->
 
 ---
