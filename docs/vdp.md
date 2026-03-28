@@ -16,14 +16,9 @@
 
 Killy supports three video output modes:
 
-- **HDMI**: Diginal output via onboard Tang Nano 9K connector.
-    - Exclusive: Cannot be used at the same time with VGA or S-Video.
-    - Auto-detected vida HPD (Hot Plug Detect) pin
-- **VGA**: Analog RGB output.
+- **VGA**: Analog signal compatible with VGA.
 - **S-Video**: Analog Y/C output via AD724 encoder.
 - **Composite**: Analog Composite output via AD724 encoder.
-
-> Plugging in an HDMI cable automatically switches the output mode
 
 > VGA, S-video and Composite are always simultaneously active in RGB
 > parallel mode
@@ -245,21 +240,22 @@ $\left[O_X \; O_Y \right] \rightarrow \text{Object's origin position}$
 ;=========================
 VDP_MMIO + 0x00 -> VDP_CTRL | R/W
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
-    .  .  .  .  V  H  B  I  .  .  .  .  .  .  M  M
+    .  .  .  .  B  V  H  I  .  .  .  .  .  .  M  M
 
     [1:0]   M - MODE -> Video Mode (00=Tiled, 01=Tiled+Affine, 10=Bitmap, 11=Blank)
     [8:8]   I - LINE_IRQ_E -> Line-compare interrupt enable
-    [9:9]   B - BLT_IRQ_E -> Blitter interrupt enable
-    [10:10] H - HB_IRQ_E -> H-Blank interrupt enable
-    [11:11] V - VB_IRQ_E -> V-Blank interrupt enable
+    [9:9]   H - HB_IRQ_E -> H-Blank interrupt enable
+    [10:10] V - VB_IRQ_E -> V-Blank interrupt enable
+	[11:11] B - BLT_IRQ_E -> Blitter interrupt enable
 
 VDP_MMIO + 0x02 -> VDP_STATUS | R
     F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
-    .  .  .  .  v  h  .  L  L  L  L  L  L  L  L  L
+    .  .  .  .  b  v  h  L  L  L  L  L  L  L  L  L
 
     [8:0]   L - CUR_LINE -> Current scanline (0-479 Visible, 0-511 Total)
-    [10:10] h - HBLANK -> H-Blank active
-    [11:11] v - VBLANK -> V-Blank active
+    [9:9]   h - HB_INT -> Set if current IRQ is HBlank [R/W1C]
+    [10:10] v - VB_INT -> Set if current IRQ is VBlank [R/W1C]
+	[11:11] b - BLT_INT -> Set if current IRQ is from Blitter [R/W1C]
 
 ; Current scanline stops at 0x1ff through lines 512-524
 

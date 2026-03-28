@@ -61,19 +61,18 @@ reference: https://github.com/fvdhoef/vera-module
 REFS:
 	CPU: MC68000P12 | MC68010P12
 	VIDEO:
-		- Tang Nano 9K -> VDP (Killy)
+		- Tang Primer 20K -> VDP (Killy)
 		- AD724 -> RGB to Composite/S-Video encoder
 		Connectors:
 			- HD-15 -> VGA Connector
 			- Mini-DIN 4-pin -> S-Video Connector
 			- RCA -> Composite Jack
 		NOTES:
-			- HDMI and VGA/S-Video share FPGA pins
-			- HDMI uses onboard Tang Nano 9K connector
 			- VGA and S-Video are share LCD connector signals
 			- S-Video uses AD724 encoder fed from LCD connector
 			- VGA and S-Video can be used at the same time
 			- HDMI is auto-detected; Turns VGA and S-Video off if connected
+			- Buy debug dock for the Tang Primer 20K
 	APU:
 		- YM3812
 		- YM3014B -> DAC
