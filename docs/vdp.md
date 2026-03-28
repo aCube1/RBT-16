@@ -9,6 +9,7 @@
     - Copy/Move chunks of data from: RAM->VRAM, VRAM->VRAM
     - Primitive drawing: Triangles, Quads and Polygons
     - Polygons can have flat color or a texture
+- SPI: Manages microSD card communication
 
 ---
 
@@ -582,6 +583,29 @@ VDP_MMIO + 0x98 -> FX_TEX_SIZE | R/W
 ; 000 111: Reserved  001 111: Reserved  010 111: Reserved
 ;
 ; 011 000-111 111: Reserved
+
+
+;===================
+; SD/SPI Controller
+;===================
+VDP_MMIO + 0xe0 -> SPI_CTRL | R/W
+    F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
+	E  .  .  .  .  .  R  B  .  .  .  .  s  S  T  C
+
+	[0:0]   C - CS -> Chip select (1: assert, active low)
+	[1:1]   T - AUTO_TX -> When set, reading SPI_DATA auto starts new transfer
+	[2:2]   S - SLOW_CLK -> 0: Fast Clock(12.5MHz), 1: Slow Clock(~400kHz)
+	[3:3]   s - SIZE -> 0: Byte, 1: Word
+	[8:8]   B - BUSY -> If set, transfer is in progress
+	[9:9]   R - RX_READY -> If set, SPI_DATA is ready to be read
+	[15:15] E - ERR -> If set, an error occurried in last transaction
+
+VDP_MMIO + 0xe2 -> SPI_DATA | R/W
+    F  E  D  C  B  A  9  8  7  6  5  4  3  2  1  0
+	d  d  d  d  d  d  d  d  D  D  D  D  D  D  D  D
+
+	[7:0]  D - DATA_LO -> Data port
+	[15:8] d - DATA_HI -> Data port
 
 
 ;=========================

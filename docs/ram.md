@@ -81,9 +81,9 @@ All registers are accessible by the I/O Conttroller register map
 > IO_MMIO: 0xfb'0100
 
 ```asm
-;=========================
+;==================
 ; SNES Controllers
-;=========================
+;==================
 IO_MMIO + 0x00 -> SNES0_DATA_L | R
 IO_MMIO + 0x01 -> SNES0_DATA_H | R
 IO_MMIO + 0x02 -> SNES1_DATA_L | R
@@ -115,7 +115,9 @@ HI_BYTE:
 	[2:2] L -> Left shoulder
 	[3:3] R -> Right shoulder
 
-
+;=========================
+; PS/2 Keyboard and Mouse
+;=========================
 IO_MMIO + 0x08 -> PS2K_STATUS | R
 IO_MMIO + 0x0a -> PS2M_STATUS | R
 	7  6  5  4  3  2  1  0
@@ -130,7 +132,6 @@ IO_MMIO + 0x0a -> PS2M_STATUS | R
 	[6:6] R - CMD_RESEND -> Set if last command requested resend (0xfe)
 	[7:7] E - ERROR -> Set at unrecoverable error
 
-
 IO_MMIO + 0x09 -> PS2K_DATA | R/W
 IO_MMIO + 0x0b -> PS2M_DATA | R/W
 	7  6  5  4  3  2  1  0
@@ -144,24 +145,27 @@ IO_MMIO + 0x0b -> PS2M_DATA | R/W
 ; it immediately after. The firmware automatically retries on resend (up to 3 times).
 
 
+;===========
+; Interrupt
+;===========
 IO_MMIO + 0x0c -> IRQ_ENABLE | R/W
 	7  6  5  4  3  2  1  0
 	.  .  M  K  S  S  S  S
 
 	[3:0] S - SNESx_ENABLE -> Bitfield of which SNES controller is enabled
 to send IRQs (see table below)
-	[4:4] K - PS2K_ENABLE -> If set, enables keyboard to send IRQs
-	[5:5] M - PS2M_ENABLE -> If set, enables mouse to send IRQs
+	[4:4] K - PS2K_IRQ_E -> If set, enables keyboard to send IRQs
+	[5:5] M - PS2M_IRQ_E -> If set, enables mouse to send IRQs
 
 
 IO_MMIO + 0x0d -> IRQ_FLAGS | R/W (write 1 to clear)
 	7  6  5  4  3  2  1  0
 	.  .  M  K  S  S  S  S
 
-	[3:0] S - SNESx_IRQ -> Bitfield of which SNES controller sent by
+	[3:0] S - SNESx_INT -> Bitfield of which SNES controller sent by
 current IRQ (see table below)
-	[4:4] K - PS2K_IRQ -> Set if current IRQ was sent by the keyboard
-	[5:5] M - PS2M_IRQ -> Set if current IRQ was sent by the mouse
+	[4:4] K - PS2K_INT -> Set if current IRQ was sent by the keyboard
+	[5:5] M - PS2M_INT -> Set if current IRQ was sent by the mouse
 
 ; SNES controller bits:
 ; Bit 0 -> SNES controller on port 0
@@ -170,6 +174,9 @@ current IRQ (see table below)
 ; Bit 3 -> SNES controller on port 3
 
 
+;==========
+; Firmware
+;==========
 IO_MMIO + 0x0e -> IO_FEATURES | R
 	7  6  5  4  3  2  1  0
 	.  .  M  K  S  S  S  S
@@ -178,7 +185,6 @@ IO_MMIO + 0x0e -> IO_FEATURES | R
 detected or connected
 	[4:4] K -> PS2K_PRN -> Set if PS/2 keyboard is present
 	[5:5] M -> PS2M_PRN -> Set if PS/2 mouse is present
-
 
 IO_MMIO + 0x0f -> VERSION | R
 	7  6  5  4  3  2  1  0
