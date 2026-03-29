@@ -386,9 +386,6 @@ static RBT_ErrorCode _op_lsr(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 //   X N Z V C
 // [ . * * 0 0 ]
 //
-// N - Set if result is negative, cleared otherwise
-// Z - Set if result is zero, cleared otherwise
-//
 //
 // MOVE from CCR - Copy data from CCR to destination [M68010+]
 // CCR -> [dst]
@@ -566,19 +563,61 @@ static RBT_ErrorCode _op_nbcd(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 	_push_fatal(RBT_ERR_UNIMPLEMENTED, "Unimplemented instruction");
 	return RBT_ERR_UNIMPLEMENTED;
 }
+
+// NEG - Negate
+// 0 - [dst] -> [dst]
+// Syntax:
+//   NEG <ea>
+// SIZE = (Byte, Word, Long)
+//
+//   X N Z V C
+// [ * * * * * ]
 static RBT_ErrorCode _op_neg(const RBT_Instruction *instr, RBT_Cpu *cpu) {
-	(void)instr;
-	(void)cpu;
+	u32 data;
+	RBT_ErrorCode err = _ea_read(&instr->dst, instr->size, cpu, &data);
+	if (err)
+		return err;
 
-	_push_fatal(RBT_ERR_UNIMPLEMENTED, "Unimplemented instruction");
-	return RBT_ERR_UNIMPLEMENTED;
+	u32 result = rbt_truncate(instr->size, ~data + 1);
+	err = _ea_write(&instr->dst, instr->size, cpu, result);
+	if (err)
+		return err;
+
+	_ccr_set_nzvc(cpu, instr->size, ~data, 1);
+	cpu->state.sr.extend = cpu->state.sr.carry;
+	return RBT_ERR_SUCCESS;
 }
-static RBT_ErrorCode _op_negx(const RBT_Instruction *instr, RBT_Cpu *cpu) {
-	(void)instr;
-	(void)cpu;
 
-	_push_fatal(RBT_ERR_UNIMPLEMENTED, "Unimplemented instruction");
-	return RBT_ERR_UNIMPLEMENTED;
+// NEGX - Negate with extend
+// 0 - [dst] - [X] -> [dst]
+// Syntax:
+//   NEGX <ea>
+// SIZE = (Byte, Word, Long)
+//
+//   X N Z V C
+// [ * * * * * ]
+//
+// Z - Cleared if result is non-zero, unchanged otherwise
+static RBT_ErrorCode _op_negx(const RBT_Instruction *instr, RBT_Cpu *cpu) {
+	u32 data;
+	RBT_ErrorCode err = _ea_read(&instr->dst, instr->size, cpu, &data);
+	if (err)
+		return err;
+
+	u32 extend = cpu->state.sr.extend ? 1 : 0;
+	u32 result = rbt_truncate(instr->size, ~data + 1 - extend);
+
+	err = _ea_write(&instr->dst, instr->size, cpu, result);
+	if (err)
+		return err;
+
+	bool prev_zero = cpu->state.sr.zero;
+	_ccr_set_nzvc(cpu, instr->size, ~data, 1 - extend);
+	cpu->state.sr.extend = cpu->state.sr.carry;
+	if (result == 0)
+		cpu->state.sr.zero = prev_zero;
+
+	return RBT_ERR_SUCCESS;
 }
 
 // NOP - No Operation
