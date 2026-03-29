@@ -183,13 +183,27 @@ static RBT_ErrorCode _op_chk(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 	_push_fatal(RBT_ERR_UNIMPLEMENTED, "Unimplemented instruction");
 	return RBT_ERR_UNIMPLEMENTED;
 }
-static RBT_ErrorCode _op_clr(const RBT_Instruction *instr, RBT_Cpu *cpu) {
-	(void)instr;
-	(void)cpu;
 
-	_push_fatal(RBT_ERR_UNIMPLEMENTED, "Unimplemented instruction");
-	return RBT_ERR_UNIMPLEMENTED;
+// CLR - Clear operand
+// #0 -> [dst]
+// Syntax:
+//   CLR <ea>
+// SIZE = (Byte, Word, Long)
+//
+//   X N Z V C
+// [ . 0 1 0 0 ]
+static RBT_ErrorCode _op_clr(const RBT_Instruction *instr, RBT_Cpu *cpu) {
+	RBT_ErrorCode err = _ea_write(&instr->dst, instr->size, cpu, 0);
+	if (err)
+		return err;
+
+	cpu->state.sr.negative = 0;
+	cpu->state.sr.zero = 1;
+	cpu->state.sr.overflow = 0;
+	cpu->state.sr.carry = 0;
+	return RBT_ERR_SUCCESS;
 }
+
 static RBT_ErrorCode _op_cmp(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 	(void)instr;
 	(void)cpu;
@@ -277,12 +291,24 @@ static RBT_ErrorCode _op_exg(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 	return RBT_ERR_SUCCESS;
 }
 
+// EXT - Sign extend data register
+// Dn(sign-extended) -> Dn
+// Syntax:
+//   EXT Dn
+// SIZE = (Word, Long)
+//
+//   X N Z V C
+// [ . * * 0 0 ]
 static RBT_ErrorCode _op_ext(const RBT_Instruction *instr, RBT_Cpu *cpu) {
-	(void)instr;
-	(void)cpu;
+	u32 *dreg = &cpu->state.gpr.data[instr->dst.reg];
+	*dreg = rbt_sign_extend(
+		instr->size == RBT_SIZE_LONG ? RBT_SIZE_WORD : RBT_SIZE_BYTE, *dreg
+	);
 
-	_push_fatal(RBT_ERR_UNIMPLEMENTED, "Unimplemented instruction");
-	return RBT_ERR_UNIMPLEMENTED;
+	_ccr_set_nz(cpu, instr->size, *dreg);
+	cpu->state.sr.overflow = false;
+	cpu->state.sr.carry = false;
+	return RBT_ERR_SUCCESS;
 }
 
 // ILLEGAL - Force trigger Illegal exception vector
