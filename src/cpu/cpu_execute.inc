@@ -541,19 +541,59 @@ static RBT_ErrorCode _op_moveq(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 	return RBT_ERR_SUCCESS;
 }
 
+// MULS - Signed multiply
+// Dn * [src] -> Dn
+// Syntax:
+//   MULS <ea>, Dn
+// SIZE = Word
+//
+//   X N Z V C
+// [ . * * 0 0 ]
 static RBT_ErrorCode _op_muls(const RBT_Instruction *instr, RBT_Cpu *cpu) {
-	(void)instr;
-	(void)cpu;
+	u32 src_word;
+	RBT_ErrorCode err = _ea_read(&instr->src, instr->size, cpu, &src_word);
+	if (err)
+		return err;
 
-	_push_fatal(RBT_ERR_UNIMPLEMENTED, "Unimplemented instruction");
-	return RBT_ERR_UNIMPLEMENTED;
+	i32 src = rbt_sign_extend(RBT_SIZE_WORD, src_word & 0xffff);
+	i32 dst = (i16)(cpu->state.gpr.data[instr->dst.reg] & 0xffff);
+	i32 result = src * dst;
+
+	err = _ea_write(&instr->dst, instr->size, cpu, (u32)result);
+	if (err)
+		return err;
+
+	_ccr_set_nz(cpu, instr->size, result);
+	cpu->state.sr.overflow = false;
+	cpu->state.sr.carry = false;
+	return RBT_ERR_SUCCESS;
 }
-static RBT_ErrorCode _op_mulu(const RBT_Instruction *instr, RBT_Cpu *cpu) {
-	(void)instr;
-	(void)cpu;
 
-	_push_fatal(RBT_ERR_UNIMPLEMENTED, "Unimplemented instruction");
-	return RBT_ERR_UNIMPLEMENTED;
+// MULU - Unsigned multiply
+// Dn * [src] -> Dn
+// Syntax:
+//   MULU <ea>, Dn
+// SIZE = Word
+//
+//   X N Z V C
+// [ . * * 0 0 ]
+static RBT_ErrorCode _op_mulu(const RBT_Instruction *instr, RBT_Cpu *cpu) {
+	u32 src;
+	RBT_ErrorCode err = _ea_read(&instr->src, instr->size, cpu, &src);
+	if (err)
+		return err;
+
+	u32 dst = cpu->state.gpr.data[instr->dst.reg];
+
+	u32 result = dst * src;
+	err = _ea_write(&instr->dst, instr->size, cpu, result);
+	if (err)
+		return err;
+
+	_ccr_set_nz(cpu, instr->size, result);
+	cpu->state.sr.overflow = false;
+	cpu->state.sr.carry = false;
+	return RBT_ERR_SUCCESS;
 }
 
 static RBT_ErrorCode _op_nbcd(const RBT_Instruction *instr, RBT_Cpu *cpu) {
