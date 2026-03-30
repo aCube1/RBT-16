@@ -645,13 +645,11 @@ static RBT_ErrorCode _op_muls(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 
 	i32 src = rbt_sign_extend(RBT_SIZE_WORD, src_word & 0xffff);
 	i32 dst = (i16)(cpu->state.gpr.data[instr->dst.reg] & 0xffff);
+
 	i32 result = src * dst;
+	cpu->state.gpr.data[instr->dst.reg] = result;
 
-	err = _ea_write(&instr->dst, instr->size, cpu, (u32)result);
-	if (err)
-		return err;
-
-	_ccr_set_nz(cpu, instr->size, result);
+	_ccr_set_nz(cpu, RBT_SIZE_LONG, result);
 	cpu->state.sr.overflow = false;
 	cpu->state.sr.carry = false;
 	return RBT_ERR_SUCCESS;
@@ -674,11 +672,9 @@ static RBT_ErrorCode _op_mulu(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 	u32 dst = cpu->state.gpr.data[instr->dst.reg];
 
 	u32 result = dst * src;
-	err = _ea_write(&instr->dst, instr->size, cpu, result);
-	if (err)
-		return err;
+	cpu->state.gpr.data[instr->dst.reg] = result;
 
-	_ccr_set_nz(cpu, instr->size, result);
+	_ccr_set_nz(cpu, RBT_SIZE_LONG, result);
 	cpu->state.sr.overflow = false;
 	cpu->state.sr.carry = false;
 	return RBT_ERR_SUCCESS;
