@@ -26,6 +26,8 @@
 #include "rbt/helpers.h"
 
 #include <assert.h>
+#include <limits.h>
+#include <stdint.h>
 
 typedef RBT_ErrorCode (*RBT_OpExec)(const RBT_Instruction *instr, RBT_Cpu *cpu);
 
@@ -241,20 +243,105 @@ static RBT_ErrorCode _op_dbcc(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 	return RBT_ERR_UNIMPLEMENTED;
 }
 
+// DIVS - Signed division
+// Dn / [src] -> Dn, IF SRC=0 THEN TRAP
+// Syntax:
+//   DIVS <ea>, Dn
+// SIZE = Word
+//
+//   X N Z V C
+// [ . * * * 0 ]
+//
+// N - Set if the quotient is negative, cleared otherwise. Undefined if overflow
+// or division by zero
+// Z - Set if the quotient is zero, cleared otherwise. Undefined if overflow
+// or division by zero
+// V - Set if overflow occurs, cleared otherwise. Undefined if divide by zero
 static RBT_ErrorCode _op_divs(const RBT_Instruction *instr, RBT_Cpu *cpu) {
-	(void)instr;
-	(void)cpu;
+	u32 src_word;
+	RBT_ErrorCode err = _ea_read(&instr->src, instr->size, cpu, &src_word);
+	if (err)
+		return err;
 
-	_push_fatal(RBT_ERR_UNIMPLEMENTED, "Unimplemented instruction");
-	return RBT_ERR_UNIMPLEMENTED;
+	i32 diviend = (i32)cpu->state.gpr.data[instr->dst.reg];
+	i32 divisor = rbt_sign_extend(RBT_SIZE_WORD, src_word);
+
+	cpu->state.sr.carry = false;
+
+	if (divisor == 0)
+		return _cpu_raise_exception(cpu, _VEC_ZERO_DIV);
+
+	// Undefined Behaviour: INT32_MIN / -1
+	// In real hardware, it causes overflow
+	if (diviend == INT32_MIN && divisor == -1) {
+		cpu->state.sr.overflow = true;
+		return RBT_ERR_SUCCESS;
+	}
+
+	i32 quotient = diviend / divisor;
+	i32 remainder = diviend % divisor;
+
+	if (quotient > INT16_MAX || quotient < INT16_MIN) {
+		cpu->state.sr.overflow = true;
+		return RBT_ERR_SUCCESS;
+	}
+
+	u32 result = ((u32)(i16)remainder << 16) | ((u32)(i16)quotient & 0xffff);
+	cpu->state.gpr.data[instr->dst.reg] = result;
+
+	_ccr_set_nz(cpu, instr->size, quotient);
+	cpu->state.sr.overflow = false;
+	return RBT_ERR_SUCCESS;
 }
+
+// DIVU - Unsigned division
+// Dn / [src] -> Dn, IF SRC=0 THEN TRAP
+// Syntax:
+//   DIVU <ea>, Dn
+// SIZE = Word
+//
+//   X N Z V C
+// [ . * * * 0 ]
+//
+// N - *Set if the quotient is negative, cleared otherwise. Undefined if overflow
+// or division by zero
+// Z - Set if the quotient is zero, cleared otherwise. Undefined if overflow
+// or division by zero
+// V - Set if overflow occurs, cleared otherwise. Undefined if divide by zero
+//
+// NOTE: Programmer's Manual says that the negative flag is set if quotient is
+// negative, which should never happen. But I will follow the Musashi and Moira
+// implementation, setting the flag accordingly with the PRM
 static RBT_ErrorCode _op_divu(const RBT_Instruction *instr, RBT_Cpu *cpu) {
-	(void)instr;
-	(void)cpu;
+	u32 src_word;
+	RBT_ErrorCode err = _ea_read(&instr->src, instr->size, cpu, &src_word);
+	if (err)
+		return err;
 
-	_push_fatal(RBT_ERR_UNIMPLEMENTED, "Unimplemented instruction");
-	return RBT_ERR_UNIMPLEMENTED;
+	u32 diviend = cpu->state.gpr.data[instr->dst.reg];
+	u32 divisor = src_word;
+
+	cpu->state.sr.carry = false;
+
+	if (divisor == 0)
+		return _cpu_raise_exception(cpu, _VEC_ZERO_DIV);
+
+	u32 quotient = diviend / divisor;
+	u32 remainder = diviend % divisor;
+
+	if (quotient > UINT16_MAX) {
+		cpu->state.sr.overflow = true;
+		return RBT_ERR_SUCCESS;
+	}
+
+	u32 result = (remainder << 16) | (quotient & 0xffff);
+	cpu->state.gpr.data[instr->dst.reg] = result;
+
+	_ccr_set_nz(cpu, instr->size, quotient);
+	cpu->state.sr.overflow = false;
+	return RBT_ERR_SUCCESS;
 }
+
 static RBT_ErrorCode _op_eor(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 	(void)instr;
 	(void)cpu;
@@ -300,12 +387,13 @@ static RBT_ErrorCode _op_exg(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 //   X N Z V C
 // [ . * * 0 0 ]
 static RBT_ErrorCode _op_ext(const RBT_Instruction *instr, RBT_Cpu *cpu) {
-	u32 *dreg = &cpu->state.gpr.data[instr->dst.reg];
-	*dreg = rbt_sign_extend(
-		instr->size == RBT_SIZE_LONG ? RBT_SIZE_WORD : RBT_SIZE_BYTE, *dreg
-	);
+	u32 dst = cpu->state.gpr.data[instr->dst.reg];
+	RBT_OperandSize from = instr->size == RBT_SIZE_LONG ? RBT_SIZE_WORD : RBT_SIZE_BYTE;
+	dst = rbt_sign_extend(from, dst);
 
-	_ccr_set_nz(cpu, instr->size, *dreg);
+	cpu->state.gpr.data[instr->dst.reg] = dst;
+
+	_ccr_set_nz(cpu, instr->size, dst);
 	cpu->state.sr.overflow = false;
 	cpu->state.sr.carry = false;
 	return RBT_ERR_SUCCESS;
