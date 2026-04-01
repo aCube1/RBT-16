@@ -108,13 +108,13 @@ typedef struct RBT_Cpu {
 	bool is_halted;
 } RBT_Cpu;
 
-RBT_ErrorCode _stack_push_word(RBT_Cpu *cpu, u16 value);
-RBT_ErrorCode _stack_push_long(RBT_Cpu *cpu, u32 value);
+RBT_ErrorCode _cpu_raise_exception(RBT_Cpu *cpu, RBT_CpuVector vec);
+
+RBT_ErrorCode _stack_push_word(RBT_Cpu *cpu, u16 word);
+RBT_ErrorCode _stack_push_long(RBT_Cpu *cpu, u32 long_);
 
 RBT_ErrorCode _stack_pop_word(RBT_Cpu *cpu, u16 *out);
 RBT_ErrorCode _stack_pop_long(RBT_Cpu *cpu, u32 *out);
-
-RBT_ErrorCode _cpu_raise_exception(RBT_Cpu *cpu, RBT_CpuVector vec);
 
 [[nodiscard]] static inline u32 _get_vector_address(
 	const RBT_CpuState *state, RBT_CpuVector vec

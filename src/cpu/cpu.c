@@ -77,57 +77,66 @@ static RBT_ErrorCode _cpu_check_exception(RBT_Cpu *cpu) {
 	return RBT_ERR_SUCCESS;
 }
 
-RBT_ErrorCode _stack_push_word(RBT_Cpu *cpu, u16 value) {
+RBT_ErrorCode _cpu_raise_exception(RBT_Cpu *cpu, RBT_CpuVector vec) {
 	assert(cpu);
-	assert(cpu->bus);
 
-	u32 *stack;
-	if (cpu->state.sr.supervisor)
-		stack = &cpu->state.ssp;
-	else
-		stack = &cpu->state.usp;
+	(void)cpu;
+	(void)vec;
 
-	// Stack grows downwards
-	*stack -= 2; // Word is 2-bytes
-	cpu->state.gpr.sp = *stack;
-
-	return rbt_bus_write_word(cpu->bus, *stack, value);
+	return RBT_ERR_SUCCESS;
 }
 
-RBT_ErrorCode _stack_push_long(RBT_Cpu *cpu, u32 value) {
+RBT_ErrorCode _stack_push_word(RBT_Cpu *cpu, u16 word) {
 	assert(cpu);
 	assert(cpu->bus);
 
-	u32 *stack;
+	u32 *sp;
 	if (cpu->state.sr.supervisor)
-		stack = &cpu->state.ssp;
+		sp = &cpu->state.ssp;
 	else
-		stack = &cpu->state.usp;
+		sp = &cpu->state.usp;
 
 	// Stack grows downwards
-	*stack -= 4; // Long is 4-bytes
-	cpu->state.gpr.sp = *stack;
+	*sp -= 2; // Word is 2-bytes
+	cpu->state.gpr.sp = *sp;
 
-	return rbt_bus_write_long(cpu->bus, *stack, value);
+	return rbt_bus_write_word(cpu->bus, *sp, word);
+}
+
+RBT_ErrorCode _stack_push_long(RBT_Cpu *cpu, u32 long_) {
+	assert(cpu);
+	assert(cpu->bus);
+
+	u32 *sp;
+	if (cpu->state.sr.supervisor)
+		sp = &cpu->state.ssp;
+	else
+		sp = &cpu->state.usp;
+
+	// Stack grows downwards
+	*sp -= 4; // Long is 4-bytes
+	cpu->state.gpr.sp = *sp;
+
+	return rbt_bus_write_long(cpu->bus, *sp, long_);
 }
 
 RBT_ErrorCode _stack_pop_word(RBT_Cpu *cpu, u16 *out) {
 	assert(cpu);
 	assert(cpu->bus);
 
-	u32 *stack;
+	u32 *sp;
 	if (cpu->state.sr.supervisor)
-		stack = &cpu->state.ssp;
+		sp = &cpu->state.ssp;
 	else
-		stack = &cpu->state.usp;
+		sp = &cpu->state.usp;
 
-	RBT_ErrorCode err = rbt_bus_read_word(cpu->bus, *stack, out);
+	RBT_ErrorCode err = rbt_bus_read_word(cpu->bus, *sp, out);
 	if (err)
 		return err;
 
 	// Stack grows downwards
-	*stack += 2; // Word is 2-bytes
-	cpu->state.gpr.sp = *stack;
+	*sp += 2; // Word is 2-bytes
+	cpu->state.gpr.sp = *sp;
 	return RBT_ERR_SUCCESS;
 }
 
@@ -135,28 +144,19 @@ RBT_ErrorCode _stack_pop_long(RBT_Cpu *cpu, u32 *out) {
 	assert(cpu);
 	assert(cpu->bus);
 
-	u32 *stack;
+	u32 *sp;
 	if (cpu->state.sr.supervisor)
-		stack = &cpu->state.ssp;
+		sp = &cpu->state.ssp;
 	else
-		stack = &cpu->state.usp;
+		sp = &cpu->state.usp;
 
-	RBT_ErrorCode err = rbt_bus_read_long(cpu->bus, *stack, out);
+	RBT_ErrorCode err = rbt_bus_read_long(cpu->bus, *sp, out);
 	if (err)
 		return err;
 
 	// Stack grows downwards
-	*stack += 4; // Long is 4-bytes
-	cpu->state.gpr.sp = *stack;
-	return RBT_ERR_SUCCESS;
-}
-
-RBT_ErrorCode _cpu_raise_exception(RBT_Cpu *cpu, RBT_CpuVector vec) {
-	assert(cpu);
-
-	(void)cpu;
-	(void)vec;
-
+	*sp += 4; // Long is 4-bytes
+	cpu->state.gpr.sp = *sp;
 	return RBT_ERR_SUCCESS;
 }
 
