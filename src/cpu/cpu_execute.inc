@@ -71,42 +71,137 @@ static RBT_ErrorCode _op_abcd(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 	return RBT_ERR_UNIMPLEMENTED;
 }
 
+// ADD - Add binary
+// Dn + [src] -> Dn
+// Syntax:
+//   ADD <ea>, Dn
+//   ADD Dn, <ea>
+// SIZE = (Byte, Word, Long)
+//
+//   X N Z V C
+// [ * * * * * ]
 static RBT_ErrorCode _op_add(const RBT_Instruction *instr, RBT_Cpu *cpu) {
-	(void)instr;
-	(void)cpu;
+	u32 src;
+	RBT_ErrorCode err = _ea_read(&instr->src, instr->size, cpu, &src);
+	if (err)
+		return err;
 
-	_push_fatal(RBT_ERR_UNIMPLEMENTED, "Unimplemented instruction");
-	return RBT_ERR_UNIMPLEMENTED;
+	u32 dst;
+	err = _ea_read(&instr->dst, instr->size, cpu, &dst);
+	if (err)
+		return err;
+
+	u32 result = dst + src;
+	err = _ea_write(&instr->dst, instr->size, cpu, result);
+	if (err)
+		return err;
+
+	_ccr_set_nzvc(cpu, instr->size, src, dst, 0, false);
+	cpu->state.sr.extend = cpu->state.sr.carry;
+	return RBT_ERR_SUCCESS;
 }
+
+// ADDA - Add address
+// An + [src] -> An
+// Syntax:
+//   ADDA <ea>, An
+// SIZE = (Word, Long)
+//
+//   X N Z V C
+// [ . . . . . ]
 static RBT_ErrorCode _op_adda(const RBT_Instruction *instr, RBT_Cpu *cpu) {
-	(void)instr;
-	(void)cpu;
+	u32 ea_src;
+	RBT_ErrorCode err = _ea_read(&instr->src, instr->size, cpu, &ea_src);
+	if (err)
+		return err;
 
-	_push_fatal(RBT_ERR_UNIMPLEMENTED, "Unimplemented instruction");
-	return RBT_ERR_UNIMPLEMENTED;
+	i32 src = rbt_sign_extend(instr->size, ea_src);
+
+	cpu->state.gpr.addr[instr->dst.reg] += (u32)src;
+	return RBT_ERR_SUCCESS;
 }
+
+// ADDI - Add immediate
+// [dst] + #imm -> [dst]
+// Syntax:
+//   ADDI #imm, <ea>
+// SIZE = (Byte, Word, Long)
+//
+//   X N Z V C
+// [ * * * * * ]
 static RBT_ErrorCode _op_addi(const RBT_Instruction *instr, RBT_Cpu *cpu) {
-	(void)instr;
-	(void)cpu;
-
-	_push_fatal(RBT_ERR_UNIMPLEMENTED, "Unimplemented instruction");
-	return RBT_ERR_UNIMPLEMENTED;
+	return _op_add(instr, cpu);
 }
 
+// ADDQ - Add quick
+// [dst] + #imm -> [dst]
+// Syntax:
+//   ADDQ #imm, <ea>
+// SIZE = (Byte, Word, Long)
+//
+//   X N Z V C
+// [ * * * * * ]
+//
+// note: CCR is not updated if destination is address register
 static RBT_ErrorCode _op_addq(const RBT_Instruction *instr, RBT_Cpu *cpu) {
-	(void)instr;
-	(void)cpu;
+	u32 src;
+	RBT_ErrorCode err = _ea_read(&instr->src, instr->size, cpu, &src);
+	if (err)
+		return err;
 
-	_push_fatal(RBT_ERR_UNIMPLEMENTED, "Unimplemented instruction");
-	return RBT_ERR_UNIMPLEMENTED;
+	u32 dst;
+	err = _ea_read(&instr->dst, instr->size, cpu, &dst);
+	if (err)
+		return err;
+
+	u32 result = dst + src;
+	err = _ea_write(&instr->dst, instr->size, cpu, result);
+	if (err)
+		return err;
+
+	if (instr->dst.mode != RBT_EA_DIRECT_ADDR) {
+		_ccr_set_nzvc(cpu, instr->size, src, dst, 0, false);
+		cpu->state.sr.extend = cpu->state.sr.carry;
+	}
+	return RBT_ERR_SUCCESS;
 }
+
+// ADDX - Add with extend
+// [dst] + [src] + [X] -> [dst]
+// Syntax:
+//   ADDX Dy, Dx
+//   ADDX -(Ay), -(Ax)
+// SIZE = (Byte, Word, Long)
+//
+//   X N Z V C
+// [ * * * * * ]
+//
+// Z - Cleared if result is non-zero, unchanged otherwise
 static RBT_ErrorCode _op_addx(const RBT_Instruction *instr, RBT_Cpu *cpu) {
-	(void)instr;
-	(void)cpu;
+	u32 src;
+	RBT_ErrorCode err = _ea_read(&instr->src, instr->size, cpu, &src);
+	if (err)
+		return err;
 
-	_push_fatal(RBT_ERR_UNIMPLEMENTED, "Unimplemented instruction");
-	return RBT_ERR_UNIMPLEMENTED;
+	u32 dst;
+	err = _ea_read(&instr->dst, instr->size, cpu, &dst);
+	if (err)
+		return err;
+
+	u32 extend = cpu->state.sr.extend ? 1 : 0;
+	u32 result = dst + src + extend;
+	err = _ea_write(&instr->dst, instr->size, cpu, result);
+	if (err)
+		return err;
+
+	bool prev_zero = cpu->state.sr.zero;
+	_ccr_set_nzvc(cpu, instr->size, src, dst, extend, false);
+	if (rbt_truncate(instr->size, result) == 0)
+		cpu->state.sr.zero = prev_zero;
+	cpu->state.sr.extend = cpu->state.sr.carry;
+	return RBT_ERR_SUCCESS;
 }
+
 static RBT_ErrorCode _op_and(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 	(void)instr;
 	(void)cpu;
