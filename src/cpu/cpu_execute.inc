@@ -37,21 +37,30 @@ static inline void _ccr_set_nz(RBT_Cpu *cpu, RBT_OperandSize size, u32 result) {
 	cpu->state.sr.zero = rbt_truncate(size, result) == 0;
 }
 
-static inline void _ccr_set_nzvc(RBT_Cpu *cpu, RBT_OperandSize size, u32 src, u32 dst) {
+static inline void _ccr_set_nzvc(
+	RBT_Cpu *cpu, RBT_OperandSize size, u64 src, u64 dst, u64 x, bool is_sub
+) {
 	u32 mask = rbt_truncate(size, 0xffff'ffff);
+	u64 wide;
+	if (is_sub)
+		wide = (dst & mask) + (~src & mask) + (1 - x);
+	else
+		wide = (dst & mask) + (src & mask) + x;
+
 	u32 msb = ((u32)size * 8) - 1; // Most-Significant Bit
+	u32 result = (u32)wide & mask;
 
-	u64 wide = (u64)(src & mask) + (u64)(dst & mask); // Wider result
-	u32 result = (u32)(wide & mask);
-
-	bool src_sign = (src >> msb) & 1;
-	bool dst_sign = (dst >> msb) & 1;
-	bool res_sign = (result >> msb) & 1;
-
-	cpu->state.sr.negative = res_sign;
+	cpu->state.sr.negative = (result >> msb) & 1;
 	cpu->state.sr.zero = result == 0;
-	cpu->state.sr.overflow = (src_sign == dst_sign) && (res_sign != src_sign);
-	cpu->state.sr.carry = (wide >> (msb + 1)) & 1;
+
+	bool carry = (wide >> (msb + 1)) & 1;
+	if (is_sub) {
+		cpu->state.sr.carry = 1 - carry; // borrow
+		cpu->state.sr.overflow = ((dst ^ src) & (dst ^ result) & (1 << msb)) != 0;
+	} else {
+		cpu->state.sr.carry = carry;
+		cpu->state.sr.overflow = ((dst ^ result) & (src ^ result) & (1 << msb)) != 0;
+	}
 }
 
 static RBT_ErrorCode _op_abcd(const RBT_Instruction *instr, RBT_Cpu *cpu) {
@@ -707,7 +716,7 @@ static RBT_ErrorCode _op_neg(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 	if (err)
 		return err;
 
-	_ccr_set_nzvc(cpu, instr->size, ~data, 1);
+	_ccr_set_nzvc(cpu, instr->size, data, 0, 0, true);
 	cpu->state.sr.extend = cpu->state.sr.carry;
 	return RBT_ERR_SUCCESS;
 }
@@ -729,18 +738,16 @@ static RBT_ErrorCode _op_negx(const RBT_Instruction *instr, RBT_Cpu *cpu) {
 		return err;
 
 	u32 extend = cpu->state.sr.extend ? 1 : 0;
-	u32 result = rbt_truncate(instr->size, ~data + 1 - extend);
-
+	u32 result = rbt_truncate(instr->size, ~data + (1 - extend));
 	err = _ea_write(&instr->dst, instr->size, cpu, result);
 	if (err)
 		return err;
 
 	bool prev_zero = cpu->state.sr.zero;
-	_ccr_set_nzvc(cpu, instr->size, ~data, 1 - extend);
-	cpu->state.sr.extend = cpu->state.sr.carry;
-	if (result == 0)
+	_ccr_set_nzvc(cpu, instr->size, data, 0, extend, true);
+	if (rbt_truncate(instr->size, result) == 0)
 		cpu->state.sr.zero = prev_zero;
-
+	cpu->state.sr.extend = cpu->state.sr.carry;
 	return RBT_ERR_SUCCESS;
 }
 
