@@ -1,6 +1,7 @@
 # Directiories
 build/
 .cache/
+.github/
 
 # Files
 .gdb_history
