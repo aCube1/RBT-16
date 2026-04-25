@@ -20,7 +20,7 @@ REGS_ORDER: list[str] = [
 
 @dataclass(slots=True)
 class CpuState:
-	registers: dict[str, int] = field(default_factory=dict)
+	regs: dict[str, int] = field(default_factory=dict)
 	prefetch0: int = 0
 	prefetch1: int = 0
 	ram: list[list[int]] = field(default_factory=list) # 24-bit, 8-bit
@@ -71,6 +71,12 @@ def _parse_args() -> argparse.Namespace:
 		type=Path,
 		required=True,
 		help="Directory where generated .h files will be written"
+	)
+	_ = parser.add_argument(
+		"--max-tests",
+		type=int,
+		default=None,
+		help="How many tests will write (default: all)"
 	)
 
 	return parser.parse_args();
@@ -137,7 +143,7 @@ def _decode_state(data: bytes, offset: int) -> tuple[int, CpuState] | None:
 
 	state: CpuState = CpuState()
 	for reg in REGS_ORDER:
-		state.registers[reg] = unpack_from("<I", data, offset)[0]
+		state.regs[reg] = unpack_from("<I", data, offset)[0]
 		offset += 4;
 
 	prefetch0, prefetch1 = unpack_from("<II", data, offset)
@@ -151,7 +157,7 @@ def _decode_state(data: bytes, offset: int) -> tuple[int, CpuState] | None:
 	for _ in range(0, ram_count):
 		addr, _data = unpack_from("<IH", data, offset)
 		offset += 6
-		if addr >= 0x1000_0000:
+		if addr >= 0x0100_0000:
 			logging.error("RAM address cannot be >= 0x0100_0000")
 			return None
 		state.ram.append([addr, (_data >> 8)]) # High Byte
@@ -262,7 +268,128 @@ def _decode_test(data: bytes, offset: int) -> tuple[int, TestCase] | None:
 	return offset, test
 
 
-def _decode_file(in_file: Path, out_file: Path) -> bool:
+def _emit_block(lines: list[str], level: int, text: str) -> None:
+	lines.append(('\t' * level) + text)
+
+
+def _emit_regs(lines: list[str], level: int, regs: dict[str, int]) -> None:
+	_emit_block(lines, level, ".regs = {\n")
+	rows = ", ".join(f"{reg}" for reg in regs.values())
+	_emit_block(lines, level + 1, rows + "\n")
+	_emit_block(lines, level, "},\n")
+
+
+def _emit_ram(lines: list[str], level: int, ram: list[list[int]]) -> None:
+	rows = ",\n".join(
+		f"{'\t' * (level + 1)}{{ .addr = 0x{a:06x}, .byte = 0x{v:02x} }}" for a, v, in ram
+	)
+	lines.append(rows + "\n")
+
+def _transaction_kind(key: str) -> str:
+	return {
+		"n": "SST_TS_N", "w": "SST_TS_W", "r": "SST_TS_R",
+		"t": "SST_TS_T", "re": "SST_TS_RE", "we": "SST_TS_WE"
+	}[key]
+
+
+def _emit_transactions(lines: list[str], level: int, transactions: list[Transaction]) -> None:
+	for ts in transactions:
+		if isinstance(ts, IdleTransaction):
+			_emit_block(lines, level,
+				f"{{ .kind = {_transaction_kind(ts.kind)}, .cycles = {ts.cycles} }},\n"
+			)
+
+		if isinstance(ts, BusTransaction):
+			_emit_block(lines, level, "{\n")
+			_emit_block(lines, level + 1, f".kind = {_transaction_kind(ts.kind)},\n")
+			_emit_block(lines, level + 1, f".cycles = {ts.cycles},\n")
+
+			_emit_block(lines, level + 1, ".bus = {\n")
+			_emit_block(lines, level + 2, "")
+			lines.append(f".fc = {ts.fc}, ")
+			lines.append(f".addr = {ts.addr}, ")
+			lines.append(f".data = {ts.data}, ")
+			lines.append(f".uds = {"true" if ts.uds else "false"}, ")
+			lines.append(f".lds = {"true" if ts.lds else "false"}, ")
+			lines.append(f".is_word = {"true" if ts.width == ".w" else "false"}, ")
+			lines.append("\n")
+			_emit_block(lines, level + 1, "}\n")
+			_emit_block(lines, level, "},\n")
+
+
+def _emit_header(tests: list[TestCase], sym: str, max_tests: int) -> str | None:
+	lines: list[str] = []
+	guard = f"RBT_{sym.upper()}_H"
+
+	_emit_block(lines, 0, f"#ifndef {guard}\n")
+	_emit_block(lines, 0, f"#define {guard}\n\n")
+	_emit_block(lines, 0, "#include <stddef.h>\n")
+	_emit_block(lines, 0, "#include <stdint.h>\n\n")
+	_emit_block(lines, 0,
+			 "/* Requires SST_* type definitions included before this header */\n\n"
+	)
+
+	for i, test in enumerate(tests[:max_tests]):
+		initial_ram = f"{sym}_initial_ram_{i}"
+		final_ram = f"{sym}_final_ram_{i}"
+		transaction = f"{sym}_transactions_{i}"
+
+		_emit_block(lines, 0, f"static const SST_RamByte {initial_ram}[] = {{\n")
+		_emit_ram(lines, 1, test.initial.ram)
+		_emit_block(lines, 0, "};\n")
+		_emit_block(lines, 0, "\n")
+
+		_emit_block(lines, 0, f"static const SST_RamByte {final_ram}[] = {{\n")
+		_emit_ram(lines, 1, test.final.ram)
+		_emit_block(lines, 0, "};\n")
+		_emit_block(lines, 0, "\n")
+
+		_emit_block(lines, 0, f"static const SST_Transaction {transaction}[] = {{\n")
+		_emit_transactions(lines, 1, test.transactions)
+		_emit_block(lines, 0, "};\n")
+		_emit_block(lines, 0, "\n")
+
+
+	_emit_block(lines, 0, f"static const SST_TestCase {sym}[] = {{\n")
+	for i, test in enumerate(tests[:max_tests]):
+		initial_ram = f"{sym}_initial_ram_{i}"
+		final_ram = f"{sym}_final_ram_{i}"
+		transaction = f"{sym}_transactions_{i}"
+
+		_emit_block(lines, 1, "{\n")
+		_emit_block(lines, 2, f".name = \"{test.name}\",\n")
+
+		# SST_CpuState initial
+		_emit_block(lines, 2, ".initial = {\n")
+		_emit_regs(lines, 3, test.initial.regs);
+		_emit_block(lines, 3, f".prefetch0 = {test.initial.prefetch0},\n")
+		_emit_block(lines, 3, f".prefetch1 = {test.initial.prefetch1},\n")
+		_emit_block(lines, 3, f".ram = {initial_ram},\n")
+		_emit_block(lines, 3, f".ram_len = {len(test.initial.ram)},\n")
+		_emit_block(lines, 2, "},\n")
+
+		# SST_CpuState final
+		_emit_block(lines, 2, ".final = {\n")
+		_emit_regs(lines, 3, test.final.regs);
+		_emit_block(lines, 3, f".prefetch0 = {test.final.prefetch0},\n")
+		_emit_block(lines, 3, f".prefetch1 = {test.final.prefetch1},\n")
+		_emit_block(lines, 3, f".ram = {final_ram},\n")
+		_emit_block(lines, 3, f".ram_len = {len(test.final.ram)},\n")
+		_emit_block(lines, 2, "},\n")
+
+		_emit_block(lines, 2, f".transactions = {transaction},\n")
+		_emit_block(lines, 2, f".transactions_len = {len(test.transactions)},\n")
+		_emit_block(lines, 2, f".lenght = {test.length},\n")
+		_emit_block(lines, 1, "},\n")
+
+	_emit_block(lines, 0, "};\n")
+	_emit_block(lines, 0, "\n")
+	_emit_block(lines, 0, f"#endif /* {guard} */")
+
+	return "".join(lines)
+
+
+def _decode_file(in_file: Path, out_file: Path, max_tests: int) -> bool:
 	print("Decoding:", in_file, "->", out_file)
 
 	binary_data = in_file.read_bytes();
@@ -285,6 +412,12 @@ def _decode_file(in_file: Path, out_file: Path) -> bool:
 		offset, test = result
 		tests.append(test)
 
+	c_header = _emit_header(tests, out_file.stem, max_tests)
+	if not c_header:
+		return False
+
+	out_file.parent.mkdir(parents=True, exist_ok=True)
+	_ = out_file.write_text(c_header, newline='\n')
 	return True
 
 
@@ -304,7 +437,7 @@ def main() -> None:
 		new_name = f"{opcode.lower()}{size or ''}.h"
 
 		out_file: Path = Path(args.out_dir) / in_file.with_name(new_name).name
-		if not _decode_file(in_file, out_file):
+		if not _decode_file(in_file, out_file, args.max_tests):
 			logging.fatal("An error has been found while decoding...")
 			return
 
