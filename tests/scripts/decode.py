@@ -1,5 +1,25 @@
 #!/usr/bin/python3
 
+# Copyright (c) 2026-today aCube
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+
 # pyright: strict, reportAny=false, reportExplicitAny=false
 
 import argparse
@@ -350,6 +370,9 @@ def _emit_header(tests: list[TestCase], sym: str, max_tests: int) -> str | None:
 		_emit_block(lines, 0, "\n")
 
 
+	_emit_block(lines, 0,
+			 f"const size_t {sym.upper()}_TEST_COUNT = {max_tests or len(tests)};\n"
+	)
 	_emit_block(lines, 0, f"static const SST_TestCase {sym}[] = {{\n")
 	for i, test in enumerate(tests[:max_tests]):
 		initial_ram = f"{sym}_initial_ram_{i}"
@@ -427,7 +450,7 @@ def main() -> None:
 	if not inputs:
 		return
 
-	pattern = re.compile(r"^([A-Z]+)(?:\.([bwl]))?\.json\.bin$")
+	pattern = re.compile(r"^([a-zA-Z_]+)(?:\.([bwl]))?\.json\.bin$")
 	for in_file in inputs:
 		match = pattern.match(in_file.name)
 		if not match:

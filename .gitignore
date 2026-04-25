@@ -1,7 +1,10 @@
 # Directiories
-build/
 .cache/
 .github/
+build/
+__pycache__
+tests/src/output/
 
 # Files
 .gdb_history
+tests/src/sst_all.h
